@@ -1,0 +1,15 @@
+def __calculate(self, {% for i in range(num_of_variables) %}v{{i}}{% if not loop.last %}, {% endif %}{% endfor %}):
+	"""
+	Used to get the numerical value of this function, when all the inputs applied are numerical.
+	Also used in substitution method of parent :class:`Function`
+
+	{% for i in range(num_of_variables) %}
+	:param v{{i}}: {{i}}-th input of this function
+	:type v{{i}}: float
+	{% endfor %}
+	:return: calculated numerical result
+	:rtype: float
+	"""
+	{{import_as_str}}
+	{{code_as_str}}
+	return num

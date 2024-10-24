@@ -1,0 +1,22 @@
+{% load static %}
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Babylon Template</title>
+
+    <link rel="stylesheet" href="{% static 'foundation/styles/main.css' %}?v=1">
+
+    <!--<script src="{% static 'foundation/scripts/babylon.max.js' %}"></script>-->
+    <script src="{% static 'foundation/scripts/babylon.js' %}?v=1"></script>
+    <!--<script src="{% static 'foundation/scripts/babylon.loaders.js' %}"></script>-->
+    <script src="{% static 'foundation/scripts/babylon.loaders.min.js' %}?v=1"></script>
+    <script src="{% static 'foundation/scripts/pep.js' %}?v=1"></script>
+    <script src="{% static 'foundation/scripts/main.js' %}?v=1"></script>
+  </head>
+
+  <body>
+    <canvas id="renderCanvas" touch-action="none"></canvas>
+    <!-- touch-action="none" for best results from PEP -->
+  </body>
+</html>

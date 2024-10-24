@@ -1,0 +1,24 @@
+class {{className}}(Function):
+	"""
+	
+	"""
+	FUNC_NAME = '{{funcName}}'
+
+	def __init__(self, equation):
+		"""
+
+		"""
+		super({{className}}, self).__init__(equation)
+		self.reverses = {
+			{% for i in range(num_of_variables) %}
+				{{i+1}}: self._reverse{{i+1}}{% if not loop.last %},
+				{% endif %}
+			{% endfor %}
+		}
+
+	{% for reverseFunctionStr in reverseFunctionStrs %}
+	{{reverseFunctionStr}}
+
+	{% endfor %}
+
+	{{calculateFunctionStr}}
