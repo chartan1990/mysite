@@ -11,7 +11,7 @@ from foundation.nDisplay.common import convertToPyArray
 from foundation.nDisplay.controlsMapping import KEYBOARD_3D_DISPLAY_CONTROLS as KBCM
 
 #TODO more Geometric shapes that components need
-#TODO shining Geometric shapes to mimic flow of current
+#TODO shining Geometric shapes to mimic flow of current : http://jerome.jouvie.free.fr/opengl-tutorials/Tutorial9.php
 
 class Stage:
 
@@ -112,7 +112,8 @@ class Stage:
 			if self.resetting:
 				#pg.display.quit() # this closes the window
 				#pg.display.init()
-				gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT)
+				#STENCIL is used for storing pixel data coming from reflection of light
+				gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT) # GL_ACCUM_BUFFER_BIT GL_STENCIL_BUFFER_BIT
 				self._displayInit()
 				self.resetting = False
 				if self.verbose:

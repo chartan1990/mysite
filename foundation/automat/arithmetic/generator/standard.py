@@ -136,3 +136,9 @@ class StandardFunctionClassGenerator:
             file.write(content)
             if verbose:
                 info(f"written {filename}")
+
+
+if __name__=='__main__':
+    print('generating standard function class files START')
+    Standardconfigoneargument.generateConfigurations(verbose=True)
+    print('generating standard function class files END')

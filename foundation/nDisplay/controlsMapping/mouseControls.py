@@ -1,4 +1,4 @@
 
 MOUSE_3D_DISPLAY_CONTROLS = {
-	"drag_sensitvitiy": 128.0
+	"drag_sensitvitiy": 64.0
 }

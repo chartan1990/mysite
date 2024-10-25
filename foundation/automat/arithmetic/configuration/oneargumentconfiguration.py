@@ -1,4 +1,4 @@
-FUNC_NAMES = [
+FUNC_NAMES = {
     "sin":{
         'class_name':'Sine',
         'reverse_prefix':'arc',
@@ -97,4 +97,4 @@ FUNC_NAMES = [
         'reverse_import':['from math import atanh'],
         'reverse_code':['1.0/atanh(v0)']
     },
-]
+}

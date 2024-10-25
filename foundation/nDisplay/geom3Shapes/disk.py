@@ -13,7 +13,7 @@ def disk(internalRadius, externalRadius, slices, rings, drawStyle):
 
 
 
-
+#TODO actually a resistor is more like a long long disk?
 #DEV TEST
 if __name__=='__main__':
 	from foundation.nDisplay.core.stage import Stage

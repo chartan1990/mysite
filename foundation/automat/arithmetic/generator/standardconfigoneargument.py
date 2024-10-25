@@ -4,7 +4,7 @@ from jinja2 import Environment, FileSystemLoader
 
 from foundation.automat import AUTOMAT_MODULE_DIR
 from foundation.automat.log import info
-from foundation.automat.arithmetic.configuration.oneargumentconfigurationconfiguration import FUNC_NAMES
+from foundation.automat.arithmetic.configuration.oneargumentconfiguration import FUNC_NAMES
 
 
 
@@ -12,9 +12,9 @@ class Standardconfigoneargument:
 
 
     @classmethod
-    def generateConfigurations(cls):
+    def generateConfigurations(cls, verbose=False):
         #copied from https://realpython.com/primer-on-jinja-templating/
-        environment = Environment(loader=FileSystemLoader(''))#TODO put in the full relative directory
+        environment = Environment(loader=FileSystemLoader(os.path.join(AUTOMAT_MODULE_DIR, 'arithmetic', 'generator', 'template', 'configuration')))
         template = environment.get_template("standardoneargument.json.jinja2")
 
         for function_name, mapping in FUNC_NAMES.items():
@@ -25,18 +25,18 @@ class Standardconfigoneargument:
                 function_name=vorfname,
                 class_name=mapping['class_name'],
                 reverse_function_name=hinfname,
-                imports_as_str=str(mapping['import']),
-                code_as_str=str(mapping['code']),
+                imports_as_str=str(mapping['import']).replace("'", '"'),
+                code_as_str=str(mapping['code']).replace("'", '"'),
             )
-            cls.writeToFile(f'{vorfname}.json', vorcontent)
+            cls.writeToFile(f'{vorfname}.json', vorcontent, verbose=verbose)
             hincontent = template.render(
                 function_name=hinfname,
                 class_name=hincname,
                 reverse_function_name=vorfname,
-                imports_as_str=str(mapping['reverse_import']),
-                code_as_str=str(mapping['reverse_code']),
+                imports_as_str=str(mapping['reverse_import']).replace("'", '"'),
+                code_as_str=str(mapping['reverse_code']).replace("'", '"'),
             )
-            cls.writeToFile(f'{hinfname}.json', vorcontent)
+            cls.writeToFile(f'{hinfname}.json', hincontent, verbose=verbose)
 
     @classmethod
     def upperFirstLetter(cls, word):
@@ -47,8 +47,14 @@ class Standardconfigoneargument:
     @classmethod
     def writeToFile(cls, filename, content, verbose=False):
         #we fix the filepath here:
-        directory = AUTOMAT_MODULE_DIR#
+        directory = os.path.join(AUTOMAT_MODULE_DIR, 'arithmetic', 'configuration', 'standard')
         with open(os.path.join(directory, filename), mode='w', encoding='utf-8') as file:
             file.write(content)
             if verbose:
-                info(f"written {filename}")
+                info(f"written {content} {os.linesep} {filename} to {directory}")
+
+
+if __name__=='__main__':
+    print('standardconfigoneargument START')
+    Standardconfigoneargument.generateConfigurations(verbose=True)
+    print('standardconfigoneargument END')
