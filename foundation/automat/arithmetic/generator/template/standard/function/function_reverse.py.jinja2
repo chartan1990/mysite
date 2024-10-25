@@ -1,4 +1,4 @@
-def _reverse{{idx}}(self, {{vReplacementDict}}, {{vTotalNodeCount}}):
+def _reverse{{idx+1}}(self, {{vReplacementDict}}, {{vTotalNodeCount}}):
 	"""
 	{{vReplacementDict}} are the rows in the AST mapping that needs to be replaced.
 	Aim of this function is to make #{{idx+1}} input, the subject
@@ -34,4 +34,7 @@ def _reverse{{idx}}(self, {{vReplacementDict}}, {{vTotalNodeCount}}):
 			{{vKey1}} = key
 	if {{vKey0}} is None or {{vKey1}} is None:
 		raise Exception("{{vReplacementDict}} not according to format")
-	return {{reversedDict}}, {{functionCountAdded}}, {{primitivesCountAdded}}, {{totalNodeCountAdded}}
+	return {{reversedDict}}, 
+			{{functionCountAdded}}, 
+			{{primitivesCountAdded}}, 
+			{{totalNodeCountAdded}}

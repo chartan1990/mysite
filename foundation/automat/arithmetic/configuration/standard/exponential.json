@@ -6,33 +6,34 @@
   "init_variableName_key1": {"full": "key1", "code": "@vk1@"},
   "init_variableName_replacementDictionary": {"full": "replacementDictionary", "code": "@vrD@"},
   "init_variableName_totalNodeCount": {"full": "totalNodeCount", "code": "@vtN@"},
-  "init_variableName_newKey": {"full": "newKey", "code": "@vnK@"},
-  "init_variableName_newValue": {"full": "newValue", "code": "@vnV@"},
+  "init_string_newKey": {"full": "newKey", "code": "@vnK@"},
+  "init_string_newValue": {"full": "newValue", "code": "@vnV@"},
+  "imports":["from foundation.automat.arithmetic.standard.logarithm import Logarithm"],
   "return_reverse": {
     "reversedAst": [
       {
         "@vk0@": {
           "@vnK@": "@vk0@",
-          "@vnV@": ["@item_1_1@", ["@fN_log@", "@id_0_1@"]]
+          "@vnV@": ["@item_1_1@", ["@cN_Logarithm@.@vfN@", "@id_0_1@"]]
         },
         "@vk1@": {
           "@vnK@": "@vk1@",
           "@vnV@": ["@item_1_0@", "@item_0_0@"]
         },
-      "functionCountAdded": {"@fN_nroot@": 1, "@fN@": -1},
+      "functionCountAdded": {"@cN_Nroot@.@vfN@": 1, "@vfN@": -1},
       "primitiveCountAdded": 0,
       "totalNodeCountAdded": 0
       },
       {
         "@vk0@": {
           "@vnK@": "@vk0@",
-          "@vnV@": ["@item_1_1@", ["@fN_log@", "@id_0_1@"]]
+          "@vnV@": ["@item_1_1@", ["@cN_Logarithm@.@vfN@", "@id_0_1@"]]
         },
         "@vk1@": {
           "@vnK@": "@vk1@",
           "@vnV@": ["@item_1_0@", "@item_0_0@"]
         },
-      "functionCountAdded": {"@fN_log@": 1, "@fN@": -1},
+      "functionCountAdded": {"@cN_Logarithm@.@vfN@": 1, "@vfN@": -1},
       "primitiveCountAdded": 0,
       "totalNodeCountAdded": 0
       }
@@ -41,6 +42,6 @@
   "return_calculation": [{
     "imports": ["from math import pow"],
     "variableCount": 2,
-    "code": "pow(@v0@, @v1@)"
+    "code": ["num=pow(@v0@, @v1@)"]
   }]
 }

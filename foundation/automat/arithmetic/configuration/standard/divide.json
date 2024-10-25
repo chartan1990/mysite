@@ -6,27 +6,28 @@
   "init_variableName_key1": {"full": "key1", "code": "@vk1@"},
   "init_variableName_replacementDictionary": {"full": "replacementDictionary", "code": "@vrD@"},
   "init_variableName_totalNodeCount": {"full": "totalNodeCount", "code": "@vtN@"},
-  "init_variableName_newKey": {"full": "newKey", "code": "@vnK@"},
-  "init_variableName_newValue": {"full": "newValue", "code": "@vnV@"},
+  "init_string_newKey": {"full": "newKey", "code": "@vnK@"},
+  "init_string_newValue": {"full": "newValue", "code": "@vnV@"},
+  "imports":["from foundation.automat.arithmetic.standard.multiply import Multiply"],
   "return_reverse": {
     "reversedAst": [
       {
         "@vk0@": {
           "@vnK@": "@vk0@",
-          "@vnV@": ["@item_0_1@", ["@fN_*@", "@id_0_1@"]]
+          "@vnV@": ["@item_0_1@", ["@cN_Multiply@.@vfN@", "@id_0_1@"]]
         },
         "@vk1@": {
           "@vnK@": "@vk1@",
           "@vnV@": ["@item_0_0@", "@item_1_1@"]
         },
-      "functionCountAdded": {"@fN_*@": 1, "@fN@": -1},
+      "functionCountAdded": {"@cN_Multiply@.@vfN@": 1, "@vfN@": -1},
       "primitiveCountAdded": 0,
       "totalNodeCountAdded": 0
       },
       {
         "@vk0@": {
           "@vnK@": "@vk0@",
-          "@vnV@": ["@item_1_0@", ["@fN@", "@id_0_1@"]]
+          "@vnV@": ["@item_1_0@", ["@cN_Divide@.@vfN@", "@id_0_1@"]]
         },
         "@vk1@": {
           "@vnK@": "@vk1@",
@@ -41,6 +42,6 @@
   "return_calculation": [{
     "imports": [],
     "variableCount": 2,
-    "code": "v0/v1"
+    "code": ["num=v0/v1"]
   }]
 }

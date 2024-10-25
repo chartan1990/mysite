@@ -1,25 +1,26 @@
 {
   "init_funcName": {"full": "arccosech", "code": "@fN@"},
-  "init_className": {"full": "Arccosech", "code": "@cN@"},
+  "init_className": {"full": "Arccosecanth", "code": "@cN@"},
   "init_variableName_funcName": {"full": "FUNC_NAME", "code": "@vfN@"},
   "init_variableName_key0": {"full": "key0", "code": "@vk0@"},
   "init_variableName_key1": {"full": "key1", "code": "@vk1@"},
   "init_variableName_replacementDictionary": {"full": "replacementDictionary", "code": "@vrD@"},
   "init_variableName_totalNodeCount": {"full": "totalNodeCount", "code": "@vtN@"},
-  "init_variableName_newKey": {"full": "newKey", "code": "@vnK@"},
-  "init_variableName_newValue": {"full": "newValue", "code": "@vnV@"},
+  "init_string_newKey": {"full": "newKey", "code": "@vnK@"},
+  "init_string_newValue": {"full": "newValue", "code": "@vnV@"},
+  "imports":["from foundation.automat.arithmetic.standard.cosecanth import Cosecanth"],
   "return_reverse": {
     "reversedAst": [
       {
         "@vk0@": {
           "@vnK@": "@vk0@",
-          "@vnV@": ["@item_1_0@", ["@fN_cosech@", "@id_0_1@"]]
+          "@vnV@": ["@item_1_0@", ["@cN_Cosecanth@.@vfN@", "@id_0_1@"]]
         },
         "@vk1@": {
-          "@vnK@": ["@fN_cosech@", "@idk_1@"],
+          "@vnK@": ["@cN_Cosecanth@.@vfN@", "@idk_1@"],
           "@vnV@": ["@item_0_0@"]
         },
-      "functionCountAdded": {"@fN_cosech": 1, "@fN@": -1},
+      "functionCountAdded": {"@cN_Cosecanth@.@vfN@": 1, "@vfN@": -1},
       "primitiveCountAdded": 0,
       "totalNodeCountAdded": 0
       }
@@ -28,6 +29,6 @@
   "return_calculation": [{
     "imports": ["from math import acosh"],
     "variableCount": 1,
-    "code": ["1.0/acosh(v0)"]
+    "code": ["num=1.0/acosh(v0)"]
   }]
 }

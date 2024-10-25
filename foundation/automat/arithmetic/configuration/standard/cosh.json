@@ -6,20 +6,21 @@
   "init_variableName_key1": {"full": "key1", "code": "@vk1@"},
   "init_variableName_replacementDictionary": {"full": "replacementDictionary", "code": "@vrD@"},
   "init_variableName_totalNodeCount": {"full": "totalNodeCount", "code": "@vtN@"},
-  "init_variableName_newKey": {"full": "newKey", "code": "@vnK@"},
-  "init_variableName_newValue": {"full": "newValue", "code": "@vnV@"},
+  "init_string_newKey": {"full": "newKey", "code": "@vnK@"},
+  "init_string_newValue": {"full": "newValue", "code": "@vnV@"},
+  "imports":["from foundation.automat.arithmetic.standard.arccosineh import Arccosineh"],
   "return_reverse": {
     "reversedAst": [
       {
         "@vk0@": {
           "@vnK@": "@vk0@",
-          "@vnV@": ["@item_1_0@", ["@fN_arccosh@", "@id_0_1@"]]
+          "@vnV@": ["@item_1_0@", ["@cN_Arccosineh@.@vfN@", "@id_0_1@"]]
         },
         "@vk1@": {
-          "@vnK@": ["@fN_arccosh@", "@idk_1@"],
+          "@vnK@": ["@cN_Arccosineh@.@vfN@", "@idk_1@"],
           "@vnV@": ["@item_0_0@"]
         },
-      "functionCountAdded": {"@fN_arccosh": 1, "@fN@": -1},
+      "functionCountAdded": {"@cN_Arccosineh@.@vfN@": 1, "@vfN@": -1},
       "primitiveCountAdded": 0,
       "totalNodeCountAdded": 0
       }
@@ -28,6 +29,6 @@
   "return_calculation": [{
     "imports": ["from math import cosh"],
     "variableCount": 1,
-    "code": ["cosh(v0)"]
+    "code": ["num=cosh(v0)"]
   }]
 }

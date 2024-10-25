@@ -19,12 +19,14 @@ class Standardconfigoneargument:
 
         for function_name, mapping in FUNC_NAMES.items():
             vorfname = function_name
+            vorcname = mapping['class_name']
             hinfname = mapping['reverse_prefix']+function_name
-            hincname = cls.upperFirstLetter(hinfname)
+            hincname = cls.upperFirstLetter(mapping['reverse_prefix']+vorcname.lower())
             vorcontent = template.render(
                 function_name=vorfname,
-                class_name=mapping['class_name'],
-                reverse_function_name=hinfname,
+                class_name=vorcname,
+                reverse_class_name=hincname,
+                imports=str([f"from foundation.automat.arithmetic.standard.{hincname.lower()} import {hincname}"]).replace("'", '"'),
                 imports_as_str=str(mapping['import']).replace("'", '"'),
                 code_as_str=str(mapping['code']).replace("'", '"'),
             )
@@ -32,7 +34,8 @@ class Standardconfigoneargument:
             hincontent = template.render(
                 function_name=hinfname,
                 class_name=hincname,
-                reverse_function_name=vorfname,
+                reverse_class_name=vorcname,
+                imports=str([f"from foundation.automat.arithmetic.standard.{vorcname.lower()} import {vorcname}"]).replace("'", '"'),
                 imports_as_str=str(mapping['reverse_import']).replace("'", '"'),
                 code_as_str=str(mapping['reverse_code']).replace("'", '"'),
             )
