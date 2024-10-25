@@ -82,11 +82,7 @@ class Stage:
 			self.zNear,
 			self.zFar
 		)
-		if not self.resetting:
-			gl.glTranslatef(0.0, 0.0, -5) # initial zoom out... TODO configurable/ calculated to give 'BEST initial VIEW of the stage'
-			if verbose:
-				print('resetting INIT')
-
+		gl.glTranslatef(0.0, 0.0, -5) # initial zoom out... TODO configurable/ calculated to give 'BEST initial VIEW of the stage'
 
 
 	def _action(self):
@@ -119,7 +115,7 @@ class Stage:
 				gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT)
 				self._displayInit()
 				self.resetting = False
-				if verbose:
+				if self.verbose:
 					print('resetted............')
 				self.resetted = True
 			else:
@@ -127,7 +123,7 @@ class Stage:
 					gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT) # cannot call glClear while pg.display.init
 				else:
 					self.resetted = False
-					if verbose:
+					if self.verbose:
 						print('unresetted..............')
 				self.piece()
 				pg.display.flip()
@@ -208,7 +204,7 @@ class Stage:
 			## screen related
 			if event.key == KBCM['actor_reset']: #TODO this does not work, not sure why
 				self.resetting = True
-				if verbose:
+				if self.verbose:
 					print('actor reset')
 
 	#GETTERS of stage
