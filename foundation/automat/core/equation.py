@@ -120,3 +120,7 @@ class Equation:
         :type format: str
         """
         return Parser(format).unparse(self.ast)
+
+
+if __name__=='__main__':
+    eq0 = Equation('(= a (+ b c) )', 'scheme')

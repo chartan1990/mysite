@@ -1,7 +1,6 @@
 from abc import ABC
 
-from foundation.automat.common.backtracker import Backtracker
-from foundation.automat.common.checker import isFloat
+from foundation.automat.common import Backtracker, isFloat
 from foundation.automat.arithmetic.function import Function
 
 class Parser(ABC):
@@ -56,6 +55,13 @@ class Parser(ABC):
 
 
 class Javascriptparser(Parser):
+    """
+https://www.w3.org/1998/Math/MathML/
+
+Example (this is similiar to latex...)
+
+<img src="https://wikimedia.org/api/rest_v1/media/math/render/svg/95b72ff2accd775d082d041434acf09b4b7523f4" class="mwe-math-fallback-image-inline mw-invert skin-invert" aria-hidden="true" style="vertical-align: -6.171ex; width:22.568ex; height:13.509ex;" alt="{\displaystyle {\begin{aligned}I_{\text{E}}&amp;=I_{\text{ES}}\left(e^{\frac {V_{\text{BE}}}{V_{\text{T}}}}-1\right)\\I_{\text{C}}&amp;=\alpha _{\text{F}}I_{\text{E}}\\I_{\text{B}}&amp;=\left(1-\alpha _{\text{F}}\right)I_{\text{E}}\end{aligned}}}">
+    """
     pass#TODO
 
 
@@ -71,9 +77,11 @@ class Schemeparser(Parser):
     Parser for Scheme Strings. More details about 'Scheme' format, check
     https://groups.csail.mit.edu/mac/ftpdir/scheme-7.4/doc-html/scheme_2.html
     """
-    def __init__(self, equationStr):
+    def __init__(self, equationStr, verbose=False, veryVerbose=False):
         self._eqs = equationStr
-        self.ast, self.functions, self. = self._parse(equationStr)
+        self.verbose = verbose
+        self.veryVerbose = veryVerbose
+        self.ast, self.functions, self.variables, self.primitives, self.totalNodeCount = self._parse(equationStr)
 
     def _parse(self, equationStr):
         """
@@ -101,12 +109,20 @@ class Schemeparser(Parser):
         variablesD = {}# variable(str) to no_of_such_variables in the ast(int)
         primitives = 0#count of the number of primitives in the ast
         totalNodeCount = 0# total number of nodes in the ast
-        backtracker = self._recursiveParse(equationStr) # return pointer to the root ( in process/thread memory)
+        backtrackerRoot = self._recursiveParse(equationStr, 0) # return pointer to the root ( in process/thread memory)
+        if self.verbose:
+            print('return from _recursiveParse*************')
         ast = {}
-        stack = [backtracker]
-        id = 0
+        if self.verbose:
+            print(f'return from _recursiveParse************* initialised ast: {ast}')
+        currentId = 0
+        stack = [{'bt':backtrackerRoot, 'tid':currentId}]
         while len(stack) != 0:
-            current = stack.pop()
+            currentBt = stack.pop(0)
+            tid = currentBt['tid']
+            current = currentBt['bt']
+            if self.verbose:
+                print(f'label: {current.label}, argumentIdx: {current.argumentIdx}, id: {current.id}, tid:{tid}')
             #do the tabulating
             totalNodeCount += 1
             if isFloat(current.label):
@@ -116,22 +132,39 @@ class Schemeparser(Parser):
             else: # is a variable
                 variablesD[current.label] = variablesD.get(current.label, 0) + 1
             #end of tabulating
-            node = (current.label, id)
-            ast[node] = ast.get(node, []) + current.neighbours
-            id += 1
-            for neighbour in current.neighbours:# neighbour is a backtracker
-                stack.append(neighbour)
+            #node = (current.label, id)
+            #ast[node] = ast.get(node, []) + current.neighbours
+            #id += 1
+            thisNodeId = currentId
+            neighbourNodes = []
+            for neighbour in sorted(current.neighbours, key=lambda neigh: neigh.argumentIdx, reverse=False):
+                currentId += 1
+                neighbourNodes.append((neighbour.label, currentId))
+                stack.append({'bt':neighbour, 'tid':currentId})
+            currentNode = (current.label, (current.argumentIdx, current.id))
+            if self.verbose:
+                print(f'ast: {ast}, currentNode: {currentNode}')
+            #prevList = ast.get(currentNode, [])
+            #prevList += neighbourNodes
+            #ast.pop(currentNode, None) # delete the key currentNode, because we don't want the (argumentIdx, id) = treeId
+            if len(neighbourNodes) > 0: # avoid putting leaves as keys
+                ast[(current.label, tid)] = neighbourNodes
+
         return ast, functionsD, variablesD, primitives, totalNodeCount
 
-    def _recursiveParse(self, eqs):
+    def _recursiveParse(self, eqs, level):
         """
         Handles the syntex of 'Scheme', but just stores the tree in the memory stack of the process/thread
 
         :param eqs: the equation string to be parsed
         :type eqs: str
+        :param level: tree level
+        :type level: int
         :return: root of the AST
         :rtype: :class:`Backtracker`
         """
+        if self.verbose:
+            print(f'recursive level: {level}, eqs: {eqs}')
         if (eqs.startswith('(') and not eqs.endswith(')')) or \
                 (not eqs.startswith('(') and eqs.endswith(')')):
             raise Exception('Closing Brackets Mismatch')
@@ -146,36 +179,169 @@ class Schemeparser(Parser):
                     procedureEndPosition = idx
                     break
                 procedureLabel += c
-            argumentsStr = strippedEqs[procedureEndPosition]
-            #find individual arguments
+            argumentsStr = strippedEqs[procedureEndPosition:].strip()
+            if self.verbose:
+                print(f'argumentsStr: {argumentsStr}')
+            #find individual arguments START
             bracketCounter = 0 #+1 for '(', -1 for ')'
             currentArgumentStr = ''
             arguments = []
             for c in argumentsStr:
+                if self.veryVerbose:
+                    print(c, currentArgumentStr, c == ' ', bracketCounter == 0, '<<<<<<<<<<<<<<12<<<<<<<<<')  
                 currentArgumentStr += c
                 if c == '(':
                     bracketCounter += 1
                 elif c == ')':
                     bracketCounter -= 1
-                if bracketCounter == 0 and c == ' ': # (brackets are balanced) and this character c is a space
-                    arguments.append(currentArgumentStr)
-                    currentArgumentStr = ''
+                if c == ' ' and bracketCounter == 0: # (brackets are balanced) and this character c is a space
+                    if self.veryVerbose:
+                        print(c, currentArgumentStr, c == ' ', bracketCounter == 0, '<<<<<<<<<<<<<<<<<<<<<<<')
+                    currentArgumentStr = currentArgumentStr.strip()
+                    if len(currentArgumentStr) > 0:
+                        arguments.append(currentArgumentStr)
+                        currentArgumentStr = ''
+            if len(currentArgumentStr) > 0: # left-overs, please eat!
+                arguments.append(currentArgumentStr)
+            #find individual argumets END
+            if self.verbose:
+                print(f'level: {level}, arguments: {arguments}')
+            neighbours = []
+            for argumentIdx, backtrackNeighbour in enumerate(map(lambda argu: self._recursiveParse(argu, level+1), arguments)):
+                if self.verbose:
+                    print(f'recursive level: {level}, eqs: {eqs}, argumentIdx: {argumentIdx}, id: {backtrackNeighbour.id}, label: {backtrackNeighbour.label}')
+                backtrackNeighbour.argumentIdx = argumentIdx
+                neighbours.append(backtrackNeighbour)
             rootNode = Backtracker(
                 procedureLabel, # label
-                list(map(lambda argu: self._recursiveParse(argu), arguments)), # neighbours
-                None,# not used, argumentIdx
-                None, #not used, prev
-                None, #not used, id
+                neighbours, # neighbours
+                0,#  argumentIdx, will be set by calling process (self._recursiveParse)
+                None, #prev, not used
+                level, #id,   (depthId)
             )
+            #for backtrackNeighbour in neighbours:
+            #    backtrackNeighbour.prev = rootNode
+
         else:#primitive or variable
             rootNode = Backtracker(
                 eqs, # label
                 [], # neighbours
-                None, # not used, argumentIdx
+                0, # not used, argumentIdx
                 None, # not used, prev
-                None # not used, id
+                level # not used, id
             )
         return rootNode
 
     def _unparse(self, abstractSyntaxTree):
-        pass #TODO
+        """
+
+        :param abstractSyntaxTree:
+        :type abstractSyntaxTree:
+        """
+        #find the (=, id)
+        equalTuple = None
+        for keyTuple in abstractSyntaxTree.keys():
+            if keyTuple[0] == '=':
+                equalTuple = keyTuple
+                break
+        if equalTuple is None:
+            raise Exception('No equal, Invalid Equation String')
+        return self._recursiveUnparse(abstractSyntaxTree, equalTuple)
+
+    def _recursiveUnparse(self, subAST, keyTuple):
+        if keyTuple not in subAST: # is Leaf
+            return keyTuple[0] # return the key, discard the ID
+        argumentStr = ' '.join([self._recursiveUnparse(subAST, argumentTuple) for argumentTuple in subAST[keyTuple]])
+        return f"({keyTuple[0]} {argumentStr})"
+
+
+if __name__=='__main__':
+    import pprint
+    pp = pprint.PrettyPrinter(indent=4)
+    eqs = '(= a (+ b c))'
+    schemeParser = Schemeparser(eqs, verbose=True)
+    ast = schemeParser.ast
+    print('*********ast:')
+    pp.pprint(ast)
+    """
+    ast = {
+    ('=', 0):[(('a', 1), ('+', 2)],
+    ('+', 2):[('b', 3), ('c', 4)]
+    }
+    """
+    unparsedStr = schemeParser._unparse(ast)
+    print(f'***********unparsedStr: modorimashitaka: {eqs==unparsedStr}')
+    print(unparsedStr)
+    print('*******************HARMONIC MEAN : https://en.wikipedia.org/wiki/Harmonic_mean')
+    eqs = '(= (/ 1 a) (+ (/ 1 b) (/ 1 c)))'
+    schemeParser = Schemeparser(eqs, verbose=False)
+    ast = schemeParser.ast
+    print('*********ast:')
+    pp.pprint(ast)
+    """
+    ast = {
+    ('=', 0):[('/', 1), ('+', 2)],
+    ('/', 1):[(1, 3), ('a', 4)],
+    ('+', 5):[('/', 6), ('/', 7)],
+    ('/', 6):[(1, 8), ('b', 9)],
+    ('/', 7):[(1, 10), ('c', 11)]
+    }
+    """
+    unparsedStr = schemeParser._unparse(ast)
+
+    print(f'***********unparsedStr: modorimashitaka: {eqs==unparsedStr}')
+    print(unparsedStr)
+
+    print('*******************Phasor Diagram : https://en.wikipedia.org/wiki/Euler%27s_formula')
+    eqs = '(= (^ e (* i x)) (+ (cos x) (* i (sin x))))'
+    schemeParser = Schemeparser(eqs, verbose=False)
+    ast = schemeParser.ast
+    print('*********ast:')
+    pp.pprint(ast)
+    """
+    ast = {
+    ('=', 0):[('^', 1), ('+', 2)],
+    ('^', 1):[(e, 3), ('*', 4)],
+    ('+', 2):[('cos', 5), ('*', 6)],
+
+    ('*', 4):[('i', 7), ('x', 8)],
+    ('cos', 5):[('x', 9)],
+    ('*', 6):[('i', 10), ('sin', 11)],
+    ('sin', 11):[('x', 12)]
+    }
+    """
+    unparsedStr = schemeParser._unparse(ast)
+    print(f'***********unparsedStr: modorimashitaka {eqs==unparsedStr}')
+    print(unparsedStr)
+
+    print('*******************Ebers-Moll_model : https://en.wikipedia.org/wiki/Bipolar_junction_transistor#Ebers%E2%80%93Moll_model')
+    eqs = '(= I_E (* I_{ES} (- (^ e (/ V_{BE} V_T) 1))))'
+    schemeParser = Schemeparser(eqs, verbose=False)
+    ast = schemeParser.ast
+    print('*********ast:')
+    pp.pprint(ast)
+    """
+    ast = {
+    ('=', 0):[('I_E', 1), ('-', 2)]
+
+    ('-', 2):[('^', 3), (1, 4)],
+
+    ('^', 3):[('e', 5), ('/', 6)],
+    ('/', 6):[('V_{BE}', 7), ('V_T', 8)]
+    }
+    """
+    unparsedStr = schemeParser._unparse(ast)
+    print(f'***********unparsedStr: modorimashitaka {eqs==unparsedStr}')
+    print(unparsedStr)
+
+
+    print('*******************Early-effect_model(Collector current) : https://en.wikipedia.org/wiki/Early_effect#Large-signal_model')
+    eqs = '(= I_E (* I_S (* (^ e (/ V_{BE} V_T)) (+ 1 (/ V_{CE} V_A)))))'
+    schemeParser = Schemeparser(eqs, verbose=False)
+    ast = schemeParser.ast
+    print('*********ast:')
+    pp.pprint(ast)
+    unparsedStr = schemeParser._unparse(ast)
+    print(f'***********unparsedStr: modorimashitaka {eqs==unparsedStr}')
+    print(unparsedStr)
+

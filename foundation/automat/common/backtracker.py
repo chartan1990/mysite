@@ -18,7 +18,7 @@ class Backtracker:
     :param id: id of this BackTracker, in the tree
     :type id: int
     """
-    def __int__(self, label, neighbours, argumentIdx, prev, id):
+    def __init__(self, label, neighbours, argumentIdx, prev, id):
         """
         Just getters and setter. Also the constructor.
 
