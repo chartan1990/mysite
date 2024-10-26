@@ -13,7 +13,7 @@ class Parser(ABC):
     PARSERNAME_PARSERCLASSSTR = {
         'scheme':'Schemeparser',
         'latex':'Latexparser',
-        'javascript':'Javascriptparser'
+        'html':'Htmlparser'
     }
 
     def __init__(self, parserName):
@@ -49,28 +49,127 @@ class Parser(ABC):
         # will raise exception if parserName not in PARSERNAME_PARSERCLASSSTR
         # actual parsing is done in individual child class
         parser = globals()[self.PARSERNAME_PARSERCLASSSTR[self.parserName]](equationStr)
-        ast, functions, variables, primitives, totalNodeCount = parser._parse(equationStr)
+        ast, functions, variables, primitives, totalNodeCount = parser._parse()
         return ast, functions, variables, primitives, totalNodeCount
 
 
 
-class Javascriptparser(Parser):
+class Htmlparser(Parser):
     """
 https://www.w3.org/1998/Math/MathML/
 
 Example (this is similiar to latex...)
 
 <img src="https://wikimedia.org/api/rest_v1/media/math/render/svg/95b72ff2accd775d082d041434acf09b4b7523f4" class="mwe-math-fallback-image-inline mw-invert skin-invert" aria-hidden="true" style="vertical-align: -6.171ex; width:22.568ex; height:13.509ex;" alt="{\displaystyle {\begin{aligned}I_{\text{E}}&amp;=I_{\text{ES}}\left(e^{\frac {V_{\text{BE}}}{V_{\text{T}}}}-1\right)\\I_{\text{C}}&amp;=\alpha _{\text{F}}I_{\text{E}}\\I_{\text{B}}&amp;=\left(1-\alpha _{\text{F}}\right)I_{\text{E}}\end{aligned}}}">
+<img alt=alt="{\displaystyle {\begin{aligned}I_{\text{E}}&amp;=I_{\text{ES}}\left(e^{\frac {V_{\text{BE}}}{V_{\text{T}}}}-1\right)\\I_{\text{C}}&amp;=\alpha _{\text{F}}I_{\text{E}}\\I_{\text{B}}&amp;=\left(1-\alpha _{\text{F}}\right)I_{\text{E}}\end{aligned}}}">
+    
+
+https://developer.mozilla.org/en-US/docs/Web/MathML/Element/math
     """
-    pass#TODO
+    def __init__(self, equationStr, verbose=False):
+        self._eqs = equationStr
+        self.verbose = verbose
 
 
 class Latexparser(Parser):
     """
-    Parser for Latex Strings. More details about 'Latex' format, check
+    Naive Parser for Latex Strings. More details about 'Latex' format, check
     https://www.latex-project.org/help/documentation/classes.pdf
+
+    According to :- https://sg.mirrors.cicku.me/ctan/info/symbols/comprehensive/symbols-a4.pdf
+
+    $ % _ } & # {  are special characters, 
+    we will pretend that %, & and # does not exist, since we are not doing matrices for now
+
+    Also according to https://www.overleaf.com/learn/latex/Learn_LaTeX_in_30_minutes#Adding_math_to_LaTeX
+    we need to enclose the MATH equation with one of these:
+    1. \[ \]
+    2. $ $
+    3. \begin{displaymath} \end{displaymath}
+    4. \begin{equation} \end{equation}
+
+    But we will assume that there is no need for that now, and only when user execute toString, 
+    will we return with enclosed \[\]
     """
-    pass#TODO
+    INFIX = ['+', '-', '*', '/']
+    OPEN_BRACKETS = ['{', '[', '(']
+    CLOSE_BRACKETS = ['}', ']', ')']
+    close__open = dict(zip(OPEN_BRACKETS, CLOSE_BRACKETS))
+
+    def __init__(self, equationStr, verbose=False):
+        self._eqs = equationStr
+        self.verbose = verbose
+
+    def _parse(self):
+        """
+        First we convert all the infix-operators to LaTex-styled prefix operators:
+        A+B ==> \+{A}{B}
+        A-B ==> \-{A}{B}
+        A*B ==> \*{A}{B}
+        A/B ==> \/{A}{B}
+        """
+        #convert all the infix-operators to LateX
+        #find all the positions of the infixes, and if there are round/square/curly brackets beside them...
+        #also take note of the matching brackets in the same pass.... (confusing? should be done in a second pass?)
+        matchingBracketsCounter = dict(map(lambda openBracket: (openBracket, 0), Latexparser.OPEN_BRACKETS))
+        matchingBracketsLocation = dict(map(lambda openBracket: (openBracket, {'open':[], 'closed':[]}), Latexparser.OPEN_BRACKETS))
+        infixOperatorPositions = dict(map(lambda infixOp: (infixOp, []), Latexparser.INFIX))
+        for idx in enumerate(self._eqs):
+            c = self._eqs[idx]
+            if c in Latexparser.OPEN_BRACKETS:
+                matchingBracketsCounter[c] += 1
+                matchingBracketsLocation[c]['open'].append(idx)
+            elif c in Latexparser.CLOSE_BRACKETS:
+                matchingBracketsCounter[close__open[c]] -= 1
+                matchingBracketsLocation[close__open[c]]['closed'].append(idx)
+            elif c in Latexparser.INFIX:
+                infixOperatorPositions[c].append({
+                    'position':idx,
+                    'leftCloseBracket':self._eqs[idx-1] if idx>0 and (self._eqs[idx-1] in Latexparser.CLOSE_BRACKETS) else None,
+                    'rightOpenBracket':self._eqs[idx+1] if idx<len(self._eqs)-2 and (self._eqs[idx+1] in Latexparser.OPEN_BRACKETS) else None
+                })
+        #check equation syntax for bracket mismatch START
+        mismatchedOpenBrackets = []
+        for openBracket, matchCount in matchingBracketCounter.items():
+            if matchCount != 0:
+                mismatchedOpenBrackets.append(openBracket)
+        if len(mismatchedOpenBrackets) > 0:
+            raise Exception(f'Mismatched brackets: {mismatchedOpenBrackets}')
+        #check equation syntax for bracket mismatch END
+        #make the list of tuples (openBracketPosition, closedBracketPosition) for each openBracket START
+        openBracket__matchingPositionDictList = dict(map(lambda openBracket: (openBracket, []), Latexparser.OPEN_BRACKETS))
+        for openBracket, openClosedDict in matchingBracketsLocation.items():
+            openBracket__matchingPositionTupleList[openBracket] = list(zip(openClosedDict['open'], list(reversed(openClosedDict['closed']))))
+        #make the list of tuples (openBracketPosition, closedBracketPosition) for each openBracket END
+        #make swapping [operandA][infixOp][operandB] ==> \infixOp{operandA}{operandB} START
+        def innerMostBDMAS(item): #TODO clean up..... private method?
+            """
+            ranking function for infixOperators. Those to be swapped first, has smallest number, last to be swapped, highest number
+
+            starting from the innermost infixOp
+            break tie by :-
+            1. having left/right brackets
+            2. D(ivide), M(ultiply), A(ddition), S(ubtract)
+
+            :param item: each item of infixOperatorPositions.items():- tuple[
+                openBracket,
+                {
+                    'position': idx, # position of the infixOperator
+                    'leftCloseBracket': ')', # type of leftCloseBracket, if not any close bracket on the left of operator, None
+                    'rightOpenBracket': '(', # type of rightOpenBracket, if not any open bracket on the right of operator, None
+                }
+            ]
+            :type item: tuple[
+                str,
+                dict[str, Any]
+            ]
+            """
+            #need to match operator idx to the openBracket__matchingPositionDictList
+            matchingPositionTupleList = openBracket__matchingPositionTupleList[item[0]] #note that idx=0<=>open;idx=1<=>close
+        infixOperatorPositionsItemsList = sorted(infixOperatorPositions.items(), key=innerMostBDMAS(item))
+        #make swapping [operandA][infixOp][operandB] ==> \infixOp{operandA}{operandB} END
+
+
 
 class Schemeparser(Parser):
     """
@@ -83,7 +182,7 @@ class Schemeparser(Parser):
         self.veryVerbose = veryVerbose
         self.ast, self.functions, self.variables, self.primitives, self.totalNodeCount = self._parse(equationStr)
 
-    def _parse(self, equationStr):
+    def _parse(self):
         """
         parses Scheme Strings into AST. eqs must be in 'Scheme' format.
         Each term starts with '(' and ends with ')'.
@@ -109,7 +208,7 @@ class Schemeparser(Parser):
         variablesD = {}# variable(str) to no_of_such_variables in the ast(int)
         primitives = 0#count of the number of primitives in the ast
         totalNodeCount = 0# total number of nodes in the ast
-        backtrackerRoot = self._recursiveParse(equationStr, 0) # return pointer to the root ( in process/thread memory)
+        backtrackerRoot = self._recursiveParse(self._eqs, 0) # return pointer to the root ( in process/thread memory)
         if self.verbose:
             print('return from _recursiveParse*************')
         ast = {}
@@ -144,9 +243,6 @@ class Schemeparser(Parser):
             currentNode = (current.label, (current.argumentIdx, current.id))
             if self.verbose:
                 print(f'ast: {ast}, currentNode: {currentNode}')
-            #prevList = ast.get(currentNode, [])
-            #prevList += neighbourNodes
-            #ast.pop(currentNode, None) # delete the key currentNode, because we don't want the (argumentIdx, id) = treeId
             if len(neighbourNodes) > 0: # avoid putting leaves as keys
                 ast[(current.label, tid)] = neighbourNodes
 
@@ -232,7 +328,7 @@ class Schemeparser(Parser):
             )
         return rootNode
 
-    def _unparse(self, abstractSyntaxTree):
+    def _unparse(self):
         """
 
         :param abstractSyntaxTree:
@@ -240,13 +336,13 @@ class Schemeparser(Parser):
         """
         #find the (=, id)
         equalTuple = None
-        for keyTuple in abstractSyntaxTree.keys():
+        for keyTuple in self._ast.keys():
             if keyTuple[0] == '=':
                 equalTuple = keyTuple
                 break
         if equalTuple is None:
             raise Exception('No equal, Invalid Equation String')
-        return self._recursiveUnparse(abstractSyntaxTree, equalTuple)
+        return self._recursiveUnparse(self._ast, equalTuple)
 
     def _recursiveUnparse(self, subAST, keyTuple):
         if keyTuple not in subAST: # is Leaf
@@ -256,10 +352,29 @@ class Schemeparser(Parser):
 
 
 if __name__=='__main__':
+
+    import pprint
+    pp = pprint.PrettyPrinter(indent=4)
+    eqs = 'a+b=c'
+    latexParser = Latexparser(eqs, verbose=True)
+    ast = latexParser.ast
+    print('*********ast:')
+    pp.pprint(ast)
+    """
+    ast = {
+    ('=', 0):[(('a', 1), ('+', 2)],
+    ('+', 2):[('b', 3), ('c', 4)]
+    }
+    """
+    unparsedStr = latexParser._unparse()
+    print(f'***********unparsedStr: modorimashitaka: {eqs==unparsedStr}')
+    print(unparsedStr)
+
+    #############SchemeParser testing
     import pprint
     pp = pprint.PrettyPrinter(indent=4)
     eqs = '(= a (+ b c))'
-    schemeParser = Schemeparser(eqs, verbose=True)
+    schemeParser = Schemeparser(eqs, verbose=False)
     ast = schemeParser.ast
     print('*********ast:')
     pp.pprint(ast)
@@ -269,7 +384,7 @@ if __name__=='__main__':
     ('+', 2):[('b', 3), ('c', 4)]
     }
     """
-    unparsedStr = schemeParser._unparse(ast)
+    unparsedStr = schemeParser._unparse()
     print(f'***********unparsedStr: modorimashitaka: {eqs==unparsedStr}')
     print(unparsedStr)
     print('*******************HARMONIC MEAN : https://en.wikipedia.org/wiki/Harmonic_mean')
@@ -287,7 +402,7 @@ if __name__=='__main__':
     ('/', 7):[(1, 10), ('c', 11)]
     }
     """
-    unparsedStr = schemeParser._unparse(ast)
+    unparsedStr = schemeParser._unparse()
 
     print(f'***********unparsedStr: modorimashitaka: {eqs==unparsedStr}')
     print(unparsedStr)
@@ -310,7 +425,7 @@ if __name__=='__main__':
     ('sin', 11):[('x', 12)]
     }
     """
-    unparsedStr = schemeParser._unparse(ast)
+    unparsedStr = schemeParser._unparse()
     print(f'***********unparsedStr: modorimashitaka {eqs==unparsedStr}')
     print(unparsedStr)
 
@@ -330,7 +445,7 @@ if __name__=='__main__':
     ('/', 6):[('V_{BE}', 7), ('V_T', 8)]
     }
     """
-    unparsedStr = schemeParser._unparse(ast)
+    unparsedStr = schemeParser._unparse()
     print(f'***********unparsedStr: modorimashitaka {eqs==unparsedStr}')
     print(unparsedStr)
 
@@ -341,7 +456,7 @@ if __name__=='__main__':
     ast = schemeParser.ast
     print('*********ast:')
     pp.pprint(ast)
-    unparsedStr = schemeParser._unparse(ast)
+    unparsedStr = schemeParser._unparse()
     print(f'***********unparsedStr: modorimashitaka {eqs==unparsedStr}')
     print(unparsedStr)
 

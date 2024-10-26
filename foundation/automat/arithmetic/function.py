@@ -13,7 +13,7 @@ class Function:
     (3) form a bunch of displayable
         (a) "Scheme - styled_string" (with pretty option)
         (b) "Latex - styled_string"
-        (c) JavaScript
+        (c) MathML (html)
 
 
     """
