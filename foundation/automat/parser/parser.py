@@ -137,15 +137,22 @@ class Latexparser(Parser):
         for openBracket, infoDict in infixOperatorPositions.items():
             #find left_bracket_positions (if any), find right_bracket_positions (if any), find tightest enclosing brackets, if any
             currentEnclosingBracketPos = {'startPos':-1, 'endPos':len(self._eqs), 'openBracketType':None}
-            for infoDictMatchingBracketLoc in matchingBracketsLocation:
+            """
+# TODO binarySearch with sorted matchingBracketsLocations, may be faster with more brackets... EXPERIMENT: two different sets of code, find parametrised "Sweet Spot" to swap between code...
+https://en.wikipedia.org/wiki/Segment_tree
+#copy and paste:
+https://www.geeksforgeeks.org/segment-tree-efficient-implementation/
+            """
+            for infoDictMatchingBracketLoc in matchingBracketsLocation: 
                 #for finding tightest enclosing brackets
                 if infoDictMatchingBracketLoc['startPos'] <= infoDict['position'] and infoDict['position'] <= infoDictMatchingBracketLoc['endPos']: # is enclosed by infoDictMatchingBracketLoc
                     if currentEnclosingBracketPos['startPos'] <= infoDictMatchingBracketLoc['startPos'] and infoDictMatchingBracketLoc['endPos'] <= currentEnclosingBracketPos['endPos']: #is a tighter bracket, then recorded on currentEnclosingBracketPos
                         currentEnclosingBracketPos['startPos'] = infoDictMatchingBracketLoc['startPos']
                         currentEnclosingBracketPos['endPos'] = infoDictMatchingBracketLoc['endPos']
                         currentEnclosingBracketPos['openBracketType'] = infoDictMatchingBracketLoc['openBracketType']
-                #for finding bracket positions left of infixOp (for the swapping)... up til enclosing bracket?
-                #for finding bracket positions right of infixOp (for the swapping)... up til enclosing bracket?
+                #if there are no enclosing brackets.... have to take the nearest infixOpPos....
+                #for finding bracket positions left of infixOp (for the swapping)... up til enclosing bracket / nearest infixOpPos ? did i miss anything else
+                #for finding bracket positions right of infixOp (for the swapping)... up til enclosing bracket / nearest infixOpPos ? did i miss anything else
             #update newInfixOperatorPositions
         infixOperatorPositions = newInfixOperatorPositions
         #all pairs of infixOperatorPositions, form tree (relationship is who encloses who)
