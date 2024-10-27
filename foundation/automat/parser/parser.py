@@ -110,64 +110,52 @@ class Latexparser(Parser):
         """
         #convert all the infix-operators to LateX
         #find all the positions of the infixes, and if there are round/square/curly brackets beside them...
-        #also take note of the matching brackets in the same pass.... (confusing? should be done in a second pass?)
-        matchingBracketsCounter = dict(map(lambda openBracket: (openBracket, 0), Latexparser.OPEN_BRACKETS))
-        matchingBracketsLocation = dict(map(lambda openBracket: (openBracket, {'open':[], 'closed':[]}), Latexparser.OPEN_BRACKETS))
-        infixOperatorPositions = dict(map(lambda infixOp: (infixOp, []), Latexparser.INFIX))
+        openBracketsLocation = dict(map(lambda openBracket: (openBracket, []), Latexparser.OPEN_BRACKETS))
+        matchingBracketsLocation = []
+        #infixOperatorPositions = dict(map(lambda infixOp: (infixOp, []), Latexparser.INFIX))
         for idx in enumerate(self._eqs):
             c = self._eqs[idx]
             if c in Latexparser.OPEN_BRACKETS:
-                matchingBracketsCounter[c] += 1
-                matchingBracketsLocation[c]['open'].append(idx)
+                openBracketsLocation[c].append(idx) # this acts as a stack
             elif c in Latexparser.CLOSE_BRACKETS:
-                matchingBracketsCounter[close__open[c]] -= 1
-                matchingBracketsLocation[close__open[c]]['closed'].append(idx)
+                matchingOpenBracketPos = openBracketsLocation[close__open[c]].pop(len(openBracketsLocation[c])-1) # take out from the bottom like a stack
+                matchingBracketsLocation.append({'openBracketType':close__open[c], 'startPos':matchingOpenBracketPos, 'endPos':idx})
             elif c in Latexparser.INFIX:
                 infixOperatorPositions[c].append({
                     'position':idx,
                     'leftCloseBracket':self._eqs[idx-1] if idx>0 and (self._eqs[idx-1] in Latexparser.CLOSE_BRACKETS) else None,
                     'rightOpenBracket':self._eqs[idx+1] if idx<len(self._eqs)-2 and (self._eqs[idx+1] in Latexparser.OPEN_BRACKETS) else None
                 })
-        #check equation syntax for bracket mismatch START
+        #check for error, if there are any left-over brackets in any of the stacks, then there is unbalanced brackets
         mismatchedOpenBrackets = []
-        for openBracket, matchCount in matchingBracketCounter.items():
-            if matchCount != 0:
+        for openBracket, bracketPosStack in openBracketsLocation.items():
+            if len(openBracketLocation) > 0:
                 mismatchedOpenBrackets.append(openBracket)
         if len(mismatchedOpenBrackets) > 0:
             raise Exception(f'Mismatched brackets: {mismatchedOpenBrackets}')
-        #check equation syntax for bracket mismatch END
-        #make the list of tuples (openBracketPosition, closedBracketPosition) for each openBracket START
-        openBracket__matchingPositionDictList = dict(map(lambda openBracket: (openBracket, []), Latexparser.OPEN_BRACKETS))
-        for openBracket, openClosedDict in matchingBracketsLocation.items():
-            openBracket__matchingPositionTupleList[openBracket] = list(zip(openClosedDict['open'], list(reversed(openClosedDict['closed']))))
-        #make the list of tuples (openBracketPosition, closedBracketPosition) for each openBracket END
-        #make swapping [operandA][infixOp][operandB] ==> \infixOp{operandA}{operandB} START
-        def innerMostBDMAS(item): #TODO clean up..... private method?
-            """
-            ranking function for infixOperators. Those to be swapped first, has smallest number, last to be swapped, highest number
+        newInfixOperatorPositions = copy.deepcopy(infixOperatorPositions)
+        for openBracket, infoDict in infixOperatorPositions.items():
+            #find left_bracket_positions (if any), find right_bracket_positions (if any), find tightest enclosing brackets, if any
+            currentEnclosingBracketPos = {'startPos':-1, 'endPos':len(self._eqs), 'openBracketType':None}
+            for infoDictMatchingBracketLoc in matchingBracketsLocation:
+                #for finding tightest enclosing brackets
+                if infoDictMatchingBracketLoc['startPos'] <= infoDict['position'] and infoDict['position'] <= infoDictMatchingBracketLoc['endPos']: # is enclosed by infoDictMatchingBracketLoc
+                    if currentEnclosingBracketPos['startPos'] <= infoDictMatchingBracketLoc['startPos'] and infoDictMatchingBracketLoc['endPos'] <= currentEnclosingBracketPos['endPos']: #is a tighter bracket, then recorded on currentEnclosingBracketPos
+                        currentEnclosingBracketPos['startPos'] = infoDictMatchingBracketLoc['startPos']
+                        currentEnclosingBracketPos['endPos'] = infoDictMatchingBracketLoc['endPos']
+                        currentEnclosingBracketPos['openBracketType'] = infoDictMatchingBracketLoc['openBracketType']
+                #for finding bracket positions left of infixOp (for the swapping)... up til enclosing bracket?
+                #for finding bracket positions right of infixOp (for the swapping)... up til enclosing bracket?
+            #update newInfixOperatorPositions
+        infixOperatorPositions = newInfixOperatorPositions
+        #all pairs of infixOperatorPositions, form tree (relationship is who encloses who)
+        #give level to all the nodes
+        #swap the node from the same level together, rightmost to left most (minimise updates needed), BODMAS 
 
-            starting from the innermost infixOp
-            break tie by :-
-            1. having left/right brackets
-            2. D(ivide), M(ultiply), A(ddition), S(ubtract)
 
-            :param item: each item of infixOperatorPositions.items():- tuple[
-                openBracket,
-                {
-                    'position': idx, # position of the infixOperator
-                    'leftCloseBracket': ')', # type of leftCloseBracket, if not any close bracket on the left of operator, None
-                    'rightOpenBracket': '(', # type of rightOpenBracket, if not any open bracket on the right of operator, None
-                }
-            ]
-            :type item: tuple[
-                str,
-                dict[str, Any]
-            ]
-            """
-            #need to match operator idx to the openBracket__matchingPositionDictList
-            matchingPositionTupleList = openBracket__matchingPositionTupleList[item[0]] #note that idx=0<=>open;idx=1<=>close
-        infixOperatorPositionsItemsList = sorted(infixOperatorPositions.items(), key=innerMostBDMAS(item))
-        #make swapping [operandA][infixOp][operandB] ==> \infixOp{operandA}{operandB} END
+
+
+
 
 
 
