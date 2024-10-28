@@ -1,6 +1,7 @@
 from abc import ABC
+from copy import copy
 
-from foundation.automat.common import Backtracker, isFloat
+from foundation.automat.common import Backtracker, findAllMatches, isFloat
 from foundation.automat.arithmetic.function import Function
 
 class Parser(ABC):
@@ -76,6 +77,10 @@ class Latexparser(Parser):
     Naive Parser for Latex Strings. More details about 'Latex' format, check
     https://www.latex-project.org/help/documentation/classes.pdf
 
+    More concise guide to LaTeX mathematical symbols (courtsey of Rice University):
+    https://www.cmor-faculty.rice.edu/~heinken/latex/symbols.pdf
+    offline copy in parser.docs as "symbols.pdf"
+
     According to :- https://sg.mirrors.cicku.me/ctan/info/symbols/comprehensive/symbols-a4.pdf
 
     $ % _ } & # {  are special characters, 
@@ -91,15 +96,119 @@ class Latexparser(Parser):
     But we will assume that there is no need for that now, and only when user execute toString, 
     will we return with enclosed \[\]
     """
-    INFIX = ['+', '-', '*', '/']
+    INFIX = ['+', '-', '*', '/'] # somehow, exponential is an infix IN LATEX too. e^{i\theta}, or \tan^{power}(\theta)
     OPEN_BRACKETS = ['{', '[', '(']
     CLOSE_BRACKETS = ['}', ']', ')']
     close__open = dict(zip(CLOSE_BRACKETS, OPEN_BRACKETS))
     open__close = dict(zip(OPEN_BRACKETS, CLOSE_BRACKETS))
 
+    VARIABLENAMESTAKEANARG = ['overline', 'underline', 'widehat', 'widetilde', 'overrightarrow', 'overleftarrow', 'overbrace', 'underbrace'
+    #Math mode accents
+    'acute', 'breve', 'ddot', 'grave', 'tilde', 'bar', 'check', 'dot', 'hat', 'vec'
+    ] # these 'functions' must be preceded by {
+    TRIGOFUNCTION = ['arccos', 'cos', 'arcsin', 'sin', 'arctan', 'tan', 
+    'arccsc', 'csc', 'arcsec', 'sec', 'arccot', 'cot', 'arsinh', 'sinh', 'arcosh', 'cosh', 
+    'artanh', 'tanh', 'arcsch', 'csch', 'arsech', 'sech', 'arcoth', 'coth']
+    FUNCTIONNAMES = TRIGOFUNCTION + ['frac', 'sqrt',  'log', 'ln'] #+ ['int', 'oint', 'iint'] # TODO this is important... but i am weak now
+
     def __init__(self, equationStr, verbose=False):
         self._eqs = equationStr
         self.verbose = verbose
+
+
+    def _findVariablesFunctionsPositions(self):
+        """
+        this is done with :
+
+        https://www.cmor-faculty.rice.edu/~heinken/latex/symbols.pdf
+        offline copy in parser.docs as "symbols.pdf"
+
+        as requirements.
+
+        From the requirements, we leave these as FUTUREWORK:
+        1. all the "Delimiters" 
+        2. all the "Binary Operation/Relation Symbols"
+        3. all the "Arrow symbols"
+        4. all the "Variable-sized symbols"
+        5. all the "Miscellaneous symbols"
+        6. the double-functioned variables of "Math mode accents" like: \Acute{\Acute{}}
+        7. "Array environment, examples" (will be neccesary later for matrices... TODO)
+        8. "Other Styles (math mode only)"
+        9. "Font sizes"
+
+
+        From the requirements, we ignore these:
+        1. all the "Text Mode: Accents and Symbols" 
+        """
+        self.variablesPos = [] # str, startPos, endPos,
+        self.functionPos = [] # functionName, startPos, endPos, _, ^, arguments
+
+        #find \\functionName with regex (neater than character-by-character)
+        for reMatch in findAllMatches('\\\\([a-zA-Z]+)', self._eqs): #capturing group omit the backslash
+            positionTuple = reMatch.span()
+            labelName = reMatch.groups()[0] # if use group, it comes with \\ at the front, not sure why
+            if labelName in Latexparser.VARIABLENAMESTAKEANARG: # it is actually a special kind of variable
+                if self._eqs[positionTuple[0]+len(reMatch.group())] != '{':
+                    raise Exception(f'after {labelName} should have {{')
+                curlyCloseBracketPos = None
+                for idx, c in enumerate(self._eqs):
+                    if idx >=  positionTuple[0] and c == '}':
+                        curlyCloseBracketPos = idx
+                if curlyCloseBracketPos is None:
+                    raise Exception(f'{labelName} does not have }}')
+                self.variablesPos.append({
+                    'str':copy(self._eqs[positionTuple[0]:curlyCloseBracketPos]),
+                    'startPos':positionTuple[0],
+                    'endPos':curlyCloseBracketPos
+                })
+            elif labelName in Latexparser.FUNCTIONNAMES: #all the function that we accept, TODO link this to automat.arithmetic module
+                #only sqrt is special, wherein, it may be suceded by squarebrackets, within exists the power of its root
+                #only for sqrt, must we check for square bracket
+                argument1 = None
+                argument1EndPosition = None
+                argument2 = None
+                argument2EndPosition = None
+                if labelName == 'sqrt':
+                    if self._eqs[positionTuple[1]+1] == '[': # then we need to capture the rootpower as an argument
+                        closingSquareBracketPos = None
+                        for idx, c in enumerate(self._eqs):
+                            if idx > positionTuple[1] and c == ']':
+                                closingSquareBracketPos = idx
+                                break
+                        argument1 = self._eqs[positionTuple[1]+2:closingSquareBracketPos] # argument1 == rootpower
+                        closingSquareBracketPos = closingSquareBracketPos
+                else:#trig function, ln, frac, log,(hereon not done) int, iint, iiint, oint 
+                    """
+                    trig - \tan^{power}(Any) # note if power is a single character, then curly braces are not needed 
+                    ln - \ln(Any)
+                    frac - \frac{numerator}{denominator} # note if numerator/denominator is single character, then curly braces are not needed 
+                    log - \log_{base}(Any) # note if base is a single character, then curly braces are not needed
+                    (TODO hereon not done)
+                    One may or may not specify d... at the end of the integral...
+                    int - \int_{}^{} \int^{}_{} \int_{} \int^{} \int, not if numerator/denominator is single character, then curly braces are not needed
+                    iint - \iint_{}^{} \iint^{}_{} \iint_{} \iint^{} \iint, not if numerator/denominator is single character, then curly braces are not needed
+                    iiint - \iiint_{}^{} \iiint^{}_{} \iiint_{} \iiint^{} \iiint, not if numerator/denominator is single character, then curly braces are not needed
+                    oint - \int_{}^{} \int^{}_{} \int_{} \int^{} \int, not if numerator/denominator is single character, then curly braces are not needed
+                    """
+
+
+
+
+
+    def _addImplicitMultiply(self):
+        """
+        some times there is no multiply operator in the equation str when there should be, tatoeba
+        \sin(2x) = 2\sin(x)\cos(x)
+        should have been
+        \sin(2*x) = 2*\sin(x)*\cos(x)
+
+        ChatGPT suggests 3 things to take note:
+        1. variables/functions
+        2. numbers
+        3. parentheses
+        """
+        pass
+
 
     def _infixToPrefix(self):
         """
@@ -114,14 +223,13 @@ class Latexparser(Parser):
         openBracketsLocation = dict(map(lambda openBracket: (openBracket, []), Latexparser.OPEN_BRACKETS))
         matchingBracketsLocation = []
         infixOperatorPositions = dict(map(lambda infixOp: (infixOp, []), Latexparser.INFIX))
-        for idx in enumerate(self._eqs):
-            c = self._eqs[idx]
+        for idx, c in enumerate(self._eqs):
             if c in Latexparser.OPEN_BRACKETS:
                 openBracketsLocation[c].append(idx) # this acts as a stack
             elif c in Latexparser.CLOSE_BRACKETS:
                 matchingOpenBracketPos = openBracketsLocation[close__open[c]].pop(len(openBracketsLocation[c])-1) # take out from the bottom like a stack
                 matchingBracketsLocation.append({'openBracketType':close__open[c], 'startPos':matchingOpenBracketPos, 'endPos':idx})
-            elif c in Latexparser.INFIX:
+            elif c in Latexparser.INFIX: # TODO need to include ^, but need to check if ^ is part of a backslash.
                 infixOperatorPositions[c].append({
                     'position':idx,
                     'leftCloseBracket':self._eqs[idx-1] if idx>0 and (self._eqs[idx-1] in Latexparser.CLOSE_BRACKETS) else None,
@@ -213,10 +321,11 @@ https://www.geeksforgeeks.org/segment-tree-efficient-implementation/
         #swap the node from the same level together, rightmost to left most (minimise updates needed), BODMAS 
         for level, infixPos in sorted(levelToPos.items(), key=lambda item: item[0], reverse=True): # lowest level has the biggest number
             for infixOperatorPos in sorted(infixPos, reverse=True): # rightmost of equation has the largest index
-                #swap
+                pass#swap
                 #update... which DS....
 
     def _parse(self):
+        self._addImplicitMultiply()
         self._infixToPrefix()
 
 
@@ -407,110 +516,21 @@ class Schemeparser(Parser):
 
 if __name__=='__main__':
 
-    import pprint
-    pp = pprint.PrettyPrinter(indent=4)
-    eqs = 'a+b=c'
-    latexParser = Latexparser(eqs, verbose=True)
-    ast = latexParser.ast
-    print('*********ast:')
-    pp.pprint(ast)
+    #import pprint
+    #pp = pprint.PrettyPrinter(indent=4)
+    #eqs = 'a+b=c'
+    #latexParser = Latexparser(eqs, verbose=True)
+    #ast = latexParser.ast
+    #print('*********ast:')
+    #pp.pprint(ast)
     """
     ast = {
     ('=', 0):[(('a', 1), ('+', 2)],
     ('+', 2):[('b', 3), ('c', 4)]
     }
     """
-    unparsedStr = latexParser._unparse()
-    print(f'***********unparsedStr: modorimashitaka: {eqs==unparsedStr}')
-    print(unparsedStr)
+    #unparsedStr = latexParser._unparse()
+    #print(f'***********unparsedStr: modorimashitaka: {eqs==unparsedStr}')
+    #print(unparsedStr)
 
-    #############SchemeParser testing
-    import pprint
-    pp = pprint.PrettyPrinter(indent=4)
-    eqs = '(= a (+ b c))'
-    schemeParser = Schemeparser(eqs, verbose=False)
-    ast = schemeParser.ast
-    print('*********ast:')
-    pp.pprint(ast)
-    """
-    ast = {
-    ('=', 0):[(('a', 1), ('+', 2)],
-    ('+', 2):[('b', 3), ('c', 4)]
-    }
-    """
-    unparsedStr = schemeParser._unparse()
-    print(f'***********unparsedStr: modorimashitaka: {eqs==unparsedStr}')
-    print(unparsedStr)
-    print('*******************HARMONIC MEAN : https://en.wikipedia.org/wiki/Harmonic_mean')
-    eqs = '(= (/ 1 a) (+ (/ 1 b) (/ 1 c)))'
-    schemeParser = Schemeparser(eqs, verbose=False)
-    ast = schemeParser.ast
-    print('*********ast:')
-    pp.pprint(ast)
-    """
-    ast = {
-    ('=', 0):[('/', 1), ('+', 2)],
-    ('/', 1):[(1, 3), ('a', 4)],
-    ('+', 5):[('/', 6), ('/', 7)],
-    ('/', 6):[(1, 8), ('b', 9)],
-    ('/', 7):[(1, 10), ('c', 11)]
-    }
-    """
-    unparsedStr = schemeParser._unparse()
-
-    print(f'***********unparsedStr: modorimashitaka: {eqs==unparsedStr}')
-    print(unparsedStr)
-
-    print('*******************Phasor Diagram : https://en.wikipedia.org/wiki/Euler%27s_formula')
-    eqs = '(= (^ e (* i x)) (+ (cos x) (* i (sin x))))'
-    schemeParser = Schemeparser(eqs, verbose=False)
-    ast = schemeParser.ast
-    print('*********ast:')
-    pp.pprint(ast)
-    """
-    ast = {
-    ('=', 0):[('^', 1), ('+', 2)],
-    ('^', 1):[(e, 3), ('*', 4)],
-    ('+', 2):[('cos', 5), ('*', 6)],
-
-    ('*', 4):[('i', 7), ('x', 8)],
-    ('cos', 5):[('x', 9)],
-    ('*', 6):[('i', 10), ('sin', 11)],
-    ('sin', 11):[('x', 12)]
-    }
-    """
-    unparsedStr = schemeParser._unparse()
-    print(f'***********unparsedStr: modorimashitaka {eqs==unparsedStr}')
-    print(unparsedStr)
-
-    print('*******************Ebers-Moll_model : https://en.wikipedia.org/wiki/Bipolar_junction_transistor#Ebers%E2%80%93Moll_model')
-    eqs = '(= I_E (* I_{ES} (- (^ e (/ V_{BE} V_T) 1))))'
-    schemeParser = Schemeparser(eqs, verbose=False)
-    ast = schemeParser.ast
-    print('*********ast:')
-    pp.pprint(ast)
-    """
-    ast = {
-    ('=', 0):[('I_E', 1), ('-', 2)]
-
-    ('-', 2):[('^', 3), (1, 4)],
-
-    ('^', 3):[('e', 5), ('/', 6)],
-    ('/', 6):[('V_{BE}', 7), ('V_T', 8)]
-    }
-    """
-    unparsedStr = schemeParser._unparse()
-    print(f'***********unparsedStr: modorimashitaka {eqs==unparsedStr}')
-    print(unparsedStr)
-
-
-    print('*******************Early-effect_model(Collector current) : https://en.wikipedia.org/wiki/Early_effect#Large-signal_model')
-    eqs = '(= I_E (* I_S (* (^ e (/ V_{BE} V_T)) (+ 1 (/ V_{CE} V_A)))))'
-    schemeParser = Schemeparser(eqs, verbose=False)
-    ast = schemeParser.ast
-    print('*********ast:')
-    pp.pprint(ast)
-    unparsedStr = schemeParser._unparse()
-    print(f'***********unparsedStr: modorimashitaka {eqs==unparsedStr}')
-    print(unparsedStr)
-
+    #TODO

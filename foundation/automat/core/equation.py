@@ -123,4 +123,4 @@ class Equation:
 
 
 if __name__=='__main__':
-    eq0 = Equation('(= a (+ b c) )', 'scheme')
+    eq0 = Equation('(= a (+ b c))', 'scheme')
