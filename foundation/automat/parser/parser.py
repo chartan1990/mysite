@@ -94,13 +94,14 @@ class Latexparser(Parser):
     INFIX = ['+', '-', '*', '/']
     OPEN_BRACKETS = ['{', '[', '(']
     CLOSE_BRACKETS = ['}', ']', ')']
-    close__open = dict(zip(OPEN_BRACKETS, CLOSE_BRACKETS))
+    close__open = dict(zip(CLOSE_BRACKETS, OPEN_BRACKETS))
+    open__close = dict(zip(OPEN_BRACKETS, CLOSE_BRACKETS))
 
     def __init__(self, equationStr, verbose=False):
         self._eqs = equationStr
         self.verbose = verbose
 
-    def _parse(self):
+    def _infixToPrefix(self):
         """
         First we convert all the infix-operators to LaTex-styled prefix operators:
         A+B ==> \+{A}{B}
@@ -112,7 +113,7 @@ class Latexparser(Parser):
         #find all the positions of the infixes, and if there are round/square/curly brackets beside them...
         openBracketsLocation = dict(map(lambda openBracket: (openBracket, []), Latexparser.OPEN_BRACKETS))
         matchingBracketsLocation = []
-        #infixOperatorPositions = dict(map(lambda infixOp: (infixOp, []), Latexparser.INFIX))
+        infixOperatorPositions = dict(map(lambda infixOp: (infixOp, []), Latexparser.INFIX))
         for idx in enumerate(self._eqs):
             c = self._eqs[idx]
             if c in Latexparser.OPEN_BRACKETS:
@@ -133,10 +134,10 @@ class Latexparser(Parser):
                 mismatchedOpenBrackets.append(openBracket)
         if len(mismatchedOpenBrackets) > 0:
             raise Exception(f'Mismatched brackets: {mismatchedOpenBrackets}')
-        newInfixOperatorPositions = copy.deepcopy(infixOperatorPositions)
+        newInfixOperatorPositions = dict(map(lambda infixOp: (infixOp, []), Latexparser.INFIX))
         for openBracket, infoDict in infixOperatorPositions.items():
             #find left_bracket_positions (if any), find right_bracket_positions (if any), find tightest enclosing brackets, if any
-            currentEnclosingBracketPos = {'startPos':-1, 'endPos':len(self._eqs), 'openBracketType':None}
+            currentEnclosingPos = {'startPos':-1, 'endPos':len(self._eqs), 'startSymbol':None, 'endSymbol':None}
             """
 # TODO binarySearch with sorted matchingBracketsLocations, may be faster with more brackets... EXPERIMENT: two different sets of code, find parametrised "Sweet Spot" to swap between code...
 https://en.wikipedia.org/wiki/Segment_tree
@@ -146,19 +147,77 @@ https://www.geeksforgeeks.org/segment-tree-efficient-implementation/
             for infoDictMatchingBracketLoc in matchingBracketsLocation: 
                 #for finding tightest enclosing brackets
                 if infoDictMatchingBracketLoc['startPos'] <= infoDict['position'] and infoDict['position'] <= infoDictMatchingBracketLoc['endPos']: # is enclosed by infoDictMatchingBracketLoc
-                    if currentEnclosingBracketPos['startPos'] <= infoDictMatchingBracketLoc['startPos'] and infoDictMatchingBracketLoc['endPos'] <= currentEnclosingBracketPos['endPos']: #is a tighter bracket, then recorded on currentEnclosingBracketPos
-                        currentEnclosingBracketPos['startPos'] = infoDictMatchingBracketLoc['startPos']
-                        currentEnclosingBracketPos['endPos'] = infoDictMatchingBracketLoc['endPos']
-                        currentEnclosingBracketPos['openBracketType'] = infoDictMatchingBracketLoc['openBracketType']
+                    if currentEnclosingPos['startPos'] <= infoDictMatchingBracketLoc['startPos'] and infoDictMatchingBracketLoc['endPos'] <= currentEnclosingBracketPos['endPos']: #is a tighter bracket, then recorded on currentEnclosingBracketPos
+                        currentEnclosingPos['startPos'] = infoDictMatchingBracketLoc['startPos']
+                        currentEnclosingPos['endPos'] = infoDictMatchingBracketLoc['endPos']
+                        currentEnclosingPos['startSymbol'] = infoDictMatchingBracketLoc['openBracketType']
+                        currentEnclosingPos['endSymbol'] = open__close[infoDictMatchingBracketLoc['openBracketType']]
                 #if there are no enclosing brackets.... have to take the nearest infixOpPos....
-                #for finding bracket positions left of infixOp (for the swapping)... up til enclosing bracket / nearest infixOpPos ? did i miss anything else
-                #for finding bracket positions right of infixOp (for the swapping)... up til enclosing bracket / nearest infixOpPos ? did i miss anything else
+            if currentEnclosingPos['startSymbol'] is None: # no enclosing Brackets, look for other infix
+                #for finding bracket positions left of infixOp (for the swapping)... nearest infixOpPos ? did i miss anything else
+                #we will iterate through the infix captured, instead of the entire formula again (usually less infix than characters in entire formula)
+                nearestLeftInfixInfo = {'symbol':None, 'position':-1}
+                for oOpenBracket, oInfoDict in infixOperatorPositions.items():
+                    if nearestLeftInfixInfo['position'] <= oInfoDict['position']:
+                        nearestLeftInfixInfo = {'symbol':oOpenBracket, 'position':oInfoDict['position']}
+                #for finding bracket positions right of infixOp (for the swapping)... nearest infixOpPos ? did i miss anything else
+                nearestRightInfixInfo = {'symbol':None, 'position':len(self._eqs)}
+                for oOpenBracket, oInfoDict in infixOperatorPositions.items():
+                    if nearestRightInfixInfo['position'] >= oInfoDict['position']:
+                        nearestRightInfixInfo = {'symbol':oOpenBracket, 'position':oInfoDict['position']}
+                currentEnclosingPos['startPos'] = nearestLeftInfixInfo['position']
+                currentEnclosingPos['endPos'] = nearestRightInfixInfo['position']
+                currentEnclosingPos['startSymbol'] = nearestLeftInfixInfo['symbol']
+                currentEnclosingPos['endSymbol'] = nearestRightInfixInfo['symbol']
             #update newInfixOperatorPositions
+            infoDict.update(currentEnclosingPos)
+            newInfixOperatorPositions[openBracket].append(infoDict)
         infixOperatorPositions = newInfixOperatorPositions
-        #all pairs of infixOperatorPositions, form tree (relationship is who encloses who)
-        #give level to all the nodes
-        #swap the node from the same level together, rightmost to left most (minimise updates needed), BODMAS 
+        #TODO need to find the left and right arguments to do the swapping..
+        #TODO should put into different methods for future parallelisation....
 
+        #all pairs of infixOperatorPositions, form tree (relationship is who encloses who)
+        enclosureTree = {}
+        for openBracket_0, infoDict_0 in infixOperatorPositions.items():
+            for openBracket_1, infoDict_1 in infixOperatorPositions.items():
+                if infoDict_1['startPos'] <= infoDict_0['position'] and infoDict_0['position'] <= infoDict_1['endPos']: # 1 <= 0
+                    existingChildren = enclosureTree.get(infoDict_1['position'], [])
+                    existingChildren.append(infoDict_0['position'])
+                    enclosureTree[infoDict_1['position']] = existingChildren
+                elif infoDict_0['startPos'] <= infoDict_1['position'] and infoDict_1['position'] <= infoDict_0['endPos']: # 0 <= 1
+                    existingChildren = enclosureTree.get(infoDict_0['position'], [])
+                    existingChildren.append(infoDict_1['position'])
+                    enclosureTree[infoDict_0['position']] = existingChildren
+        #give level to all the nodes
+        #find root... all roads(leaves/branch[anyNodePos]) lead to rome(root) [because its a tree.]
+        anyNodePos = enclosureTree.items()[0][0] # key of the first item
+        #just keep getting parent, until we reach root
+        updated = True
+        while updated:
+            updated = False
+            for pos, childenPos in enclosureTree.items():
+                if anyNodePos in childenPos:
+                    anyNodePos = pos
+                    updated = True
+        rootPos = anyNodePos
+        #give level to all the nodes
+        levelToPos = {}
+        queue = [{'id':rootPos, 'level':0}]
+        while len(queue) > 0:
+            current = queue.pop(0)
+            currentPoss = levelToPos.get(current['level'], [])
+            currentPoss.append(current['id'])
+            levelToPos[current['level']] = currentPoss
+            for childPos in enclosureTree[current['id']]:
+                queue.append({'id':childPos, 'level':current['level']+1})
+        #swap the node from the same level together, rightmost to left most (minimise updates needed), BODMAS 
+        for level, infixPos in sorted(levelToPos.items(), key=lambda item: item[0], reverse=True): # lowest level has the biggest number
+            for infixOperatorPos in sorted(infixPos, reverse=True): # rightmost of equation has the largest index
+                #swap
+                #update... which DS....
+
+    def _parse(self):
+        self._infixToPrefix()
 
 
 
