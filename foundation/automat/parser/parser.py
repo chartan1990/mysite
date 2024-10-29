@@ -162,35 +162,99 @@ class Latexparser(Parser):
                     'endPos':curlyCloseBracketPos
                 })
             elif labelName in Latexparser.FUNCTIONNAMES: #all the function that we accept, TODO link this to automat.arithmetic module
-                #only sqrt is special, wherein, it may be suceded by squarebrackets, within exists the power of its root
-                #only for sqrt, must we check for square bracket
+                """
+                sqrt - \sqrt[rootpower]{rootand} # note if rootand is a single character, then curly braces are not needed, if no rootpower, then rootpower=2
+                trig - \tan^{power}(Any) # note if power is a single character, then curly braces are not needed 
+                ln - \ln(Any)
+                frac - \frac{numerator}{denominator} # note if numerator/denominator is single character, then curly braces are not needed 
+                log - \log_{base}(Any) # note if base is a single character, then curly braces are not needed
+                (TODO hereon not done)
+                One may or may not specify d... at the end of the integral...
+                int - \int_{}^{} \int^{}_{} \int_{} \int^{} \int, not if numerator/denominator is single character, then curly braces are not needed
+                iint - \iint_{}^{} \iint^{}_{} \iint_{} \iint^{} \iint, not if numerator/denominator is single character, then curly braces are not needed
+                iiint - \iiint_{}^{} \iiint^{}_{} \iiint_{} \iiint^{} \iiint, not if numerator/denominator is single character, then curly braces are not needed
+                oint - \int_{}^{} \int^{}_{} \int_{} \int^{} \int, not if numerator/denominator is single character, then curly braces are not needed
+                """
                 argument1 = None
+                argument1StartPosition = None
                 argument1EndPosition = None
                 argument2 = None
+                argument2StartPosition = None
                 argument2EndPosition = None
                 if labelName == 'sqrt':
                     if self._eqs[positionTuple[1]+1] == '[': # then we need to capture the rootpower as an argument
-                        closingSquareBracketPos = None
-                        for idx, c in enumerate(self._eqs):
-                            if idx > positionTuple[1] and c == ']':
-                                closingSquareBracketPos = idx
-                                break
-                        argument1 = self._eqs[positionTuple[1]+2:closingSquareBracketPos] # argument1 == rootpower
-                        closingSquareBracketPos = closingSquareBracketPos
-                else:#trig function, ln, frac, log,(hereon not done) int, iint, iiint, oint 
-                    """
-                    trig - \tan^{power}(Any) # note if power is a single character, then curly braces are not needed 
-                    ln - \ln(Any)
-                    frac - \frac{numerator}{denominator} # note if numerator/denominator is single character, then curly braces are not needed 
-                    log - \log_{base}(Any) # note if base is a single character, then curly braces are not needed
-                    (TODO hereon not done)
-                    One may or may not specify d... at the end of the integral...
-                    int - \int_{}^{} \int^{}_{} \int_{} \int^{} \int, not if numerator/denominator is single character, then curly braces are not needed
-                    iint - \iint_{}^{} \iint^{}_{} \iint_{} \iint^{} \iint, not if numerator/denominator is single character, then curly braces are not needed
-                    iiint - \iiint_{}^{} \iiint^{}_{} \iiint_{} \iiint^{} \iiint, not if numerator/denominator is single character, then curly braces are not needed
-                    oint - \int_{}^{} \int^{}_{} \int_{} \int^{} \int, not if numerator/denominator is single character, then curly braces are not needed
-                    """
-
+                        argument1StartPosition = positionTuple[1]+2
+                        closingSquareBracketPos = self._eqs.index(']', argument1StartPosition)
+                        argument1 = self._eqs[argument1StartPosition:closingSquareBracketPos] # argument1 == rootpower
+                        argument1EndPosition = closingSquareBracketPos - 1
+                    else:
+                        argument1 = 2 # default rootpower is square root
+                        argument1EndPosition = None
+                elif labelName in Latexparser.TRIGOFUNCTION:
+                    if self._eqs[positionTuple[1]+1] == '^': # then we need to capture the power as an argument
+                        if self._eqs[positionTuple[1]+2] == '{': # we need to find the close curly and take everything in between as arg1
+                            argument1StartPosition = positionTuple[1]+3
+                            closingCurlyBracketPos = self._eqs.index('}', argument1StartPosition)
+                            argument1 = self._eqs[argument1StartPosition:closingCurlyBracketPos]# argument1 == power
+                            argument1EndPosition = closingCurlyBracketPos - 1
+                        else: # must be followed by a single character
+                            argument1StartPosition = positionTuple[1]+2
+                            argument1 = self._eqs[positionTuple[1]+2]
+                            argument1EndPosition = positionTuple[1]+2
+                    else: #has no power raised, must be followed by round brackets.
+                        if self._eqs[positionTuple[1]+2] != '(':
+                            raise Exception('Trignometric functions must be succeded by (')
+                            argument2StartPosition = positionTuple[1]+3
+                            closingRoundBracketPos = self._eqs.index(')', argument2StartPosition)
+                            argument2 = self._eqs[argument2StartPosition:closingRoundBracketPos] # argument2 == angle
+                            argument2EndPosition = closingRoundBracketPos - 1
+                elif labelName == 'ln':
+                    if self._eqs[positionTuple[1]+1] != '(':
+                        raise Exception('Natural Log must be succeded by (')
+                    argument1StartPosition = positionTuple[1]+2
+                    closingRoundBracketPos = self._eqs.index(')', argument1StartPosition)
+                    argument1 = self._eqs[argument1StartPosition:closingRoundBracketPos] # argument1 == logged
+                    argument1EndPosition = closingRoundBracketPos - 1
+                elif labelName == 'frac': # TODO here could be differentiation here...
+                    # must have 2 curly brackets
+                    if self._eqs[positionTuple[1]+1] != '{':
+                        raise Exception('Frac must be succeded by {') # complain if cannot find first curly bracket
+                    argument1StartPosition = positionTuple[1]+2
+                    closingCurlyBracketPos = self._eqs.index('}', argument1StartPosition)
+                    argument1 = self._eqs[argument1StartPosition:closingCurlyBracketPos] # argument1 == numerator
+                    argument1EndPosition = closingCurlyBracketPos - 1
+                    if self._eqs[argument1EndPosition+1] != '{':
+                        raise Exception('Frac numerator must be succeded by {') # complain if cannot find second curly bracket
+                    argument2StartPosition = argument1EndPosition+1
+                    closingCurlyBracketPos = self._eqs.index('}', argument2StartPosition)
+                    argument2 = self._eqs[argument2StartPosition:closingCurlyBracketPos] # argument2 == denominator
+                    argument2EndPosition = closingCurlyBracketPos - 1
+                elif labelName == 'log':
+                    #might not have {base} then we assume base=10
+                    if self._eqs[positionTuple[1]+1] != '_': # user fixing the base of this log
+                        if self._eqs[positionTuple[1]+2] == '{':
+                            argument1StartPosition = positionTuple[1]+3
+                            closingCurlyBracketPos = self._eqs.index('}', argument1StartPosition)
+                            argument1 = self._eqs[argument1StartPosition:closingCurlyBracketPos] # argument1 == base
+                            argument1EndPosition = closingCurlyBracketPos - 1
+                        else: # expect a single character
+                            argument1StartPosition = positionTuple[1]+3
+                            argument1 = self._eqs[positionTuple[1]+3]
+                            argument1EndPosition = positionTuple[1]+3
+                    else:
+                        argument1 = 10 # default base=10
+                        argument1EndPosition = positionTuple[1]+3
+                    #look for the logant, must have...
+                    if self._eqs[argument1EndPosition+1] != '(':
+                        raise Exception('Log must be succeded by (')
+                    argument2StartPosition = argument1EndPosition+2
+                    closingRoundBracketPos = self._eqs.index(')', argument2StartPosition)
+                    argument2 = self._eqs[argument2StartPosition:closingRoundBracketPos] # argument2 == logant
+                    argument2EndPosition = closingRoundBracketPos - 1
+                else:
+                    raise Exception(f'{labelName} is not implemented') # my fault.
+            else: #has a backspace, but we have not targeted it... , we assume that its a zero-argument == variable...
+                pass #TODO
 
 
 
@@ -325,8 +389,10 @@ https://www.geeksforgeeks.org/segment-tree-efficient-implementation/
                 #update... which DS....
 
     def _parse(self):
+        self._findVariablesFunctionsPositions()
         self._addImplicitMultiply()
         self._infixToPrefix()
+        #self._schemeStyledParsing()
 
 
 
