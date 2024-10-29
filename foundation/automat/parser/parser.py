@@ -148,18 +148,19 @@ class Latexparser(Parser):
             positionTuple = reMatch.span()
             labelName = reMatch.groups()[0] # if use group, it comes with \\ at the front, not sure why
             if labelName in Latexparser.VARIABLENAMESTAKEANARG: # it is actually a special kind of variable
-                if self._eqs[positionTuple[0]+len(reMatch.group())] != '{':
+                if self._eqs[positionTuple[1]+1] != '{':
                     raise Exception(f'after {labelName} should have {{')
-                curlyCloseBracketPos = None
-                for idx, c in enumerate(self._eqs):
-                    if idx >=  positionTuple[0] and c == '}':
-                        curlyCloseBracketPos = idx
-                if curlyCloseBracketPos is None:
-                    raise Exception(f'{labelName} does not have }}')
+                argument1StartPosition = self._eqs[positionTuple[1]+1]
+                closingCurlyBracketPos = self._eqs.index('}', argument1StartPosition)
+                argument1 = self._eqs[argument1StartPosition:closingSquareBracketPos]
+                argument1EndPosition = closingSquareBracketPos - 1
                 self.variablesPos.append({
-                    'str':copy(self._eqs[positionTuple[0]:curlyCloseBracketPos]),
+                    'name':copy(self._eqs[positionTuple[0]:curlyCloseBracketPos]),
                     'startPos':positionTuple[0],
-                    'endPos':curlyCloseBracketPos
+                    'endPos':positionTuple[1],
+                    'argument1':argument1,
+                    'argument1StartPosition':argument1StartPosition,
+                    'argument1EndPosition':argument1EndPosition
                 })
             elif labelName in Latexparser.FUNCTIONNAMES: #all the function that we accept, TODO link this to automat.arithmetic module
                 """
@@ -253,8 +254,24 @@ class Latexparser(Parser):
                     argument2EndPosition = closingRoundBracketPos - 1
                 else:
                     raise Exception(f'{labelName} is not implemented') # my fault.
+
+                self.functionPos.append({
+                    'name':labelName,
+                    'startPos':positionTuple[0],
+                    'endPos':positionTuple[1],
+                    'argument1':argument1,
+                    'argument1StartPosition':argument1StartPosition,
+                    'argument1EndPosition':argument1EndPosition,
+                    'argument2':argument2,
+                    'argument2StartPosition':argument2StartPosition,
+                    'argument2EndPosition':argument2EndPosition
+                })
             else: #has a backspace, but we have not targeted it... , we assume that its a zero-argument == variable...
-                pass #TODO
+                self.variablesPos.append({
+                        'name':labelName,
+                        'startPos':positionTuple[0],
+                        'endPos':positionTuple[1]
+                    })
 
 
 
@@ -274,40 +291,32 @@ class Latexparser(Parser):
         pass
 
 
-    def _infixToPrefix(self):
-        """
-        First we convert all the infix-operators to LaTex-styled prefix operators:
-        A+B ==> \+{A}{B}
-        A-B ==> \-{A}{B}
-        A*B ==> \*{A}{B}
-        A/B ==> \/{A}{B}
-        """
-        #convert all the infix-operators to LateX
+    def _findInfixAndEnclosingBrackets(self):
         #find all the positions of the infixes, and if there are round/square/curly brackets beside them...
-        openBracketsLocation = dict(map(lambda openBracket: (openBracket, []), Latexparser.OPEN_BRACKETS))
-        matchingBracketsLocation = []
-        infixOperatorPositions = dict(map(lambda infixOp: (infixOp, []), Latexparser.INFIX))
+        self.openBracketsLocation = dict(map(lambda openBracket: (openBracket, []), Latexparser.OPEN_BRACKETS))
+        self.matchingBracketsLocation = []
+        self.infixOperatorPositions = dict(map(lambda infixOp: (infixOp, []), Latexparser.INFIX))
         for idx, c in enumerate(self._eqs):
             if c in Latexparser.OPEN_BRACKETS:
-                openBracketsLocation[c].append(idx) # this acts as a stack
+                self.openBracketsLocation[c].append(idx) # this acts as a stack
             elif c in Latexparser.CLOSE_BRACKETS:
-                matchingOpenBracketPos = openBracketsLocation[close__open[c]].pop(len(openBracketsLocation[c])-1) # take out from the bottom like a stack
-                matchingBracketsLocation.append({'openBracketType':close__open[c], 'startPos':matchingOpenBracketPos, 'endPos':idx})
+                matchingOpenBracketPos = self.openBracketsLocation[close__open[c]].pop(len(self.openBracketsLocation[c])-1) # take out from the bottom like a stack
+                self.matchingBracketsLocation.append({'openBracketType':close__open[c], 'startPos':matchingOpenBracketPos, 'endPos':idx})
             elif c in Latexparser.INFIX: # TODO need to include ^, but need to check if ^ is part of a backslash.
-                infixOperatorPositions[c].append({
+                self.infixOperatorPositions[c].append({
                     'position':idx,
                     'leftCloseBracket':self._eqs[idx-1] if idx>0 and (self._eqs[idx-1] in Latexparser.CLOSE_BRACKETS) else None,
                     'rightOpenBracket':self._eqs[idx+1] if idx<len(self._eqs)-2 and (self._eqs[idx+1] in Latexparser.OPEN_BRACKETS) else None
                 })
         #check for error, if there are any left-over brackets in any of the stacks, then there is unbalanced brackets
         mismatchedOpenBrackets = []
-        for openBracket, bracketPosStack in openBracketsLocation.items():
+        for openBracket, bracketPosStack in self.openBracketsLocation.items():
             if len(openBracketLocation) > 0:
                 mismatchedOpenBrackets.append(openBracket)
         if len(mismatchedOpenBrackets) > 0:
             raise Exception(f'Mismatched brackets: {mismatchedOpenBrackets}')
         newInfixOperatorPositions = dict(map(lambda infixOp: (infixOp, []), Latexparser.INFIX))
-        for openBracket, infoDict in infixOperatorPositions.items():
+        for openBracket, infoDict in self.infixOperatorPositions.items():
             #find left_bracket_positions (if any), find right_bracket_positions (if any), find tightest enclosing brackets, if any
             currentEnclosingPos = {'startPos':-1, 'endPos':len(self._eqs), 'startSymbol':None, 'endSymbol':None}
             """
@@ -316,7 +325,7 @@ https://en.wikipedia.org/wiki/Segment_tree
 #copy and paste:
 https://www.geeksforgeeks.org/segment-tree-efficient-implementation/
             """
-            for infoDictMatchingBracketLoc in matchingBracketsLocation: 
+            for infoDictMatchingBracketLoc in self.matchingBracketsLocation: 
                 #for finding tightest enclosing brackets
                 if infoDictMatchingBracketLoc['startPos'] <= infoDict['position'] and infoDict['position'] <= infoDictMatchingBracketLoc['endPos']: # is enclosed by infoDictMatchingBracketLoc
                     if currentEnclosingPos['startPos'] <= infoDictMatchingBracketLoc['startPos'] and infoDictMatchingBracketLoc['endPos'] <= currentEnclosingBracketPos['endPos']: #is a tighter bracket, then recorded on currentEnclosingBracketPos
@@ -329,7 +338,7 @@ https://www.geeksforgeeks.org/segment-tree-efficient-implementation/
                 #for finding bracket positions left of infixOp (for the swapping)... nearest infixOpPos ? did i miss anything else
                 #we will iterate through the infix captured, instead of the entire formula again (usually less infix than characters in entire formula)
                 nearestLeftInfixInfo = {'symbol':None, 'position':-1}
-                for oOpenBracket, oInfoDict in infixOperatorPositions.items():
+                for oOpenBracket, oInfoDict in self.infixOperatorPositions.items():
                     if nearestLeftInfixInfo['position'] <= oInfoDict['position']:
                         nearestLeftInfixInfo = {'symbol':oOpenBracket, 'position':oInfoDict['position']}
                 #for finding bracket positions right of infixOp (for the swapping)... nearest infixOpPos ? did i miss anything else
@@ -346,6 +355,17 @@ https://www.geeksforgeeks.org/segment-tree-efficient-implementation/
             newInfixOperatorPositions[openBracket].append(infoDict)
         infixOperatorPositions = newInfixOperatorPositions
         #TODO need to find the left and right arguments to do the swapping..
+
+    def _infixToPrefix(self):
+        """
+        First we convert all the infix-operators to LaTex-styled prefix operators:
+        A+B ==> \+{A}{B}
+        A-B ==> \-{A}{B}
+        A*B ==> \*{A}{B}
+        A/B ==> \/{A}{B}
+        """
+        #convert all the infix-operators to LateX
+        self._findInfixAndEnclosingBrackets()
         #TODO should put into different methods for future parallelisation....
 
         #all pairs of infixOperatorPositions, form tree (relationship is who encloses who)
