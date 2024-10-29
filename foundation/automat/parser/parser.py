@@ -183,75 +183,80 @@ class Latexparser(Parser):
                 argument2StartPosition = None
                 argument2EndPosition = None
                 if labelName == 'sqrt':
-                    if self._eqs[positionTuple[1]+1] == '[': # then we need to capture the rootpower as an argument
-                        argument1StartPosition = positionTuple[1]+2
+                    if self._eqs[positionTuple[1]] == '[': # then we need to capture the rootpower as an argument
+                        argument1StartPosition = positionTuple[1]+1
                         closingSquareBracketPos = self._eqs.index(']', argument1StartPosition)
                         argument1 = self._eqs[argument1StartPosition:closingSquareBracketPos] # argument1 == rootpower
-                        argument1EndPosition = closingSquareBracketPos - 1
+                        argument1EndPosition = closingSquareBracketPos
                     else:
                         argument1 = 2 # default rootpower is square root
                         argument1EndPosition = None
                 elif labelName in Latexparser.TRIGOFUNCTION:
-                    if self._eqs[positionTuple[1]+1] == '^': # then we need to capture the power as an argument
-                        if self._eqs[positionTuple[1]+2] == '{': # we need to find the close curly and take everything in between as arg1
-                            argument1StartPosition = positionTuple[1]+3
+                    nextPos = positionTuple[1]# default if there is no ^
+                    if self._eqs[positionTuple[1]] == '^': # then we need to capture the power as an argument
+                        if self._eqs[positionTuple[1]+1] == '{': # we need to find the close curly and take everything in between as arg1
+                            argument1StartPosition = positionTuple[1]+2
                             closingCurlyBracketPos = self._eqs.index('}', argument1StartPosition)
                             argument1 = self._eqs[argument1StartPosition:closingCurlyBracketPos]# argument1 == power
-                            argument1EndPosition = closingCurlyBracketPos - 1
+                            argument1EndPosition = closingCurlyBracketPos
+                            nextPos = argument1EndPosition + 1 # because of curly bracket }
                         else: # must be followed by a single character
-                            argument1StartPosition = positionTuple[1]+2
-                            argument1 = self._eqs[positionTuple[1]+2]
+                            argument1StartPosition = positionTuple[1]+1
                             argument1EndPosition = positionTuple[1]+2
-                    else: #has no power raised, must be followed by round brackets.
-                        if self._eqs[positionTuple[1]+2] != '(':
-                            raise Exception('Trignometric functions must be succeded by (')
-                            argument2StartPosition = positionTuple[1]+3
-                            closingRoundBracketPos = self._eqs.index(')', argument2StartPosition)
-                            argument2 = self._eqs[argument2StartPosition:closingRoundBracketPos] # argument2 == angle
-                            argument2EndPosition = closingRoundBracketPos - 1
+                            argument1 = self._eqs[argument1StartPosition:argument1EndPosition]
+                            nextPos = argument1EndPosition
+                    #must be followed by round brackets.
+                    if self.verbose:
+                        print(self._eqs[nextPos], 'TRIG succedor')
+                    if self._eqs[nextPos] != '(':
+                        raise Exception('Trignometric functions must be succeded by (')
+                    argument2StartPosition = nextPos+1
+                    closingRoundBracketPos = self._eqs.index(')', argument2StartPosition)
+                    argument2 = self._eqs[argument2StartPosition:closingRoundBracketPos] # argument2 == angle
+                    argument2EndPosition = closingRoundBracketPos
                 elif labelName == 'ln':
-                    if self._eqs[positionTuple[1]+1] != '(':
+                    if self._eqs[positionTuple[1]] != '(':
                         raise Exception('Natural Log must be succeded by (')
-                    argument1StartPosition = positionTuple[1]+2
+                    argument1StartPosition = positionTuple[1]+1
                     closingRoundBracketPos = self._eqs.index(')', argument1StartPosition)
                     argument1 = self._eqs[argument1StartPosition:closingRoundBracketPos] # argument1 == logged
-                    argument1EndPosition = closingRoundBracketPos - 1
+                    argument1EndPosition = closingRoundBracketPos
                 elif labelName == 'frac': # TODO here could be differentiation here...
                     # must have 2 curly brackets
-                    if self._eqs[positionTuple[1]+1] != '{':
+                    if self._eqs[positionTuple[1]] != '{':
                         raise Exception('Frac must be succeded by {') # complain if cannot find first curly bracket
-                    argument1StartPosition = positionTuple[1]+2
+                    argument1StartPosition = positionTuple[1]+1
                     closingCurlyBracketPos = self._eqs.index('}', argument1StartPosition)
                     argument1 = self._eqs[argument1StartPosition:closingCurlyBracketPos] # argument1 == numerator
-                    argument1EndPosition = closingCurlyBracketPos - 1
+                    argument1EndPosition = closingCurlyBracketPos
                     if self._eqs[argument1EndPosition+1] != '{':
                         raise Exception('Frac numerator must be succeded by {') # complain if cannot find second curly bracket
                     argument2StartPosition = argument1EndPosition+1
                     closingCurlyBracketPos = self._eqs.index('}', argument2StartPosition)
                     argument2 = self._eqs[argument2StartPosition:closingCurlyBracketPos] # argument2 == denominator
-                    argument2EndPosition = closingCurlyBracketPos - 1
+                    argument2EndPosition = closingCurlyBracketPos
                 elif labelName == 'log':
                     #might not have {base} then we assume base=10
-                    if self._eqs[positionTuple[1]+1] != '_': # user fixing the base of this log
-                        if self._eqs[positionTuple[1]+2] == '{':
-                            argument1StartPosition = positionTuple[1]+3
+                    if self._eqs[positionTuple[1]] != '_': # user fixing the base of this log
+                        if self._eqs[positionTuple[1]+1] == '{':
+                            argument1StartPosition = positionTuple[1]+2
                             closingCurlyBracketPos = self._eqs.index('}', argument1StartPosition)
                             argument1 = self._eqs[argument1StartPosition:closingCurlyBracketPos] # argument1 == base
-                            argument1EndPosition = closingCurlyBracketPos - 1
+                            argument1EndPosition = closingCurlyBracketPos
                         else: # expect a single character
-                            argument1StartPosition = positionTuple[1]+3
-                            argument1 = self._eqs[positionTuple[1]+3]
-                            argument1EndPosition = positionTuple[1]+3
+                            argument1StartPosition = positionTuple[1]+2
+                            argument1 = self._eqs[positionTuple[1]+2]
+                            argument1EndPosition = positionTuple[1]+2
                     else:
                         argument1 = 10 # default base=10
-                        argument1EndPosition = positionTuple[1]+3
+                        argument1EndPosition = positionTuple[1]+2
                     #look for the logant, must have...
                     if self._eqs[argument1EndPosition+1] != '(':
                         raise Exception('Log must be succeded by (')
-                    argument2StartPosition = argument1EndPosition+2
+                    argument2StartPosition = argument1EndPosition+1
                     closingRoundBracketPos = self._eqs.index(')', argument2StartPosition)
                     argument2 = self._eqs[argument2StartPosition:closingRoundBracketPos] # argument2 == logant
-                    argument2EndPosition = closingRoundBracketPos - 1
+                    argument2EndPosition = closingRoundBracketPos
                 else:
                     raise Exception(f'{labelName} is not implemented') # my fault.
 
@@ -300,8 +305,11 @@ class Latexparser(Parser):
             if c in Latexparser.OPEN_BRACKETS:
                 self.openBracketsLocation[c].append(idx) # this acts as a stack
             elif c in Latexparser.CLOSE_BRACKETS:
-                matchingOpenBracketPos = self.openBracketsLocation[close__open[c]].pop(len(self.openBracketsLocation[c])-1) # take out from the bottom like a stack
-                self.matchingBracketsLocation.append({'openBracketType':close__open[c], 'startPos':matchingOpenBracketPos, 'endPos':idx})
+                o = Latexparser.close__open[c]
+                matchingOpenBracketPos = self.openBracketsLocation[o].pop(len(self.openBracketsLocation[o])-1) # take out from the bottom like a stack
+                self.matchingBracketsLocation.append({'openBracketType':o, 'startPos':matchingOpenBracketPos, 'endPos':idx})
+                if self.verbose:
+                    print('popped', matchingOpenBracketPos, 'remaining bracket:', self.openBracketsLocation[o])
             elif c in Latexparser.INFIX: # TODO need to include ^, but need to check if ^ is part of a backslash.
                 self.infixOperatorPositions[c].append({
                     'position':idx,
@@ -311,7 +319,7 @@ class Latexparser(Parser):
         #check for error, if there are any left-over brackets in any of the stacks, then there is unbalanced brackets
         mismatchedOpenBrackets = []
         for openBracket, bracketPosStack in self.openBracketsLocation.items():
-            if len(openBracketLocation) > 0:
+            if len(bracketPosStack) > 0:
                 mismatchedOpenBrackets.append(openBracket)
         if len(mismatchedOpenBrackets) > 0:
             raise Exception(f'Mismatched brackets: {mismatchedOpenBrackets}')
@@ -327,6 +335,8 @@ https://www.geeksforgeeks.org/segment-tree-efficient-implementation/
             """
             for infoDictMatchingBracketLoc in self.matchingBracketsLocation: 
                 #for finding tightest enclosing brackets
+                if self.verbose:
+                    print(infoDict)
                 if infoDictMatchingBracketLoc['startPos'] <= infoDict['position'] and infoDict['position'] <= infoDictMatchingBracketLoc['endPos']: # is enclosed by infoDictMatchingBracketLoc
                     if currentEnclosingPos['startPos'] <= infoDictMatchingBracketLoc['startPos'] and infoDictMatchingBracketLoc['endPos'] <= currentEnclosingBracketPos['endPos']: #is a tighter bracket, then recorded on currentEnclosingBracketPos
                         currentEnclosingPos['startPos'] = infoDictMatchingBracketLoc['startPos']
