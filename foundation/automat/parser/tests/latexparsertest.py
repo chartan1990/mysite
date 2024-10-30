@@ -138,7 +138,7 @@ def test__findingBackSlashAndInfixOperations_Trig1(verbose=False):
     if verbose:
         print('infixOperatorPositions************************')
         pp.pprint(parser.infixOperatorPositions)
-    expected__infixOperatorPositions = {   
+    expected__infixOperatorPositions = {
     '*': [],
     '+': [   {   'endPos': 4,
                  'endSymbol': '^',

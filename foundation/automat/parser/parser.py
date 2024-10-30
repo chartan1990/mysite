@@ -2,7 +2,7 @@ from abc import ABC
 from copy import copy
 import multiprocessing as mp # TODO for Django, we might need to re-int  Django
 
-from foundation.automat.common import Backtracker, findAllMatches, isFloat
+from foundation.automat.common import Backtracker, findAllMatches, makeEnclosureTreeWithLevel, isFloat
 from foundation.automat.arithmetic.function import Function
 
 class Parser(ABC):
@@ -475,42 +475,19 @@ class Latexparser(Parser):
         """
         #convert all the infix-operators to LateX
         self._findInfixAndEnclosingBrackets() # TODO maybe just wait for it to complete using Lock
-        #TODO should put into different methods for future parallelisation....
 
-        #all pairs of infixOperatorPositions, form tree (relationship is who encloses who)
-        enclosureTree = {}
-        for openBracket_0, infoDict_0 in infixOperatorPositions.items():
-            for openBracket_1, infoDict_1 in infixOperatorPositions.items():
-                if infoDict_1['startPos'] <= infoDict_0['position'] and infoDict_0['position'] <= infoDict_1['endPos']: # 1 <= 0
-                    existingChildren = enclosureTree.get(infoDict_1['position'], [])
-                    existingChildren.append(infoDict_0['position'])
-                    enclosureTree[infoDict_1['position']] = existingChildren
-                elif infoDict_0['startPos'] <= infoDict_1['position'] and infoDict_1['position'] <= infoDict_0['endPos']: # 0 <= 1
-                    existingChildren = enclosureTree.get(infoDict_0['position'], [])
-                    existingChildren.append(infoDict_1['position'])
-                    enclosureTree[infoDict_0['position']] = existingChildren
-        #give level to all the nodes
-        #find root... all roads(leaves/branch[anyNodePos]) lead to rome(root) [because its a tree.]
-        anyNodePos = enclosureTree.items()[0][0] # key of the first item
-        #just keep getting parent, until we reach root
-        updated = True
-        while updated:
-            updated = False
-            for pos, childenPos in enclosureTree.items():
-                if anyNodePos in childenPos:
-                    anyNodePos = pos
-                    updated = True
-        rootPos = anyNodePos
-        #give level to all the nodes
-        levelToPos = {}
-        queue = [{'id':rootPos, 'level':0}]
-        while len(queue) > 0:
-            current = queue.pop(0)
-            currentPoss = levelToPos.get(current['level'], [])
-            currentPoss.append(current['id'])
-            levelToPos[current['level']] = currentPoss
-            for childPos in enclosureTree[current['id']]:
-                queue.append({'id':childPos, 'level':current['level']+1})
+        def firstContainsSecond(obj0, obj1):
+            return obj0[['startPos'] <= obj1['position'] and obj1['position'] <= obj0['endPos']
+
+        def getId(obj):
+            return obj['position']
+
+        rootId, enclosureTree, levelIDList = makeEnclosureTreeWithLevel(
+            infixOperatorPositions,
+            firstContainsSecond,
+            getId
+        )
+
         #swap the node from the same level together, rightmost to left most (minimise updates needed), BODMAS 
         for level, infixPos in sorted(levelToPos.items(), key=lambda item: item[0], reverse=True): # lowest level has the biggest number
             for infixOperatorPos in sorted(infixPos, reverse=True): # rightmost of equation has the largest index
