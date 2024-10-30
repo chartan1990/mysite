@@ -97,7 +97,7 @@ class Latexparser(Parser):
     But we will assume that there is no need for that now, and only when user execute toString, 
     will we return with enclosed \[\]
     """
-    INFIX = ['+', '-', '*', '/'] # somehow, exponential is an infix IN LATEX too. e^{i\theta}, or \tan^{power}(\theta)
+    INFIX = ['+', '-', '*', '/', '^'] # somehow, exponential is an infix IN LATEX too. \tan^{power}(\theta), need to reconcile backslash and infix....
     OPEN_BRACKETS = ['{', '[', '(']
     CLOSE_BRACKETS = ['}', ']', ')']
     close__open = dict(zip(CLOSE_BRACKETS, OPEN_BRACKETS))
@@ -132,7 +132,8 @@ class Latexparser(Parser):
         'f': float (single-precision, typically 4 bytes)
         'd': double (double-precision, typically 8 bytes)
         """
-        self.ended__findVariablesFunctionsPositions = mp.Value('b', 0) # False
+        self.lock__findVariablesFunctionsPositions = mp.Lock()
+        self.lock__findInfixAndEnclosingBrackets = mp.Lock()
 
 
 
@@ -160,6 +161,7 @@ class Latexparser(Parser):
         From the requirements, we ignore these:
         1. all the "Text Mode: Accents and Symbols" 
         """
+        self.lock__findVariablesFunctionsPositions.acquire(block=True, timeout=300) # others are waiting for you...
         self.variablesPos = [] # str, startPos, endPos,
         self.functionPos = [] # functionName, startPos, endPos, _, ^, arguments
 
@@ -184,6 +186,7 @@ class Latexparser(Parser):
                     'argument1':argument1,
                     'argument1StartPosition':argument1StartPosition,
                     'argument1EndPosition':argument1EndPosition,
+                    'argument1BracketType':'{',
                     'type':'backslash'
                 })
             elif labelName in Latexparser.FUNCTIONNAMES: #all the function that we accept, TODO link this to automat.arithmetic module
@@ -203,15 +206,18 @@ class Latexparser(Parser):
                 argument1 = None
                 argument1StartPosition = None
                 argument1EndPosition = None
+                argument1BracketType = None
                 argument2 = None
                 argument2StartPosition = None
                 argument2EndPosition = None
+                argument2BracketType = None
                 if labelName == 'sqrt':
                     if self._eqs[positionTuple[1]] == '[': # then we need to capture the rootpower as an argument
                         argument1StartPosition = positionTuple[1]+1
                         closingSquareBracketPos = self._eqs.index(']', argument1StartPosition)
                         argument1 = self._eqs[argument1StartPosition:closingSquareBracketPos] # argument1 == rootpower
                         argument1EndPosition = closingSquareBracketPos
+                        argument1BracketType = '['
                         nextPos = argument1EndPosition + 1 #because of the ]
                     else:
                         argument1StartPosition = None
@@ -224,6 +230,7 @@ class Latexparser(Parser):
                     closingRoundBracketPos = self._eqs.index(')', argument2StartPosition)
                     argument2 = self._eqs[argument2StartPosition:closingRoundBracketPos] # argument2 == rootand
                     argument2EndPosition = closingRoundBracketPos
+                    argument2BracketType = '('
                 elif labelName in Latexparser.TRIGOFUNCTION:
                     nextPos = positionTuple[1]# default if there is no ^
                     if self._eqs[positionTuple[1]] == '^': # then we need to capture the power as an argument
@@ -233,6 +240,7 @@ class Latexparser(Parser):
                             argument1 = self._eqs[argument1StartPosition:closingCurlyBracketPos]# argument1 == power
                             argument1EndPosition = closingCurlyBracketPos
                             nextPos = argument1EndPosition + 1 # because of curly bracket }
+                            argument1BracketType = '{'
                         else: # must be followed by a single character
                             argument1StartPosition = positionTuple[1]+1
                             argument1EndPosition = positionTuple[1]+2
@@ -247,6 +255,7 @@ class Latexparser(Parser):
                     closingRoundBracketPos = self._eqs.index(')', argument2StartPosition)
                     argument2 = self._eqs[argument2StartPosition:closingRoundBracketPos] # argument2 == angle
                     argument2EndPosition = closingRoundBracketPos
+                    argument2BracketType = '('
                 elif labelName == 'ln':
                     argument1StartPosition = None
                     argument1 = 'e' # defintion of natural log
@@ -257,6 +266,7 @@ class Latexparser(Parser):
                     closingRoundBracketPos = self._eqs.index(')', argument2StartPosition)
                     argument2 = self._eqs[argument2StartPosition:closingRoundBracketPos] # argument1 == logged
                     argument2EndPosition = closingRoundBracketPos
+                    argument2BracketType = '('
                 elif labelName == 'frac': # TODO here could be differentiation here...
                     # must have 2 curly brackets
                     if self._eqs[positionTuple[1]] != '{':
@@ -265,12 +275,14 @@ class Latexparser(Parser):
                     closingCurlyBracketPos = self._eqs.index('}', argument1StartPosition)
                     argument1 = self._eqs[argument1StartPosition:closingCurlyBracketPos] # argument1 == numerator
                     argument1EndPosition = closingCurlyBracketPos
+                    argument1BracketType = '{'
                     if self._eqs[argument1EndPosition+1] != '{':
                         raise Exception('Frac numerator must be succeded by {') # complain if cannot find second curly bracket
                     argument2StartPosition = argument1EndPosition+2 # because of {
                     closingCurlyBracketPos = self._eqs.index('}', argument2StartPosition)
                     argument2 = self._eqs[argument2StartPosition:closingCurlyBracketPos] # argument2 == denominator
                     argument2EndPosition = closingCurlyBracketPos
+                    argument2BracketType = '{'
                 elif labelName == 'log':
                     #might not have {base} then we assume base=10
                     if self._eqs[positionTuple[1]] == '_': # user fixing the base of this log
@@ -279,6 +291,7 @@ class Latexparser(Parser):
                             closingCurlyBracketPos = self._eqs.index('}', argument1StartPosition)
                             argument1 = self._eqs[argument1StartPosition:closingCurlyBracketPos] # argument1 == base
                             argument1EndPosition = closingCurlyBracketPos
+                            argument1BracketType = '{'
                             nextPos = argument1EndPosition + 1
                         else: # expect a single character
                             argument1StartPosition = positionTuple[1]+1
@@ -296,6 +309,7 @@ class Latexparser(Parser):
                     closingRoundBracketPos = self._eqs.index(')', argument2StartPosition)
                     argument2 = self._eqs[argument2StartPosition:closingRoundBracketPos] # argument2 == logant
                     argument2EndPosition = closingRoundBracketPos
+                    argument2BracketType = '('
                 else:
                     raise Exception(f'{labelName} is not implemented') # my fault.
 
@@ -306,9 +320,11 @@ class Latexparser(Parser):
                     'argument1':argument1,
                     'argument1StartPosition':argument1StartPosition,
                     'argument1EndPosition':argument1EndPosition,
+                    'argument1BracketType':argument1BracketType,
                     'argument2':argument2,
                     'argument2StartPosition':argument2StartPosition,
                     'argument2EndPosition':argument2EndPosition,
+                    'argument2BracketType':argument2BracketType,
                     'type':'backslash'
                 })
             else: #has a backspace, but we have not targeted it... , we assume that its a zero-argument == variable...
@@ -316,9 +332,10 @@ class Latexparser(Parser):
                         'name':labelName,
                         'startPos':positionTuple[0],
                         'endPos':positionTuple[1],
-                        'type':'backslash'
+                        'type':'backslash',
+                        'argument1':None,
                     })
-        self.ended__findVariablesFunctionsPositions = mp.Value('b', 1) # signal to other processes, that it was called.
+        self.lock__findVariablesFunctionsPositions.release() # others are waiting for you...
 
 
 
@@ -339,6 +356,7 @@ class Latexparser(Parser):
 
 
     def _findInfixAndEnclosingBrackets(self):
+        self.lock__findInfixAndEnclosingBrackets.acquire(block=True, timeout=300)
         #find all the positions of the infixes, and if there are round/square/curly brackets beside them...
         self.openBracketsLocation = dict(map(lambda openBracket: (openBracket, []), Latexparser.OPEN_BRACKETS))
         self.matchingBracketsLocation = []
@@ -391,14 +409,13 @@ class Latexparser(Parser):
                     #for finding bracket positions left of infixOp (for the swapping)... nearest infixOpPos ? did i miss anything else
                     #we will iterate through the infix captured, instead of the entire formula again (usually less infix than characters in entire formula)
                     nearestLeftInfixInfo = {'symbol':None, 'position':-1}
-                    for oOpenBracket, oInfoDict in self.infixOperatorPositions.items():
-                        if nearestLeftInfixInfo['position'] <= oInfoDict['position']:
-                            nearestLeftInfixInfo = {'symbol':oOpenBracket, 'position':oInfoDict['position']}
-                    #for finding bracket positions right of infixOp (for the swapping)... nearest infixOpPos ? did i miss anything else
                     nearestRightInfixInfo = {'symbol':None, 'position':len(self._eqs)}
-                    for oOpenBracket, oInfoDict in self.infixOperatorPositions.items():
-                        if nearestRightInfixInfo['position'] >= oInfoDict['position']:
-                            nearestRightInfixInfo = {'symbol':oOpenBracket, 'position':oInfoDict['position']}
+                    for oOpenBracket, oInfoDictList in self.infixOperatorPositions.items():
+                        for oInfoDict in oInfoDictList:
+                            if nearestLeftInfixInfo['position'] <= oInfoDict['position']:
+                                nearestLeftInfixInfo = {'symbol':oOpenBracket, 'position':oInfoDict['position']}
+                            if nearestRightInfixInfo['position'] >= oInfoDict['position']:
+                                nearestRightInfixInfo = {'symbol':oOpenBracket, 'position':oInfoDict['position']}
                     currentEnclosingPos['startPos'] = nearestLeftInfixInfo['position']
                     currentEnclosingPos['endPos'] = nearestRightInfixInfo['position']
                     currentEnclosingPos['startSymbol'] = nearestLeftInfixInfo['symbol']
@@ -408,14 +425,44 @@ class Latexparser(Parser):
                 newInfixOperatorPositions[openBracket].append(infoDict)
             self.infixOperatorPositions = newInfixOperatorPositions
             #TODO need to find the left and right arguments to do the swapping..
+        self.lock__findInfixAndEnclosingBrackets.release()
 
-    def _findEnclosingBrackets(self):
-        """
-        a lot of the brackets belong to backslash function/variables...
-        find unqiue set of brackets that are meant to enclosing terms.... (real brackets)
+    # def _findEnclosingBrackets(self):
+    #     """
+    #     a lot of the brackets belong to backslash function/variables...
+    #     find unqiue set of brackets that are meant to enclosing terms.... (real brackets)
 
-        """
-        with #https://docs.python.org/3/library/threading.html#threading.Condition.wait_for
+    #     """
+    #     Condition(lock=self.lock__findVariablesFunctionsPositions).wait()# findVariablesFunctionsPositions should be processed first...
+    #     Condition(lock=self.lock__findInfixAndEnclosingBrackets).wait()# depends on 
+    #     self.enclosingBrackets = []
+    #     for infoDictMatchingBracketLoc in self.matchingBracketsLocation: #{'openBracketType':, 'startPos':, 'endPos':}
+    #         for variablePosDict in self.variablesPos:
+    #             if 'argument1BracketType' in variablePosDict:
+    #                 #check if equals infoDictMatchingBracketLoc
+    #                 #if equals, record and break
+    #             if 'argument2BracketType' in variablePosDict:
+    #                 #check if equals infoDictMatchingBracketLoc
+    #                 #if equals, record and break
+    #         #if not found in variable, then search here
+    #         for functionPosDict in self.functionPos:
+    #             if 'argument1BracketType' in functionPosDict:
+    #                 #check if equals infoDictMatchingBracketLoc
+    #                 #if equals, record and break
+    #             if 'argument2BracketType' in functionPosDict:
+    #                 #check if equals infoDictMatchingBracketLoc
+    #                 #if equals, record and break
+    #         #if not equals, self.enclosingBracket.append() # thats it.
+
+
+    def _formBackSlashEnclosureTree(self):
+        """"""
+        Condition(lock=self.lock__findVariablesFunctionsPositions).wait()# findVariablesFunctionsPositions should be processed first...
+        Condition(lock=self.lock__findInfixAndEnclosingBrackets).wait()# depends on 
+        #
+
+    def _findParentChildDifferenceInEnclosureTree(self):
+        pass
 
 
     def _infixToPrefix(self):
@@ -427,7 +474,7 @@ class Latexparser(Parser):
         A/B ==> \/{A}{B}
         """
         #convert all the infix-operators to LateX
-        self._findInfixAndEnclosingBrackets()
+        self._findInfixAndEnclosingBrackets() # TODO maybe just wait for it to complete using Lock
         #TODO should put into different methods for future parallelisation....
 
         #all pairs of infixOperatorPositions, form tree (relationship is who encloses who)
