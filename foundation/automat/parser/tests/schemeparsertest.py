@@ -1,5 +1,5 @@
 if __name__=='__main__':
-	from foundation.automat.parser.parser import Schemeparser
+    from foundation.automat.parser.parser import Schemeparser
 
     #############SchemeParser testing
     import pprint

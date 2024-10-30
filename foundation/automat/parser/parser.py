@@ -1,5 +1,6 @@
 from abc import ABC
 from copy import copy
+import multiprocessing as mp # TODO for Django, we might need to re-int  Django
 
 from foundation.automat.common import Backtracker, findAllMatches, isFloat
 from foundation.automat.arithmetic.function import Function
@@ -114,6 +115,25 @@ class Latexparser(Parser):
     def __init__(self, equationStr, verbose=False):
         self._eqs = equationStr
         self.verbose = verbose
+        """
+        From ChatGPT:
+        multiprocessing.Value:
+
+        'b': signed char (integer, 1 byte)
+        'B': unsigned char (integer, 1 byte)
+        'h': signed short (integer, 2 bytes)
+        'H': unsigned short (integer, 2 bytes)
+        'i': signed int (integer, typically 4 bytes)
+        'I': unsigned int (integer, typically 4 bytes)
+        'l': signed long (integer, typically 4 bytes)
+        'L': unsigned long (integer, typically 4 bytes)
+        'q': signed long long (integer, 8 bytes)
+        'Q': unsigned long long (integer, 8 bytes)
+        'f': float (single-precision, typically 4 bytes)
+        'd': double (double-precision, typically 8 bytes)
+        """
+        self.ended__findVariablesFunctionsPositions = mp.Value('b', 0) # False
+
 
 
     def _findVariablesFunctionsPositions(self):
@@ -147,20 +167,24 @@ class Latexparser(Parser):
         for reMatch in findAllMatches('\\\\([a-zA-Z]+)', self._eqs): #capturing group omit the backslash
             positionTuple = reMatch.span()
             labelName = reMatch.groups()[0] # if use group, it comes with \\ at the front, not sure why
+            if self.verbose:
+                print('labelName', labelName, '<<<<<<')
+                print('positionTuple', positionTuple, '<<<<<')
             if labelName in Latexparser.VARIABLENAMESTAKEANARG: # it is actually a special kind of variable
-                if self._eqs[positionTuple[1]+1] != '{':
+                if self._eqs[positionTuple[1]] != '{':
                     raise Exception(f'after {labelName} should have {{')
-                argument1StartPosition = self._eqs[positionTuple[1]+1]
+                argument1StartPosition = positionTuple[1]+1 # because of the {
                 closingCurlyBracketPos = self._eqs.index('}', argument1StartPosition)
-                argument1 = self._eqs[argument1StartPosition:closingSquareBracketPos]
-                argument1EndPosition = closingSquareBracketPos - 1
+                argument1 = self._eqs[argument1StartPosition:closingCurlyBracketPos]
+                argument1EndPosition = closingCurlyBracketPos
                 self.variablesPos.append({
-                    'name':copy(self._eqs[positionTuple[0]:curlyCloseBracketPos]),
+                    'name':labelName,
                     'startPos':positionTuple[0],
                     'endPos':positionTuple[1],
                     'argument1':argument1,
                     'argument1StartPosition':argument1StartPosition,
-                    'argument1EndPosition':argument1EndPosition
+                    'argument1EndPosition':argument1EndPosition,
+                    'type':'backslash'
                 })
             elif labelName in Latexparser.FUNCTIONNAMES: #all the function that we accept, TODO link this to automat.arithmetic module
                 """
@@ -188,9 +212,18 @@ class Latexparser(Parser):
                         closingSquareBracketPos = self._eqs.index(']', argument1StartPosition)
                         argument1 = self._eqs[argument1StartPosition:closingSquareBracketPos] # argument1 == rootpower
                         argument1EndPosition = closingSquareBracketPos
+                        nextPos = argument1EndPosition + 1 #because of the ]
                     else:
+                        argument1StartPosition = None
                         argument1 = 2 # default rootpower is square root
                         argument1EndPosition = None
+                        nextPos = positionTuple[1]
+                    if self._eqs[nextPos] != '(': #TODO this is not true
+                        raise Exception('Sqrt functions must be succeded by (')
+                    argument2StartPosition = nextPos+1
+                    closingRoundBracketPos = self._eqs.index(')', argument2StartPosition)
+                    argument2 = self._eqs[argument2StartPosition:closingRoundBracketPos] # argument2 == rootand
+                    argument2EndPosition = closingRoundBracketPos
                 elif labelName in Latexparser.TRIGOFUNCTION:
                     nextPos = positionTuple[1]# default if there is no ^
                     if self._eqs[positionTuple[1]] == '^': # then we need to capture the power as an argument
@@ -215,12 +248,15 @@ class Latexparser(Parser):
                     argument2 = self._eqs[argument2StartPosition:closingRoundBracketPos] # argument2 == angle
                     argument2EndPosition = closingRoundBracketPos
                 elif labelName == 'ln':
+                    argument1StartPosition = None
+                    argument1 = 'e' # defintion of natural log
+                    argument1EndPosition = None
                     if self._eqs[positionTuple[1]] != '(':
                         raise Exception('Natural Log must be succeded by (')
-                    argument1StartPosition = positionTuple[1]+1
-                    closingRoundBracketPos = self._eqs.index(')', argument1StartPosition)
-                    argument1 = self._eqs[argument1StartPosition:closingRoundBracketPos] # argument1 == logged
-                    argument1EndPosition = closingRoundBracketPos
+                    argument2StartPosition = positionTuple[1]+1
+                    closingRoundBracketPos = self._eqs.index(')', argument2StartPosition)
+                    argument2 = self._eqs[argument2StartPosition:closingRoundBracketPos] # argument1 == logged
+                    argument2EndPosition = closingRoundBracketPos
                 elif labelName == 'frac': # TODO here could be differentiation here...
                     # must have 2 curly brackets
                     if self._eqs[positionTuple[1]] != '{':
@@ -231,29 +267,32 @@ class Latexparser(Parser):
                     argument1EndPosition = closingCurlyBracketPos
                     if self._eqs[argument1EndPosition+1] != '{':
                         raise Exception('Frac numerator must be succeded by {') # complain if cannot find second curly bracket
-                    argument2StartPosition = argument1EndPosition+1
+                    argument2StartPosition = argument1EndPosition+2 # because of {
                     closingCurlyBracketPos = self._eqs.index('}', argument2StartPosition)
                     argument2 = self._eqs[argument2StartPosition:closingCurlyBracketPos] # argument2 == denominator
                     argument2EndPosition = closingCurlyBracketPos
                 elif labelName == 'log':
                     #might not have {base} then we assume base=10
-                    if self._eqs[positionTuple[1]] != '_': # user fixing the base of this log
+                    if self._eqs[positionTuple[1]] == '_': # user fixing the base of this log
                         if self._eqs[positionTuple[1]+1] == '{':
                             argument1StartPosition = positionTuple[1]+2
                             closingCurlyBracketPos = self._eqs.index('}', argument1StartPosition)
                             argument1 = self._eqs[argument1StartPosition:closingCurlyBracketPos] # argument1 == base
                             argument1EndPosition = closingCurlyBracketPos
+                            nextPos = argument1EndPosition + 1
                         else: # expect a single character
-                            argument1StartPosition = positionTuple[1]+2
-                            argument1 = self._eqs[positionTuple[1]+2]
-                            argument1EndPosition = positionTuple[1]+2
+                            argument1StartPosition = positionTuple[1]+1
+                            argument1 = self._eqs[positionTuple[1]+1]
+                            argument1EndPosition = positionTuple[1]+1
+                            nextPos = argument1EndPosition
                     else:
                         argument1 = 10 # default base=10
-                        argument1EndPosition = positionTuple[1]+2
-                    #look for the logant, must have...
-                    if self._eqs[argument1EndPosition+1] != '(':
+                        nextPos = positionTuple[1]
+                    if self.verbose:
+                        print(self._eqs[nextPos], '<<<<<nextPos')
+                    if self._eqs[nextPos] != '(':
                         raise Exception('Log must be succeded by (')
-                    argument2StartPosition = argument1EndPosition+1
+                    argument2StartPosition = nextPos+1
                     closingRoundBracketPos = self._eqs.index(')', argument2StartPosition)
                     argument2 = self._eqs[argument2StartPosition:closingRoundBracketPos] # argument2 == logant
                     argument2EndPosition = closingRoundBracketPos
@@ -269,14 +308,17 @@ class Latexparser(Parser):
                     'argument1EndPosition':argument1EndPosition,
                     'argument2':argument2,
                     'argument2StartPosition':argument2StartPosition,
-                    'argument2EndPosition':argument2EndPosition
+                    'argument2EndPosition':argument2EndPosition,
+                    'type':'backslash'
                 })
             else: #has a backspace, but we have not targeted it... , we assume that its a zero-argument == variable...
                 self.variablesPos.append({
                         'name':labelName,
                         'startPos':positionTuple[0],
-                        'endPos':positionTuple[1]
+                        'endPos':positionTuple[1],
+                        'type':'backslash'
                     })
+        self.ended__findVariablesFunctionsPositions = mp.Value('b', 1) # signal to other processes, that it was called.
 
 
 
@@ -324,47 +366,57 @@ class Latexparser(Parser):
         if len(mismatchedOpenBrackets) > 0:
             raise Exception(f'Mismatched brackets: {mismatchedOpenBrackets}')
         newInfixOperatorPositions = dict(map(lambda infixOp: (infixOp, []), Latexparser.INFIX))
-        for openBracket, infoDict in self.infixOperatorPositions.items():
-            #find left_bracket_positions (if any), find right_bracket_positions (if any), find tightest enclosing brackets, if any
-            currentEnclosingPos = {'startPos':-1, 'endPos':len(self._eqs), 'startSymbol':None, 'endSymbol':None}
-            """
-# TODO binarySearch with sorted matchingBracketsLocations, may be faster with more brackets... EXPERIMENT: two different sets of code, find parametrised "Sweet Spot" to swap between code...
-https://en.wikipedia.org/wiki/Segment_tree
-#copy and paste:
-https://www.geeksforgeeks.org/segment-tree-efficient-implementation/
-            """
-            for infoDictMatchingBracketLoc in self.matchingBracketsLocation: 
-                #for finding tightest enclosing brackets
-                if self.verbose:
-                    print(infoDict)
-                if infoDictMatchingBracketLoc['startPos'] <= infoDict['position'] and infoDict['position'] <= infoDictMatchingBracketLoc['endPos']: # is enclosed by infoDictMatchingBracketLoc
-                    if currentEnclosingPos['startPos'] <= infoDictMatchingBracketLoc['startPos'] and infoDictMatchingBracketLoc['endPos'] <= currentEnclosingBracketPos['endPos']: #is a tighter bracket, then recorded on currentEnclosingBracketPos
-                        currentEnclosingPos['startPos'] = infoDictMatchingBracketLoc['startPos']
-                        currentEnclosingPos['endPos'] = infoDictMatchingBracketLoc['endPos']
-                        currentEnclosingPos['startSymbol'] = infoDictMatchingBracketLoc['openBracketType']
-                        currentEnclosingPos['endSymbol'] = open__close[infoDictMatchingBracketLoc['openBracketType']]
-                #if there are no enclosing brackets.... have to take the nearest infixOpPos....
-            if currentEnclosingPos['startSymbol'] is None: # no enclosing Brackets, look for other infix
-                #for finding bracket positions left of infixOp (for the swapping)... nearest infixOpPos ? did i miss anything else
-                #we will iterate through the infix captured, instead of the entire formula again (usually less infix than characters in entire formula)
-                nearestLeftInfixInfo = {'symbol':None, 'position':-1}
-                for oOpenBracket, oInfoDict in self.infixOperatorPositions.items():
-                    if nearestLeftInfixInfo['position'] <= oInfoDict['position']:
-                        nearestLeftInfixInfo = {'symbol':oOpenBracket, 'position':oInfoDict['position']}
-                #for finding bracket positions right of infixOp (for the swapping)... nearest infixOpPos ? did i miss anything else
-                nearestRightInfixInfo = {'symbol':None, 'position':len(self._eqs)}
-                for oOpenBracket, oInfoDict in infixOperatorPositions.items():
-                    if nearestRightInfixInfo['position'] >= oInfoDict['position']:
-                        nearestRightInfixInfo = {'symbol':oOpenBracket, 'position':oInfoDict['position']}
-                currentEnclosingPos['startPos'] = nearestLeftInfixInfo['position']
-                currentEnclosingPos['endPos'] = nearestRightInfixInfo['position']
-                currentEnclosingPos['startSymbol'] = nearestLeftInfixInfo['symbol']
-                currentEnclosingPos['endSymbol'] = nearestRightInfixInfo['symbol']
-            #update newInfixOperatorPositions
-            infoDict.update(currentEnclosingPos)
-            newInfixOperatorPositions[openBracket].append(infoDict)
-        infixOperatorPositions = newInfixOperatorPositions
-        #TODO need to find the left and right arguments to do the swapping..
+        for openBracket, infoDictList in self.infixOperatorPositions.items():
+            for infoDict in infoDictList:
+                #find left_bracket_positions (if any), find right_bracket_positions (if any), find tightest enclosing brackets, if any
+                currentEnclosingPos = {'startPos':-1, 'endPos':len(self._eqs), 'startSymbol':None, 'endSymbol':None}
+                """
+    # TODO binarySearch with sorted matchingBracketsLocations, may be faster with more brackets... EXPERIMENT: two different sets of code, find parametrised "Sweet Spot" to swap between code...
+    https://en.wikipedia.org/wiki/Segment_tree
+    #copy and paste:
+    https://www.geeksforgeeks.org/segment-tree-efficient-implementation/
+                """
+                for infoDictMatchingBracketLoc in self.matchingBracketsLocation: 
+                    #for finding tightest enclosing brackets
+                    if self.verbose:
+                        print(infoDict)
+                    if infoDictMatchingBracketLoc['startPos'] <= infoDict['position'] and infoDict['position'] <= infoDictMatchingBracketLoc['endPos']: # is enclosed by infoDictMatchingBracketLoc
+                        if currentEnclosingPos['startPos'] <= infoDictMatchingBracketLoc['startPos'] and infoDictMatchingBracketLoc['endPos'] <= currentEnclosingBracketPos['endPos']: #is a tighter bracket, then recorded on currentEnclosingBracketPos
+                            currentEnclosingPos['startPos'] = infoDictMatchingBracketLoc['startPos']
+                            currentEnclosingPos['endPos'] = infoDictMatchingBracketLoc['endPos']
+                            currentEnclosingPos['startSymbol'] = infoDictMatchingBracketLoc['openBracketType']
+                            currentEnclosingPos['endSymbol'] = open__close[infoDictMatchingBracketLoc['openBracketType']]
+                    #if there are no enclosing brackets.... have to take the nearest infixOpPos....
+                if currentEnclosingPos['startSymbol'] is None: # no enclosing Brackets, look for other infix
+                    #for finding bracket positions left of infixOp (for the swapping)... nearest infixOpPos ? did i miss anything else
+                    #we will iterate through the infix captured, instead of the entire formula again (usually less infix than characters in entire formula)
+                    nearestLeftInfixInfo = {'symbol':None, 'position':-1}
+                    for oOpenBracket, oInfoDict in self.infixOperatorPositions.items():
+                        if nearestLeftInfixInfo['position'] <= oInfoDict['position']:
+                            nearestLeftInfixInfo = {'symbol':oOpenBracket, 'position':oInfoDict['position']}
+                    #for finding bracket positions right of infixOp (for the swapping)... nearest infixOpPos ? did i miss anything else
+                    nearestRightInfixInfo = {'symbol':None, 'position':len(self._eqs)}
+                    for oOpenBracket, oInfoDict in self.infixOperatorPositions.items():
+                        if nearestRightInfixInfo['position'] >= oInfoDict['position']:
+                            nearestRightInfixInfo = {'symbol':oOpenBracket, 'position':oInfoDict['position']}
+                    currentEnclosingPos['startPos'] = nearestLeftInfixInfo['position']
+                    currentEnclosingPos['endPos'] = nearestRightInfixInfo['position']
+                    currentEnclosingPos['startSymbol'] = nearestLeftInfixInfo['symbol']
+                    currentEnclosingPos['endSymbol'] = nearestRightInfixInfo['symbol']
+                #update newInfixOperatorPositions
+                infoDict.update(currentEnclosingPos)
+                newInfixOperatorPositions[openBracket].append(infoDict)
+            self.infixOperatorPositions = newInfixOperatorPositions
+            #TODO need to find the left and right arguments to do the swapping..
+
+    def _findEnclosingBrackets(self):
+        """
+        a lot of the brackets belong to backslash function/variables...
+        find unqiue set of brackets that are meant to enclosing terms.... (real brackets)
+
+        """
+        with #https://docs.python.org/3/library/threading.html#threading.Condition.wait_for
+
 
     def _infixToPrefix(self):
         """
