@@ -117,3 +117,22 @@ class Function:
                 del ast[oldKey]
             ast[oldValue['newKey']] = oldValue['newValue']
         return ast, functionCountChange, variableCountChange, primitiveCountChange, totalNodeCountChange
+
+    def evalFunctor(self):
+        """
+        evaluates the AST for functors like Differentiation and Integration
+
+
+        TODO this is a sketch... please test&correct
+        """
+        #prevent circular import
+        from foundation.automat.arithmetic.sfunctor import FUNCTOR_NAMES_TO_CLASS
+        queue = [self.ast] # TODO need to insert the root.... of the AST.... which i did not put in...
+        while len(queue) != 0:
+            current = queue.pop()
+            if current.label in FUNCTOR_NAMES_TO_CLASS: 
+                neighbours = self.ast[current.label]
+                subroot = neighbours[0]
+                withrespectto = neighbours[1]
+                self.ast = FUNCTOR_NAMES_TO_CLASS[current.label]._calculate(subroot, withrespectto)
+                # put which neighbours in queue again?

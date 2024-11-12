@@ -1,16 +1,23 @@
 import pprint
 
+from foundation.automat.common import isNum
 from foundation.automat.parser.parser import Latexparser
 
 
 def test__findingBackSlashAndInfixOperations_Trig0(verbose=False):
     pp = pprint.PrettyPrinter(indent=4)
 
-    equationStr = '\\sin(2x) = 2\\sin(x)\\cos(x)' # should add the implicit multiplications first...
+    equationStr = '-\\sin( 2x_0 ) = -2\\sin(x_0)\\cos(x_0)' # should add the implicit multiplications first...
     parser = Latexparser(equationStr, verbose=True)
+    parser._findEqualPos()
     parser._findVariablesFunctionsPositions()
     parser._findInfixAndEnclosingBrackets()
-    #TODO try to find what symbols are left over at what positions?
+    parser._removeArgBracketsThatAreBackSlashArgs()
+    parser._removeCaretThatIsNotExponent()
+    parser._findLeftOverPosition() 
+    parser._contiguousLeftOvers()#TODO leftovers, can have v_0 as a variable.... self.unoccupiedPos__lowestBackSlashArgument
+    #collate leftovers, as variables or numbers
+    #TODO form enclosure tree.... 
     print('equationStr************************')
     print(equationStr)
     if verbose:
@@ -25,10 +32,14 @@ def test__findingBackSlashAndInfixOperations_Trig0(verbose=False):
         'argument1BracketType': None,
         'argument1EndPosition': None,
         'argument1StartPosition': None,
+        'argument1SubSuperPos': None,
+        'argument1SubSuperType': None,
         'argument2': '2x',
         'argument2BracketType': '(',
         'argument2EndPosition': 7,
         'argument2StartPosition': 5,
+        'argument2SubSuperPos': None,
+        'argument2SubSuperType': None,
         'endPos': 4,
         'name': 'sin',
         'startPos': 0,
@@ -37,10 +48,14 @@ def test__findingBackSlashAndInfixOperations_Trig0(verbose=False):
         'argument1BracketType': None,
         'argument1EndPosition': None,
         'argument1StartPosition': None,
+        'argument1SubSuperPos': None,
+        'argument1SubSuperType': None,
         'argument2': 'x',
         'argument2BracketType': '(',
         'argument2EndPosition': 18,
         'argument2StartPosition': 17,
+        'argument2SubSuperPos': None,
+        'argument2SubSuperType': None,
         'endPos': 16,
         'name': 'sin',
         'startPos': 12,
@@ -49,10 +64,14 @@ def test__findingBackSlashAndInfixOperations_Trig0(verbose=False):
         'argument1BracketType': None,
         'argument1EndPosition': None,
         'argument1StartPosition': None,
+        'argument1SubSuperPos': None,
+        'argument1SubSuperType': None,
         'argument2': 'x',
         'argument2BracketType': '(',
         'argument2EndPosition': 25,
         'argument2StartPosition': 24,
+        'argument2SubSuperPos': None,
+        'argument2SubSuperType': None,
         'endPos': 23,
         'name': 'cos',
         'startPos': 19,
@@ -77,16 +96,29 @@ def test__findingBackSlashAndInfixOperations_Trig0(verbose=False):
         pp.pprint(parser.infixOperatorPositions)
     expected__infixOperatorPositions = {'*': [], '+': [], '-': [], '/': [], '^': []}
     print(f'expected__infixOperatorPositions as expected? {parser.infixOperatorPositions==expected__infixOperatorPositions}')
-    #TODO remove openBracketsLocations that belong to backslash.... only keep enclosing brackets
+    #Collate Leftovers into variables, numbers, and then with implicit multiply
+    print('**************LEFTOVERS:')
+    pp.pprint(parser.unoccupiedPos__lowestBackSlashArgument)
+    print('**************************')
+    #build tree from leaf to root..., since pointing to parents
+    #self.functionPos
+    #self.variablesPos
+    #self.unoccupiedPos__lowestBackSlashArgument
+    #self.wordLowestBackSlashArgumentParents
 
 
 def test__findingBackSlashAndInfixOperations_Trig1(verbose=False):
     pp = pprint.PrettyPrinter(indent=4)
 
-    equationStr = '\\sin^2(x)+\\cos^2(x)=1' # should add the implicit multiplications first...
+    equationStr = '\\sin^2(x) + \\cos^2(x)=1' # should add the implicit multiplications first...
     parser = Latexparser(equationStr, verbose=True)
+    parser._findEqualPos()
     parser._findVariablesFunctionsPositions()
     parser._findInfixAndEnclosingBrackets()
+    parser._removeArgBracketsThatAreBackSlashArgs()
+    parser._removeCaretThatIsNotExponent()
+    parser._findLeftOverPosition() 
+    parser._contiguousLeftOvers()
     #TODO try to find what symbols are left over at what positions?
     print('equationStr************************')
     print(equationStr)
@@ -103,10 +135,14 @@ def test__findingBackSlashAndInfixOperations_Trig1(verbose=False):
         'argument1BracketType': None,
         'argument1EndPosition': 6,
         'argument1StartPosition': 5,
+        'argument1SubSuperPos': 4,
+        'argument1SubSuperType': '^',
         'argument2': 'x',
         'argument2BracketType': '(',
         'argument2EndPosition': 8,
         'argument2StartPosition': 7,
+        'argument2SubSuperPos': None,
+        'argument2SubSuperType': None,
         'endPos': 4,
         'name': 'sin',
         'startPos': 0,
@@ -115,10 +151,14 @@ def test__findingBackSlashAndInfixOperations_Trig1(verbose=False):
         'argument1BracketType': None,
         'argument1EndPosition': 16,
         'argument1StartPosition': 15,
+        'argument1SubSuperPos': 14,
+        'argument1SubSuperType': '^',
         'argument2': 'x',
         'argument2BracketType': '(',
         'argument2EndPosition': 18,
         'argument2StartPosition': 17,
+        'argument2SubSuperPos': None,
+        'argument2SubSuperType': None,
         'endPos': 14,
         'name': 'cos',
         'startPos': 10,
@@ -138,31 +178,29 @@ def test__findingBackSlashAndInfixOperations_Trig1(verbose=False):
     if verbose:
         print('infixOperatorPositions************************')
         pp.pprint(parser.infixOperatorPositions)
-    expected__infixOperatorPositions = {
-    '*': [],
-    '+': [   {   'endPos': 4,
-                 'endSymbol': '^',
+    expected__infixOperatorPositions = {   '*': [],
+    '+': [   {   'endPos': 21,
+                 'endSymbol': None,
+                 'leftArg_closeBracketPos': None,
+                 'leftArg_closeBracketType': None,
+                 'leftArg_enclosingInfix': None,
+                 'leftArg_enclosingInifxPos': None,
+                 'leftArg_openBracketPos': None,
+                 'leftArg_openBracketType': None,
                  'leftCloseBracket': ')',
                  'position': 9,
+                 'rightArg_closeBracketPos': None,
+                 'rightArg_closeBracketType': None,
+                 'rightArg_enclosingInfix': None,
+                 'rightArg_enclosingInfixPos': None,
+                 'rightArg_openBracketPos': None,
+                 'rightArg_openBracketType': None,
                  'rightOpenBracket': None,
-                 'startPos': 14,
-                 'startSymbol': '^'}],
+                 'startPos': -1,
+                 'startSymbol': None}],
     '-': [],
     '/': [],
-    '^': [   {   'endPos': 9,
-                 'endSymbol': '+',
-                 'leftCloseBracket': None,
-                 'position': 4,
-                 'rightOpenBracket': None,
-                 'startPos': 9,
-                 'startSymbol': '+'},
-             {   'endPos': 4,
-                 'endSymbol': '^',
-                 'leftCloseBracket': None,
-                 'position': 14,
-                 'rightOpenBracket': None,
-                 'startPos': 9,
-                 'startSymbol': '+'}]}
+    '^': []}
     print(f'expected__infixOperatorPositions as expected? {parser.infixOperatorPositions==expected__infixOperatorPositions}')
 
 
@@ -171,8 +209,13 @@ def test__findingBackSlashAndInfixOperations_Trig2(verbose=False):
 
     equationStr = '\\sin^{2}(x)+\\cos^{2}(x)=1' # should add the implicit multiplications first...
     parser = Latexparser(equationStr, verbose=True)
+    parser._findEqualPos()
     parser._findVariablesFunctionsPositions()
     parser._findInfixAndEnclosingBrackets()
+    parser._removeArgBracketsThatAreBackSlashArgs()
+    parser._removeCaretThatIsNotExponent()
+    parser._findLeftOverPosition() 
+    parser._contiguousLeftOvers()
     #TODO try to find what symbols are left over at what positions?
     print('equationStr************************')
     print(equationStr)
@@ -230,8 +273,13 @@ def test__findingBackSlashAndInfixOperations_Sqrt0(verbose=False):
 
     equationStr = '\\sqrt(4)=2' # should add the implicit multiplications first...
     parser = Latexparser(equationStr, verbose=True)
+    parser._findEqualPos()
     parser._findVariablesFunctionsPositions()
     parser._findInfixAndEnclosingBrackets()
+    parser._removeArgBracketsThatAreBackSlashArgs()
+    parser._removeCaretThatIsNotExponent()
+    parser._findLeftOverPosition() 
+    parser._contiguousLeftOvers()
     #TODO try to find what symbols are left over at what positions?
     print('equationStr************************')
     print(equationStr)
@@ -277,8 +325,13 @@ def test__findingBackSlashAndInfixOperations_Sqrt1(verbose=False):
 
     equationStr = '\\sqrt[3](9)=2' # should add the implicit multiplications first...
     parser = Latexparser(equationStr, verbose=True)
+    parser._findEqualPos()
     parser._findVariablesFunctionsPositions()
     parser._findInfixAndEnclosingBrackets()
+    parser._removeArgBracketsThatAreBackSlashArgs()
+    parser._removeCaretThatIsNotExponent()
+    parser._findLeftOverPosition() 
+    parser._contiguousLeftOvers()
     #TODO try to find what symbols are left over at what positions?
     print('equationStr************************')
     print(equationStr)
@@ -325,8 +378,13 @@ def test__findingBackSlashAndInfixOperations_Ln(verbose=False):
 
     equationStr = '\\ln(e)=1' # should add the implicit multiplications first...
     parser = Latexparser(equationStr, verbose=True)
+    parser._findEqualPos()
     parser._findVariablesFunctionsPositions()
     parser._findInfixAndEnclosingBrackets()
+    parser._removeArgBracketsThatAreBackSlashArgs()
+    parser._removeCaretThatIsNotExponent()
+    parser._findLeftOverPosition() 
+    parser._contiguousLeftOvers()
     #TODO try to find what symbols are left over at what positions?
     print('equationStr************************')
     print(equationStr)
@@ -373,8 +431,13 @@ def test__findingBackSlashAndInfixOperations_Frac(verbose=False):
 
     equationStr = '\\frac{12}{24}=\\frac{1000}{2000}' # should add the implicit multiplications first...
     parser = Latexparser(equationStr, verbose=True)
+    parser._findEqualPos()
     parser._findVariablesFunctionsPositions()
     parser._findInfixAndEnclosingBrackets()
+    parser._removeArgBracketsThatAreBackSlashArgs()
+    parser._removeCaretThatIsNotExponent()
+    parser._findLeftOverPosition() 
+    parser._contiguousLeftOvers()
     #TODO try to find what symbols are left over at what positions?
     print('equationStr************************')
     print(equationStr)
@@ -431,8 +494,13 @@ def test__findingBackSlashAndInfixOperations_Log0(verbose=False):
 
     equationStr = '\\log_{12}(8916100448256)=12' # should add the implicit multiplications first...
     parser = Latexparser(equationStr, verbose=True)
+    parser._findEqualPos()
     parser._findVariablesFunctionsPositions()
     parser._findInfixAndEnclosingBrackets()
+    parser._removeArgBracketsThatAreBackSlashArgs()
+    parser._removeCaretThatIsNotExponent()
+    parser._findLeftOverPosition() 
+    parser._contiguousLeftOvers()
     #TODO try to find what symbols are left over at what positions?
     print('equationStr************************')
     print(equationStr)
@@ -479,8 +547,13 @@ def test__findingBackSlashAndInfixOperations_Log1(verbose=False):
 
     equationStr = '\\log(100)=2' # should add the implicit multiplications first...
     parser = Latexparser(equationStr, verbose=True)
+    parser._findEqualPos()
     parser._findVariablesFunctionsPositions()
     parser._findInfixAndEnclosingBrackets()
+    parser._removeArgBracketsThatAreBackSlashArgs()
+    parser._removeCaretThatIsNotExponent()
+    parser._findLeftOverPosition() 
+    parser._contiguousLeftOvers()
     #TODO try to find what symbols are left over at what positions?
     print('equationStr************************')
     print(equationStr)
@@ -526,8 +599,13 @@ def test__findingBackSlashAndInfixOperations_tildeVariable(verbose=False):
 
     equationStr = '\\tilde{x}=2' # should add the implicit multiplications first...
     parser = Latexparser(equationStr, verbose=True)
+    parser._findEqualPos()
     parser._findVariablesFunctionsPositions()
     parser._findInfixAndEnclosingBrackets()
+    parser._removeArgBracketsThatAreBackSlashArgs()
+    parser._removeCaretThatIsNotExponent()
+    parser._findLeftOverPosition() 
+    parser._contiguousLeftOvers()
     #TODO try to find what symbols are left over at what positions?
     print('equationStr************************')
     print(equationStr)
@@ -570,8 +648,13 @@ def test__findingBackSlashAndInfixOperations_SchrodingerWaveEquation(verbose=Fal
 
     equationStr = '\\widehat{H}\\Psi=\\widehat{E}\\Psi' # should add the implicit multiplications first...
     parser = Latexparser(equationStr, verbose=True)
+    parser._findEqualPos()
     parser._findVariablesFunctionsPositions()
     parser._findInfixAndEnclosingBrackets()
+    parser._removeArgBracketsThatAreBackSlashArgs()
+    parser._removeCaretThatIsNotExponent()
+    parser._findLeftOverPosition() 
+    parser._contiguousLeftOvers()
     #TODO try to find what symbols are left over at what positions?
     print('equationStr************************')
     print(equationStr)
@@ -619,8 +702,22 @@ def test__findingBackSlashAndInfixOperations_SchrodingerWaveEquation(verbose=Fal
     print(f'expected__infixOperatorPositions as expected? {parser.infixOperatorPositions==expected__infixOperatorPositions}')
 
 
+def test__infixInBackslash_paraboloid(verbose=False):
+    pp = pprint.PrettyPrinter(indent=4)
+
+    equationStr = 'z=\\sqrt(x^2+y^2)' # should add the implicit multiplications first...
+    parser = Latexparser(equationStr, verbose=True)
+    parser._findEqualPos()
+    parser._findVariablesFunctionsPositions()
+    parser._findInfixAndEnclosingBrackets()
+    parser._removeArgBracketsThatAreBackSlashArgs()
+    parser._removeCaretThatIsNotExponent()
+    parser._findLeftOverPosition() 
+    parser._contiguousLeftOvers()
+
+
 if __name__=='__main__':
-    # test__findingBackSlashAndInfixOperations_Trig0()
+    # test__findingBackSlashAndInfixOperations_Trig0(True)
     test__findingBackSlashAndInfixOperations_Trig1(True)
     # test__findingBackSlashAndInfixOperations_Trig2()
     # test__findingBackSlashAndInfixOperations_Sqrt0()

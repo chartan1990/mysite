@@ -1,4 +1,4 @@
-import inspect
+import re
 
 class Booler:
     """
@@ -12,3 +12,8 @@ class Booler:
             return True
         except:
             return False
+
+
+    @classmethod
+    def isNum(cls, possibilityNumberString): # OpenAI says this one more efficient... cause no throw Exception.
+        return re.match('[-]*\\d+(?:\\.{1}\\d+)*$', possibilityNumberString)
