@@ -140,7 +140,8 @@ class Latexparser(Parser):
                     'ganzEndPos':max((argument1EndPosition if argument1EndPosition is not None else -1) + len('{'), positionTuple[1]),#endPos inclusive of argument
                     'type':'backslash_variable',
                     'child':{1:None},
-                    'parent':None
+                    'parent':None,
+                    'position':positionTuple[0]
                 })
             elif labelName in Latexparser.FUNCTIONNAMES: #all the function that we accept, TODO link this to automat.arithmetic module
                 """
@@ -170,16 +171,16 @@ class Latexparser(Parser):
                 argument2SubSuperPos = None # position of the argument1SubSuperPos
                 if labelName == 'sqrt':
                     if self._eqs[positionTuple[1]] == '[':# then we need to capture the rootpower as an argument
-                        argument1StartPosition = positionTuple[1]+1
+                        argument1StartPosition = positionTuple[1]+1 # +1 is for the '['
                         closingSquareBracketPos = self._eqs.index(']', argument1StartPosition)
                         argument1 = self._eqs[argument1StartPosition:closingSquareBracketPos] # argument1 == rootpower
                         argument1EndPosition = closingSquareBracketPos
                         argument1BracketType = '['
                         nextPos = argument1EndPosition + 1 #because of the ]
                     else:
-                        argument1StartPosition = None
+                        argument1StartPosition = positionTuple[1]#None
                         argument1 = 2 # default rootpower is square root
-                        argument1EndPosition = None
+                        argument1EndPosition = positionTuple[1]#None
                         nextPos = positionTuple[1]
                     if self._eqs[nextPos] != '(': #TODO this is not true
                         raise Exception('Sqrt functions must be succeded by (')
@@ -223,9 +224,9 @@ class Latexparser(Parser):
                     argument2EndPosition = closingRoundBracketPos
                     argument2BracketType = '('
                 elif labelName == 'ln':
-                    argument1StartPosition = None
+                    argument1StartPosition = -1
                     argument1 = 'e' # defintion of natural log
-                    argument1EndPosition = None
+                    argument1EndPosition = -1
                     if self._eqs[positionTuple[1]] != '(':
                         raise Exception('Natural Log must be succeded by (')
                     argument2StartPosition = positionTuple[1]+1
@@ -269,6 +270,8 @@ class Latexparser(Parser):
                     else:
                         argument1 = 10 # default base=10
                         nextPos = positionTuple[1]
+                        argument1StartPosition = -1
+                        argument1EndPosition = -1
                     if self.verbose:
                         print(self._eqs[nextPos], '<<<<<nextPos')
                     if self._eqs[nextPos] != '(':
@@ -285,6 +288,7 @@ class Latexparser(Parser):
                     'name':labelName,
                     'startPos':positionTuple[0], # of the label not the whole ding
                     'endPos':positionTuple[1], # of the label not the whole ding
+                    'position':positionTuple[0],###TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
                     'argument1':argument1,
                     'argument1StartPosition':argument1StartPosition,
                     'argument1EndPosition':argument1EndPosition,
@@ -410,11 +414,11 @@ class Latexparser(Parser):
                             newInfoDict['left__startBracketPos'] = infoDictMatchingBracketLoc['startPos']
                             newInfoDict['right__startBracketPos'] = infoDictMatchingBracketLoc['endPos']
                             newInfoDict['left__startBracketType'] = infoDictMatchingBracketLoc['openBracketType']
-                            newInfoDict['right__startBracketType'] = open__close[infoDictMatchingBracketLoc['openBracketType']]
+                            newInfoDict['right__startBracketType'] = self.open__close[infoDictMatchingBracketLoc['openBracketType']]
                             newInfoDict['left__argStart'] = infoDictMatchingBracketLoc['startPos'] + len(infoDictMatchingBracketLoc['openBracketType'])
                             newInfoDict['left__argEnd'] = infoDict['position'] - len(infixOp) # this is enclosing brackets, we assume no left/right brackets...
                             newInfoDict['right__argStart'] = infoDict['position'] + len(infixOp) # this is enclosing brackets, we assume, no left/right brackets...
-                            newInfoDict['right__argEnd'] = infoDictMatchingBracketLoc['endPos'] - len(open__close[infoDictMatchingBracketLoc['openBracketType']])
+                            newInfoDict['right__argEnd'] = infoDictMatchingBracketLoc['endPos'] - len(self.open__close[infoDictMatchingBracketLoc['openBracketType']])
                             newInfoDict['left__type'] = 'enclosing'
                             newInfoDict['right__type'] = 'enclosing'
                     #if there are no enclosing brackets.... have to take the nearest infixOpPos....
@@ -601,9 +605,10 @@ class Latexparser(Parser):
                 newListOfInfixInfoDict.append(infixInfoDict)
         #clear the infixInfoDict left__arg and right__arg if they are fakeExponent
         ###############
-        print('original newListOfInfixInfoDict<<<<<<<<<<<<<<<<<<<<<<<<<<')
-        print(newListOfInfixInfoDict)
-        print('<<<<<<<<<<<<<ORIGINAL newListOfInfixInfoDict<<<<<<<<<<<<<')
+        if self.verbose:
+            print('original newListOfInfixInfoDict<<<<<<<<<<<<<<<<<<<<<<<<<<')
+            print(newListOfInfixInfoDict)
+            print('<<<<<<<<<<<<<ORIGINAL newListOfInfixInfoDict<<<<<<<<<<<<<')
         ###############
         for infixInfoDict in newListOfInfixInfoDict:
             #match left args of infixInfoDict with fakeExponents
@@ -696,7 +701,6 @@ class Latexparser(Parser):
         self.event__varFindVarChildren.wait()
         self.event__funcFindFuncChildren.wait()
         self.event__infixFindInfixChildren.wait()
-        argumentRange__listOfPosAndArgumentNumber = {} # TODO binary insert, binary search
         listOfOccupiedRanges = [] # note that ranges should not overlapp
         for vInfoDict in self.noBraBackslashPos:
             listOfOccupiedRanges.append((vInfoDict['startPos'], vInfoDict['endPos']))
@@ -705,43 +709,16 @@ class Latexparser(Parser):
             listOfOccupiedRanges.append((variableInfoDict['startPos'], variableInfoDict['endPos']))
             if variableInfoDict['argument1StartPosition'] is not None: # just take the bracket start and end Pos
                 listOfOccupiedRanges.append((variableInfoDict['argument1StartPosition']-len(variableInfoDict['argument1BracketType']), variableInfoDict['argument1StartPosition']))
-            if variableInfo['argument1EndPosition'] is not None: # just take the bracket start and end Pos
+            if variableInfoDict['argument1EndPosition'] is not None: # just take the bracket start and end Pos
                 listOfOccupiedRanges.append((variableInfoDict['argument1EndPosition'], variableInfoDict['argument1EndPosition']+len(variableInfoDict['argument1BracketType'])))
-                #if there is argument1EndPosition, then there should be argument1StartPosition
-                key = (variableInfoDict['argument1StartPosition'], variableInfoDict['argument1EndPosition'])
-                listOfBackslashPosAndArgumentNumber = argumentRange__listOfPosAndArgumentNumber.get(key, [])
-                listOfBackslashPosAndArgumentNumber.append({
-                    'parentPosition':(variableInfoDict['startPos'], variableInfoDict['endPos']),
-                    'argumentIdx':1,#TODO this information is not used...
-                    'type':'backslash_variable'#TODO this information is not used...
-                })
-                argumentRange__listOfPosAndArgumentNumber[key] = listOfBackslashPosAndArgumentNumber
         for functionInfoDict in self.functionPos:
             listOfOccupiedRanges.append((functionInfoDict['startPos'], functionInfoDict['endPos']))
             if functionInfoDict['argument1BracketType'] is not None: # there is opening and closing brackets for argument1
                 listOfOccupiedRanges.append((functionInfoDict['argument1StartPosition']-len(functionInfoDict['argument1BracketType']), functionInfoDict['argument1StartPosition']))
                 listOfOccupiedRanges.append((functionInfoDict['argument1EndPosition'], functionInfoDict['argument1EndPosition']+len(functionInfoDict['argument1BracketType'])))
-                #
-                key = (functionInfoDict['argument1StartPosition'], functionInfoDict['argument1EndPosition'])
-                listOfBackslashPosAndArgumentNumber = argumentRange__listOfPosAndArgumentNumber.get(key, [])
-                listOfBackslashPosAndArgumentNumber.append({
-                    'parentPosition':(functionInfoDict['startPos'], functionInfoDict['endPos']),
-                    'argumentIdx':1,#TODO this information is not used...
-                    'type':'backslash_function'#TODO this information is not used...
-                })
-                argumentRange__listOfPosAndArgumentNumber[key] = listOfBackslashPosAndArgumentNumber
             if functionInfoDict['argument2BracketType'] is not None: # there is opening and closing brackets for argument2
                 listOfOccupiedRanges.append((functionInfoDict['argument2StartPosition']-len(functionInfoDict['argument2BracketType']), functionInfoDict['argument2StartPosition']))
                 listOfOccupiedRanges.append((functionInfoDict['argument2EndPosition'], functionInfoDict['argument2EndPosition']+len(functionInfoDict['argument2BracketType'])))
-                #
-                key = (functionInfoDict['argument2StartPosition'], functionInfoDict['argument2EndPosition'])
-                listOfBackslashPosAndArgumentNumber = argumentRange__listOfPosAndArgumentNumber.get(key, [])
-                listOfBackslashPosAndArgumentNumber.append({
-                    'parentPosition':(functionInfoDict['startPos'], functionInfoDict['endPos']),
-                    'argumentIdx':1,#TODO this information is not used...
-                    'type':'backslash_function'#TODO this information is not used...
-                })
-                argumentRange__listOfPosAndArgumentNumber[key] = listOfBackslashPosAndArgumentNumber
             if functionInfoDict['argument1SubSuperPos'] is not None: # there is a ^ or _ on argument1
                 listOfOccupiedRanges.append((functionInfoDict['argument1SubSuperPos'], functionInfoDict['argument1SubSuperPos']+len(functionInfoDict['argument1SubSuperType'])))
             if functionInfoDict['argument2SubSuperPos'] is not None: # there is a ^ or _ on argument2
@@ -755,42 +732,11 @@ class Latexparser(Parser):
                 listOfOccupiedRanges.append((infixInfoDict['left__startBracketPos'], infixInfoDict['left__startBracketPos']+len(infixInfoDict['left__startBracketType'])))
             if infixInfoDict['left__endBracketType'] is not None: # left__startBracketType is not None =/=> left__endBracketType is not None, since we may have enclosing brackets
                 listOfOccupiedRanges.append((infixInfoDict['left__endBracketPos'], infixInfoDict['left__endBracketPos']+len(infixInfoDict['left__endBracketType'])))
-
-            key = (infixInfoDict['left__argStart'], infixInfoDict['left__argEnd'])
-            listOfBackslashPosAndArgumentNumber = argumentRange__listOfPosAndArgumentNumber.get(key, [])
-            listOfBackslashPosAndArgumentNumber.append({
-                'parentPosition':(infixInfoDict['position'], infixInfoDict['position']+len(infixInfoDict['name'])),
-                'argumentIdx':1, #left == 1#TODO this information is not used...
-                'type':'infix'#TODO this information is not used...
-            })
-            argumentRange__listOfPosAndArgumentNumber[key] = listOfBackslashPosAndArgumentNumber
-
             if infixInfoDict['right__startBracketType'] is not None:
                 listOfOccupiedRanges.append((infixInfoDict['right__startBracketPos'], infixInfoDict['right__startBracketPos']+len(infixInfoDict['right__startBracketType'])))
             if infixInfoDict['right__endBracketType'] is not None: # right__startBracketType is not None =/=> right__endBracketType is not None, since we may have enclosing brackets
                 listOfOccupiedRanges.append((infixInfoDict['right__endBracketPos'], infixInfoDict['right__endBracketPos']+len(infixInfoDict['right__endBracketType'])))
-
-            key = (infixInfoDict['right__argStart'], infixInfoDict['right__argEnd'])
-            listOfBackslashPosAndArgumentNumber = argumentRange__listOfPosAndArgumentNumber.get(key, [])
-            listOfBackslashPosAndArgumentNumber.append({
-                'parentPosition':(infixInfoDict['position'], infixInfoDict['position']+len(infixInfoDict['name'])),
-                'argumentIdx':2, #right == 2#TODO this information is not used...
-                'type':'infix'#TODO this information is not used...
-            })
-            argumentRange__listOfPosAndArgumentNumber[key] = listOfBackslashPosAndArgumentNumber
-
-        if self.verbose:
-            #debug occupiedList:
-            for occupiedRanges in listOfOccupiedRanges:
-                print(occupiedRanges, '****', self._eqs[occupiedRanges[0]:occupiedRanges[1]])
-            #
-            #debugging argumentRange__listOfBackslashPosAndArgumentNumber.items()
-            for (argumentRange, listOfBackslashPosAndArgumentNumber) in argumentRange__listOfPosAndArgumentNumber.items():
-                print(argumentRange, '***', listOfBackslashPosAndArgumentNumber)
-            #
-
-        argumentRange__listOfPosAndArgumentNumberList = argumentRange__listOfPosAndArgumentNumber.items() # TODO sort for binary search
-        self.unoccupiedPos__lowestBackSlashArgument = {} # unOccupiedPos to the lowest backslash in enclosureTree, if no belonging backslash, then {'position':(-1, len(equationStr)), 'argumentIdx':None, 'type':None}
+        self.unoccupiedPoss = set()
         for pos in range(0, len(self._eqs)):
             # TODO binary search
             occupied = False 
@@ -798,42 +744,65 @@ class Latexparser(Parser):
                 if occupiedRange[0] <= pos and pos < occupiedRange[1]:
                     occupied = True
             if not occupied:
-                tightestBackSlashPosAndArgumentNumber = {'parentPosition':(-1, len(self._eqs)), 'argumentIdx':None, 'type':None}
-                for (argumentRange, listOfBackslashPosAndArgumentNumber) in argumentRange__listOfPosAndArgumentNumberList:
-                    for backslashPosAndArgumentNumber in listOfBackslashPosAndArgumentNumber:
-                        if argumentRange[0] <= pos and pos < argumentRange[1]: # backslashPos contains pos
-                            if tightestBackSlashPosAndArgumentNumber['parentPosition'][0] <= backslashPosAndArgumentNumber['parentPosition'][0] and backslashPosAndArgumentNumber['parentPosition'][1] <= tightestBackSlashPosAndArgumentNumber['parentPosition'][1]: # backslashPosAndArgument is tighter than tightest
-                                tightestBackSlashPosAndArgumentNumber = backslashPosAndArgumentNumber
-                self.unoccupiedPos__lowestBackSlashArgument[pos] = tightestBackSlashPosAndArgumentNumber
-        #for unoccupied, if [a-zA-Z]+[0-9]+, then that is one variable. If [1-9]+[0-9]*[a-zA-Z]+, then there is multiplication. [1-9][0-9]* is always number. [a-zA-Z]+ always a single variable
-        #lets print out the unoccupiedPos and then put into parser.py..., then test, then we work on implicit multiplication.
-        if self.verbose:
-            #for debugging
-            for unoccupiedPos, lowestBackSlashArgument in self.unoccupiedPos__lowestBackSlashArgument.items():
-                print('*******unoccupiedPos__lowest*********', unoccupiedPos, self._eqs[unoccupiedPos])
-                print(lowestBackSlashArgument)
-                print('*****************************************')
+                self.unoccupiedPoss.add(pos)
         self.event__findLeftOverPosition.set()
 
 
     def _contiguousLeftOvers(self): # left overs can be part of infix as well...., self.infixOperatorPositions, infix with no enclosing brackets are the top?
+        """
+        N=>number character
+        V=>non-number character
+
+        At the beginning, where we have no previous to compare type with, we just take it was word.
+        This case, is handled by this logic:
+        previousIsNume is None
+        and we set previousIsNume = None
+        Later previousIsNume will be a boolean, so its ok.
+
+        we can have
+        NN
+        VV
+        VN (like x0, or x_0)
+
+        case 1 and 2 are handled by 
+        isNume == previousIsNume
+        case 3 is handled by 
+        (not previousIsNume) and isNume
+
+        but we cannot have 
+        NV (like 2x, this requires a implicit-multiplication, deviens: 2*x)
+        """
         self.event__findLeftOverPosition.wait()
         self.contiguousInfoList = []
         previousIsNume = None
         previousPos = -1
         word = ""
         wordPosRange = [None, None]
-        #self.wordLowestBackSlashArgumentParents = {}
-        for unoccupiedPos, lowestBackSlashArgument in sorted(self.unoccupiedPos__lowestBackSlashArgument.items(), key=lambda tup: tup[0]): # start with left-most leftover
+        ###############
+        if self.verbose:
+            print('*************** grouping _contiguousLeftOvers')
+            import pprint
+            pp = pprint.PrettyPrinter(indent=4)
+            pp.pprint(self.unoccupiedPoss)
+            print('***************END grouping _contiguousLeftOvers')
+            # import pdb;pdb.set_trace()
+        ###############
+        for unoccupiedPos in sorted(list(self.unoccupiedPoss)): # start with left-most leftover
             leftOverC = self._eqs[unoccupiedPos]
             isNume = isNum(leftOverC)
-            if leftOverC not in ['=', ' '] and ((unoccupiedPos == previousPos+1) and (previousIsNume is None or (isNume == previousIsNume))): #contiguous
+            #############
+            if self.verbose:
+                print('leftOverC: ', leftOverC)
+                print("leftOverC not in ['=', ' '] ", " (unoccupiedPos == previousPos+1) ", " previousIsNume is None ", " isNume == previousIsNume ", " (not previousIsNume) and isNume ")
+                print(f"""{leftOverC not in ['=', ' ']} and (({(unoccupiedPos == previousPos+1)}) and ({previousIsNume is None} or {isNume == previousIsNume} or {(not previousIsNume) and isNume}))""")
+                # import pdb;pdb.set_trace()
+            #############
+            if leftOverC not in ['=', ' '] and ((unoccupiedPos == previousPos+1) and (previousIsNume is None or (isNume == previousIsNume) or ((not previousIsNume) and isNume))): #contiguous
                 word += leftOverC # word coagulation
                 if wordPosRange[0] is None:
                     wordPosRange[0] = unoccupiedPos
                 else:
                     wordPosRange[1] = unoccupiedPos
-                #self.wordLowestBackSlashArgumentParents.update(lowestBackSlashArgument) 
             else: # not contiguous
                 # we are going to put in, if wordPosRange[1] still None, then its a single char.
                 if len(word) > 0:
@@ -853,11 +822,18 @@ class Latexparser(Parser):
                 if leftOverC not in ['=', ' ']:
                     word = leftOverC
                     wordPosRange = [unoccupiedPos, None]
-                    #self.wordLowestBackSlashArgumentParents = lowestBackSlashArgument
                 else:
                     word = ''
                     wordPosRange = [None, None]
-                    #self.wordLowestBackSlashArgumentParents = {}
+            ############################
+            if self.verbose:
+                print('_________loCha:  ', leftOverC)
+                print('collectedWORD:  ', word)
+                print('---------------------------------')
+                pp.pprint(self.contiguousInfoList)
+                print('---------------------------------')
+                # import pdb;pdb.set_trace()
+            ############################
             previousIsNume = isNume
             previousPos = unoccupiedPos
         self.contiguousInfoList.append({
@@ -871,7 +847,7 @@ class Latexparser(Parser):
             'position':wordPosRange[0]#this is for building AST's convienence
         })#, 'parentsInfo':self.wordLowestBackSlashArgumentParents}) # 
         #debugging double check that we got the contiguous right....
-        if self.verbose:
+        if self.verbose:#TTTTTTTTTTTTTTTTTTTTTTTTTTT
             print('&&&&&&&&&&&&&&&contiguousInfoList&&&&&&&&&&&&&&&&&')
             print(self.contiguousInfoList)
             print('&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&')
@@ -882,90 +858,6 @@ class Latexparser(Parser):
     def _varFindVarChildren(self): #also store parent for easier/faster processing
         self.event__findInfixAndEnclosingBrackets.wait()
         self.event__removeCaretThatIsNotExponent.wait()
-        for vInfoDict0 in self.variablesPos:
-            #find start,end of the whole backslash function TTTTT
-            vStart0 = vInfoDict0['ganzStartPos']
-            vEnd0 = vInfoDict0['ganzEndPos']
-            #
-            #find start, end of arguments (children) of the backslash
-            if 'actualArg1Pos' in vInfoDict0:
-                arg10 = vInfoDict0['actualArg1Pos']
-            else:
-                arg10 = (
-                    (vInfoDict0['argument1StartPosition'] if vInfoDict0['argument1StartPosition'] is not None else -1) + (len(vInfoDict0['argument1BracketType']) if vInfoDict0['argument1BracketType'] is not None else 0),
-                    (vInfoDict0['argument1EndPosition'] if vInfoDict0['argument1EndPosition'] is not None else -1) + (len(vInfoDict0['argument1BracketType']) if vInfoDict0['argument1BracketType'] is not None else 0)
-                    )
-            #
-            for vInfoDict1 in self.variablesPos:
-                #find start,end of the whole backslash function
-                vStart1 = vInfoDict1['ganzStartPos']
-                vEnd1 = vInfoDict1['ganzEndPos']
-                if vStart0 == vStart1 and vEnd0 == vEnd1: # same var0 and var1, skip
-                    continue
-                #
-                #find start, end of arguments (children) of the backslash
-                if 'actualArg1Pos' in vInfoDict1:
-                    arg11 = vInfoDict1['actualArg1Pos']
-                else:
-                    arg11 = (
-                        (vInfoDict1['argument1StartPosition'] if vInfoDict1['argument1StartPosition'] is not None else -1) + (len(vInfoDict1['argument1BracketType']) if vInfoDict1['argument1BracketType'] is not None else 0),
-                        (vInfoDict1['argument1EndPosition'] if vInfoDict1['argument1EndPosition'] is not None else -1) + (len(vInfoDict1['argument1BracketType']) if vInfoDict1['argument1BracketType'] is not None else 0)
-                        )
-                #
-                #matching
-                #0 c= arg11
-                if arg11[0] <= vStart0 and vEnd0 <= arg11[1]: # vInfoDict0 is new child, vInfoDict1 is parent
-                    ##set child
-                    existingChild = vInfoDict1['child'][1]
-                    # no child OR new child vInfoDict0 is wider than existingChild, grab it
-                    if (exisingChid is None) or (vStart0 <= existingChild['startPos']  and existingChild['endPos'] <= vEnd0):
-                        existingChild = { # should standardise children
-                            'name':vInfoDict0['name'],
-                            'startPos':vInfoDict0['startPos'],
-                            'endPos':vInfoDict0['endPos'],
-                            'type':'backslash_variable',
-                            'ganzStartPos':vInfoDict0['ganzStartPos'],
-                            'ganzEndPos':vInfoDict0['ganzEndPos']
-                        }
-                        vInfoDict1['child'][1] = existingChild#grabbed
-                        ##set parent only if we are setting child
-                        vInfoDict0['parent'] = {
-                            'name':vInfoDict1['name'],
-                            'startPos':vInfoDict1['starttPos'],
-                            'endPos':vInfoDict1['endPos'],
-                            'type':'backslash_variable',
-                            'childIdx':1,
-                            'childStartPos':vInfoDict1['argument1StartPosition'],
-                            'childEndPos':vInfoDict1['argument1EndPosition'],
-                            'ganzStartPos':vInfoDict1['ganzStartPos'],
-                            'ganzEndPos':vInfoDict1['ganzEndPos']
-                        }
-                #1 c= arg10
-                if arg10[0] <= vStart1 and vEnd1 <= arg10[1]: # vInfoDict1 is new child
-                    existingChild = vInfoDict0['child'][1]
-                    # no child OR new child vInfoDict0 is wider than existingChild, grab it
-                    if (exisingChid is None) or (vStart1 <= existingChild['startPos']  and existingChild['endPos'] <= vEnd1):
-                        existingChild = { # should standardise children
-                            'name':vInfoDict1['name'],
-                            'startPos':vInfoDict1['startPos'],
-                            'endPos':vInfoDict1['endPos'],
-                            'type':'backslash_variable',
-                            'ganzStartPos':vInfoDict1['ganzStartPos'],
-                            'ganzEndPos':vInfoDict1['ganzEndPos']
-                        }
-                        vInfoDict0['child'][1] = existingChild#grabbed
-                        #set parent only if we are setting child
-                        vInfoDict1['parent'] = {
-                            'name':vInfoDict0['name'],
-                            'startPos':vInfoDict0['startPos'],
-                            'endPos':vInfoDict0['endPos'],
-                            'type':'backslash_variable',
-                            'childIdx':1,
-                            'childStartPos':vInfoDict0['argument1StartPosition'],
-                            'childEndPos':vInfoDict0['argument1EndPosition'],
-                            'ganzStartPos':vInfoDict0['ganzStartPos'],
-                            'ganzEndPos':vInfoDict0['ganzEndPos']
-                        }
         self.event__varFindVarChildren.set()
 
 
@@ -973,156 +865,6 @@ class Latexparser(Parser):
     def _funcFindFuncChildren(self): # make the children key explicit
         self.event__findInfixAndEnclosingBrackets.wait()
         self.event__removeCaretThatIsNotExponent.wait()
-        #TODO refactor
-        for fInfoDict0 in self.functionPos:
-            #find start,end of the whole backslash function TTTTT
-            fStart0 = fInfoDict0['ganzStartPos']
-            fEnd0 = fInfoDict0['ganzEndPos']
-            #
-            #find start, end of arguments (children) of the backslash
-            if 'actualArg1Pos' in fInfoDict0:
-                arg10 = fInfoDict0['actualArg1Pos']
-            else:
-                arg10 = (
-                    (fInfoDict0['argument1StartPosition'] if fInfoDict0['argument1StartPosition'] is not None else -1) + (len(fInfoDict0['argument1BracketType']) if fInfoDict0['argument1BracketType'] is not None else 0),
-                    (fInfoDict0['argument1EndPosition'] if fInfoDict0['argument1EndPosition'] is not None else -1) + (len(fInfoDict0['argument1BracketType']) if fInfoDict0['argument1BracketType'] is not None else 0)
-                    )
-            if 'actualArg2Pos' in fInfoDict0:
-                arg20 = fInfoDict0['actualArg2Pos']
-            else:
-                arg20 = (
-                    (fInfoDict0['argument2StartPosition'] if fInfoDict0['argument2StartPosition'] is not None else -1) + (len(fInfoDict0['argument2BracketType']) if fInfoDict0['argument2BracketType'] is not None else 0),
-                    (fInfoDict0['argument2EndPosition'] if fInfoDict0['argument2EndPosition'] is not None else -1) + (len(fInfoDict0['argument2BracketType']) if fInfoDict0['argument2BracketType'] is not None else 0)
-                    )
-            #
-            for fInfoDict1 in self.functionPos:
-                #find start,end of the whole backslash function
-                fStart1 = fInfoDict1['ganzStartPos']
-                fEnd1 = fInfoDict1['ganzEndPos']
-                if fStart0 == fStart1 and fEnd0 == fEnd1:
-                    continue
-                #
-                #find start, end of arguments (children) of the backslash
-                if 'actualArg1Pos' in fInfoDict1:
-                    arg11 = fInfoDict1['actualArg1Pos']
-                else:
-                    arg11 = (
-                        (fInfoDict1['argument1StartPosition'] if fInfoDict1['argument1StartPosition'] is not None else -1) + (len(fInfoDict1['argument1BracketType']) if fInfoDict1['argument1BracketType'] is not None else 0),
-                        (fInfoDict1['argument1EndPosition'] if fInfoDict1['argument1EndPosition'] is not None else -1) + (len(fInfoDict1['argument1BracketType']) if fInfoDict1['argument1BracketType'] is not None else 0)
-                        )
-                if 'actualArg2Pos' in fInfoDict0:
-                    arg21 = fInfoDict1['actualArg2Pos']
-                else:
-                    arg21 = (
-                        (fInfoDict1['argument2StartPosition'] if fInfoDict1['argument2StartPosition'] is not None else -1) + (len(fInfoDict1['argument2BracketType']) if fInfoDict1['argument2BracketType'] is not None else 0),
-                        (fInfoDict1['argument2EndPosition'] if fInfoDict1['argument2EndPosition'] is not None else -1) + (len(fInfoDict1['argument2BracketType']) if fInfoDict1['argument2BracketType'] is not None else 0)
-                        )
-                #
-                #matching for widest child
-                #0 c= arg11
-                if arg11[0] <= fStart0 and fEnd0 <= arg11[1]: # vInfoDict0 is new child1
-                    existingChild = fInfoDict1['child'][1]
-                    # no child OR new child vInfoDict0 is wider than existingChild, grab it
-                    if (existingChild is None) or (fStart0 <= existingChild['startPos']  and existingChild['endPos'] <= fEnd0):
-                        existingChild = { # should standardise children
-                            'name':fInfoDict0['name'],
-                            'startPos':fInfoDict0['startPos'], # start position of name
-                            'endPos':fInfoDict0['endPos'],
-                            'type':'backslash_function',
-                            'ganzStartPos':fInfoDict0['ganzStartPos'],
-                            'ganzEndPos':fInfoDict0['ganzEndPos']
-                        }
-                        fInfoDict1['child'][1] = existingChild#grabbed
-                        #set parent only if we are setting child
-                        fInfoDict0['parent'] = {
-                            'name':fInfoDict1['name'],
-                            'startPos':fInfoDict1['startPos'],
-                            'endPos':fInfoDict1['endPos'],
-                            'type':'backslash_function',
-                            'childIdx':1,
-                            'childStartPos':fInfoDict1['argument1StartPosition'],
-                            'childEndPos':fInfoDict1['argument1EndPosition'],
-                            'ganzStartPos':fInfoDict1['ganzStartPos'],
-                            'ganzEndPos':fInfoDict1['ganzEndPos']
-                        }
-                #0 c= arg21
-                if arg21[0] <= fStart0 and fEnd0 <= arg21[1]: # vInfoDict0 is new child2
-                    existingChild = fInfoDict1['child'][2]
-                    # no child OR new child vInfoDict0 is wider than existingChild, grab it
-                    if (existingChild is None) or (fStart0 <= existingChild['startPos']  and existingChild['endPos'] <= fEnd0):
-                        existingChild = { # should standardise children
-                            'name':fInfoDict0['name'],
-                            'startPos':fInfoDict0['startPos'],
-                            'endPos':fInfoDict0['endPos'],
-                            'type':'backslash_function',
-                            'ganzStartPos':fInfoDict0['ganzStartPos'],
-                            'ganzEndPos':fInfoDict0['ganzEndPos']
-                        }
-                        fInfoDict1['child'][2] = existingChild#grabbed
-                        #set parent only if we are setting child
-                        fInfoDict0['parent'] = {
-                            'name':fInfoDict1['name'],
-                            'startPos':fInfoDict1['startPos'],
-                            'endPos':fInfoDict1['endPos'],
-                            'type':'backslash_function',
-                            'childIdx':2,
-                            'childStartPos':fInfoDict1['argument2StartPosition'],
-                            'childEndPos':fInfoDict1['argument2EndPosition'],
-                            'ganzStartPos':fInfoDict1['ganzStartPos'],
-                            'ganzEndPos':fInfoDict1['ganzEndPos']
-                        }
-                #1 c= arg10
-                if arg10[0] <= fStart1 and fEnd1 <= arg10[1]: # vInfoDict1 is new child1
-                    existingChild = fInfoDict0['child'][1]
-                    # no child OR new child vInfoDict1 is wider than existingChild, grab it
-                    if (existingChild is None) or (fStart1 <= existingChild['startPos']  and existingChild['endPos'] <= fEnd1):
-                        existingChild = { # should standardise children
-                            'name':fInfoDict1['name'],
-                            'startPos':fInfoDict1['startPos'],
-                            'endPos':fInfoDict1['endPos'],
-                            'type':'backslash_function',
-                            'ganzStartPos':fInfoDict1['ganzStartPos'],
-                            'ganzEndPos':fInfoDict1['ganzEndPos']
-                        }
-                        fInfoDict0['child'][1] = existingChild#grabbed
-                        #set parent only if we are setting child
-                        fInfoDict1['parent'] = {
-                            'name':fInfoDict0['name'],
-                            'startPos':fInfoDict0['startPos'],
-                            'endPos':fInfoDict0['endPos'],
-                            'type':'backslash_function',
-                            'childIdx':1,
-                            'childStartPos':fInfoDict0['argument1StartPosition'],
-                            'childEndPos':fInfoDict0['argument1EndPosition'],
-                            'ganzStartPos':fInfoDict0['ganzStartPos'],
-                            'ganzEndPos':fInfoDict0['ganzEndPos']
-                        }
-                #1 c= arg20
-                if arg20[0] <= fStart1 and fEnd1 <= arg20[1]:# vInfoDict1 is new child2
-                    existingChild = fInfoDict0['child'][2]
-                    # no child OR new child vInfoDict1 is wider than existingChild, grab it
-                    if (existingChild is None) or (fStart1 <= existingChild['startPos']  and existingChild['endPos'] <= fEnd1):
-                        existingChild = { # should standardise children
-                            'name':fInfoDict1['name'],
-                            'startPos':fInfoDict1['startPos'],
-                            'endPos':fInfoDict1['endPos'],
-                            'type':'backslash_function',
-                            'ganzStartPos':fInfoDict1['ganzStartPos'],
-                            'ganzEndPos':fIndoDict1['ganzEndPos']
-                        }
-                        fInfoDict0['child'][2] = existingChild#grabbed
-                        #set parent only if we are setting child
-                        fInfoDict1['parent'] = {
-                            'name':fInfoDict0['name'],
-                            'startPos':fInfoDict0['startPos'],
-                            'endPos':fInfoDict0['endPos'],
-                            'type':'backslash_function',
-                            'childIdx':2,
-                            'childStartPos':fInfoDict0['argument2StartPosition'],
-                            'childEndPos':fInfoDict0['argument2EndPosition'],
-                            'ganzStartPos':fInfoDict0['ganzStartPos'],
-                            'ganzEndPos':fInfoDict0['ganzEndPos']
-                        }
         self.event__funcFindFuncChildren.set()
 
 
@@ -1130,142 +872,6 @@ class Latexparser(Parser):
     def _infixFindInfixChildren(self): # make the children key explicit
         self.event__findInfixAndEnclosingBrackets.wait()
         self.event__removeCaretThatIsNotExponent.wait()
-        for infixInfoDict0 in self.listOfInfixInfoDict:
-            ###################
-            print('<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<')
-            print(infixInfoDict0)
-            print('<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<')
-            ###################
-            #find start, end of the whole infix
-            # iStart0 = infixInfoDict0['left__startBracketPos'] if infixInfoDict0['left__startBracketPos'] is not None else infixInfoDict0['left__argStart'] # not supposed to be None
-            # iEnd0 = infixInfoDict0['right__endBracketPos'] if infixInfoDict0['right__endBracketPos'] is not None else infixInfoDict0['right__argEnd'] # not supposed to be None
-            iStart0 = infixInfoDict0['startPos']
-            iEnd0 = infixInfoDict0['endPos']
-            #find start, end of arguments (children) of the infix
-            argLeft0 = (infixInfoDict0['left__argStart'], infixInfoDict0['left__argEnd'])
-            argRight0 = (infixInfoDict0['right__argStart'], infixInfoDict0['right__argEnd'])
-            for infixInfoDict1 in self.listOfInfixInfoDict:
-                #find start, end of the whole infix
-                # iStart1 = infixInfoDict1['left__startBracketPos'] if infixInfoDict1['left__startBracketPos'] is not None else infixInfoDict1['left__argStart'] # not supposed to be None
-                # iEnd1 = infixInfoDict1['right__endBracketPos'] if infixInfoDict1['right__endBracketPos'] is not None else infixInfoDict1['right__argEnd'] # not supposed to be None
-                iStart1 = infixInfoDict1['startPos']
-                iEnd1 = infixInfoDict1['endPos']
-                if iStart0 == iStart1 and iEnd0 == iEnd1:
-                    continue
-                #find start, end of arguments (children) of the infix
-                argLeft1 = (infixInfoDict1['left__argStart'], infixInfoDict1['left__argEnd'])
-                argRight1 = (infixInfoDict1['right__argStart'], infixInfoDict1['right__argEnd'])
-                #
-                #matching
-                #0 c= argLeft1
-                ##############
-                # print('################self find')
-                # import pdb;pdb.set_trace()
-                # print('#########################')
-                ##############
-                if argLeft1[0] <= iStart0 and iEnd0 <= argLeft1[1]:# infixInfoDict0 is new childLeft, infixInfoDict1 is parent
-                    existingChild = infixInfoDict1['child'][1]
-                    # no child OR new child infixInfoDict0 is wider than existingChild, grab it
-                    if (existingChild is None) or (iStart0 <= existingChild['startPos']  and existingChild['endPos'] <= iEnd0):
-                        existingChild = { # should standardise children
-                            'name':infixInfoDict0['name'],
-                            'startPos':infixInfoDict0['position'],
-                            'endPos':infixInfoDict0['position']+len(infixInfoDict0['name']),
-                            'type':'infix',
-                            'ganzStartPos':iStart0,
-                            'ganzEndPos':iEnd0
-                        }
-                        infixInfoDict1['child'][1] = existingChild#grabbed
-                        #set parent only if we are setting child
-                        infixInfoDict0['parent'] = {
-                            'name':infixInfoDict1['name'],
-                            'startPos':infixInfoDict1['position'],
-                            'endPos':infixInfoDict1['position']+len(infixInfoDict1['name']),
-                            'type':'infix',
-                            'childIdx':1,
-                            'childStartPos':infixInfoDict1['left__argStart'],
-                            'childEndPos':infixInfoDict1['left__argEnd'],
-                            'ganzStartPos':iStart1,
-                            'ganzEndPos':iEnd1
-                        }
-                #0 c= argRight1
-                if argRight1[0] <= iStart0 and iEnd0 <= argRight1[1]:# infixInfoDict0 is new childRight, infixInfoDict1 is parent
-                    existingChild = infixInfoDict1['child'][2]
-                    # no child OR new child infixInfoDict0 is wider than existingChild, grab it
-                    if (existingChild is None) or (iStart0 <= existingChild['startPos']  and existingChild['endPos'] <= iEnd0):
-                        existingChild = { # should standardise children
-                            'name':infixInfoDict0['name'],
-                            'startPos':infixInfoDict0['position'],
-                            'endPos':infixInfoDict0['position']+len(infixInfoDict0['name']),
-                            'type':'infix',
-                            'ganzStartPos':iStart0,
-                            'ganzEndPos':iEnd0
-                        }
-                        infixInfoDict1['child'][2] = existingChild#grabbed
-                        #set parent only if we are setting child
-                        infixInfoDict0['parent'] = {
-                            'name':infixInfoDict1['name'],
-                            'startPos':infixInfoDict1['position'],
-                            'endPos':infixInfoDict1['position']+len(infixInfoDict1['name']),
-                            'type':'infix',
-                            'childIdx':2,
-                            'childStartPos':infixInfoDict1['right__argStart'],
-                            'childEndPos':infixInfoDict1['right__argEnd'],
-                            'ganzStartPos':iStart1,
-                            'ganzEndPos':iEnd1
-                        }
-                #1 c= argLeft0
-                if argLeft0[0] <= iStart1 and iEnd1 <= argLeft0[1]:# infixInfoDict1 is new childLeft, infixInfoDict0 is parent
-                    existingChild = infixInfoDict0['child'][1]
-                    # no child OR new child infixInfoDict1 is wider than existingChild, grab it
-                    if (existingChild is None) or (iStart1 <= existingChild['startPos']  and existingChild['endPos'] <= iEnd1):
-                        existingChild = { # should standardise children
-                            'name':infixInfoDict1['name'],
-                            'startPos':infixInfoDict1['position'],
-                            'endPos':infixInfoDict1['position']+len(infixInfoDict1['name']),
-                            'type':'infix',
-                            'ganzStartPos':iStart1,
-                            'ganzEndPos':iEnd1
-                        }
-                        infixInfoDict0['child'][1] = existingChild#grabbed
-                        #set parent only if we are setting child
-                        infixInfoDict1['parent'] = {
-                            'name':infixInfoDict0['name'],
-                            'startPos':infixInfoDict0['position'],
-                            'endPos':infixInfoDict0['position']+len(infixInfoDict0['name']),
-                            'type':'infix',
-                            'childIdx':1,
-                            'childStartPos':infixInfoDict0['left__argStart'],
-                            'childEndPos':infixInfoDict0['left__argEnd'],
-                            'ganzStartPos':iStart0,
-                            'ganzEndPos':iEnd0
-                        }
-                #1 c= argRight0
-                if argRight0[0] <= iStart1 and iEnd1 <= argLeft0[1]:# infixInfoDict1 is new childRight, infixInfoDict0 is parent
-                    existingChild = infixInfoDict0['child'][2]
-                    # no child OR new child infixInfoDict1 is wider than existingChild, grab it
-                    if (existingChild is None) or (iStart1 <= existingChild['startPos']  and existingChild['endPos'] <= iEnd1):
-                        existingChild = { # should standardise children
-                            'name':infixInfoDict1['name'],
-                            'startPos':infixInfoDict1['position'],
-                            'endPos':infixInfoDict1['position']+len(infixInfoDict1['name']),
-                            'type':'infix',
-                            'ganzStartPos':iStart1,
-                            'ganzEndPos':iEnd1
-                        }
-                        infixInfoDict0['child'][2] = existingChild#grabbed
-                        #set parent only if we are setting child
-                        infixInfoDict1['parent'] = {
-                            'name':infixInfoDict0['name'],
-                            'startPos':infixInfoDict0['position'],
-                            'endPos':infixInfoDict0['position']+len(infixInfoDict0['name']),
-                            'type':'infix',
-                            'childIdx':2,
-                            'childStartPos':infixInfoDict0['right__argStart'],
-                            'childEndPos':infixInfoDict0['right__argEnd'],
-                            'ganzStartPos':iStart0,
-                            'ganzEndPos':iEnd0
-                        }
         self.event__infixFindInfixChildren.set()
 
 
@@ -1276,669 +882,6 @@ class Latexparser(Parser):
         self.event__funcFindFuncChildren.wait()
         self.event__infixFindInfixChildren.wait()
         self.event__contiguousLeftOvers.wait()
-        #refactor
-        for fInfoDict in self.functionPos:
-            #find start,end of the whole backslash function
-            fStart = fInfoDict['ganzStartPos']
-            fEnd = fInfoDict['ganzEndPos']
-            #
-            #find start, end of arguments (children) of the backslash
-            if 'actualArg1Pos' in fInfoDict:
-                arg1f = fInfoDict['actualArg1Pos']
-            else:
-                arg1f = (
-                    (fInfoDict['argument1StartPosition'] if fInfoDict['argument1StartPosition'] is not None else -1) + (len(fInfoDict['argument1BracketType']) if fInfoDict['argument1BracketType'] is not None else 0),
-                    (fInfoDict['argument1EndPosition'] if fInfoDict['argument1EndPosition'] is not None else -1) + (len(fInfoDict['argument1BracketType']) if fInfoDict['argument1BracketType'] is not None else 0)
-                    )
-            if 'actualArg2Pos' in fInfoDict:
-                arg2f = fInfoDict['actualArg2Pos']
-            else:
-                arg2f = (
-                    (fInfoDict['argument2StartPosition'] if fInfoDict['argument2StartPosition'] is not None else -1) + (len(fInfoDict['argument2BracketType']) if fInfoDict['argument2BracketType'] is not None else 0),
-                    (fInfoDict['argument2EndPosition'] if fInfoDict['argument2EndPosition'] is not None else -1) + (len(fInfoDict['argument2BracketType']) if fInfoDict['argument2BracketType'] is not None else 0)
-                    )
-            #
-            for vInfoDict in self.variablesPos: # TODO
-                #find start,end of the whole backslash function
-                vStart = vInfoDict['ganzStartPos']
-                vEnd = vInfoDict['ganzEndPos']
-                #
-                #find start, end of arguments (children) of the backslash
-                if 'actualArg1Pos' in vInfoDict:
-                    arg1v = vInfoDict['actualArg1Pos']
-                else:
-                    arg1v = (
-                        (vInfoDict['argument1StartPosition'] if vInfoDict['argument1StartPosition'] is not None else -1) + (len(vInfoDict['argument1BracketType']) if vInfoDict['argument1BracketType'] is not None else 0),
-                        (vInfoDict['argument1EndPosition'] if vInfoDict['argument1EndPosition'] is not None else -1) + (len(vInfoDict['argument1BracketType']) if vInfoDict['argument1BracketType'] is not None else 0)
-                        )
-                #
-                #matching
-                #f c= arg1v
-                if arg1v[0] <= fStart and fEnd <= arg1v[1]: # fInfoDict is the new child1, vInfoDict is parent
-                    existingChild = vInfoDict['child'][1]
-                    # no child OR new child infixInfoDict1 is wider than existingChild, grab it
-                    if (existingChild is None) or (fStart <= existingChild['startPos']  and existingChild['endPos'] <= fEnd):
-                        existingChild = { # should standardise children
-                            'name':fInfoDict['name'],
-                            'startPos':fInfoDict['startPos'],
-                            'endPos':fInfoDict['endPos'],
-                            'type':'backslash_function',
-                            'ganzStartPos':fInfoDict['ganzStartPos'],
-                            'ganzEndPos':fInfoDict['ganzEndPos']
-                        }
-                        vInfoDict['child'][1] = existingChild#grabbed
-                        #set parent only if we are setting child
-                        fInfoDict['parent'] = {
-                            'name':vInfoDict['name'],
-                            'startPos':vInfoDict['startPos'],
-                            'endPos':vInfoDict['endPos'],
-                            'type':'backslash_variable',
-                            'childIdx':1,
-                            'childStartPos':vInfoDict['argument1StartPosition'],
-                            'childEndPos':vInfoDict['argument1EndPosition'],
-                            'ganzStartPos':vInfoDict['ganzStartPos'],
-                            'ganzEndPos':vInfoDict['ganzEndPos']
-                        }
-                #v c= arg1f
-                if arg1f[0] <= vStart and vEnd <= arg1f[1]: # vInfoDict is the new child1, fInfoDict is parent
-                    existingChild = fInfoDict['child'][1]
-                    # no child OR new child infixInfoDict1 is wider than existingChild, grab it
-                    if (existingChild is None) or (vStart <= existingChild['startPos']  and existingChild['endPos'] <= vEnd):
-                        existingChild = { # should standardise children
-                            'name':vInfoDict['name'],
-                            'startPos':vInfoDict['startPos'],
-                            'endPos':vInfoDict['endPos'],
-                            'type':'backslash_variable',
-                            'ganzStartPos':vInfoDict['ganzStartPos'],
-                            'ganzEndPos':vInfoDict['ganzEndPos']
-                        }
-                        fInfoDict['child'][1] = existingChild#grabbed
-                        #set parent only if we are setting child
-                        vInfoDict['parent'] = {
-                            'name':fInfoDict['name'],
-                            'startPos':fInfoDict['startPos'],
-                            'endPos':fInfoDict['endPos'],
-                            'type':'backslash_function',
-                            'childIdx':1,
-                            'childStartPos':fInfoDict['argument1StartPosition'],
-                            'childEndPos':fInfoDict['argument1EndPosition'],
-                            'ganzStartPos':fInfoDict['ganzStartPos'],
-                            'ganzEndPos':fInfoDict['ganzEndPos']
-                        }
-                #v c= arg2f
-                if arg1f[0] <= vStart and vEnd <= arg1f[1]: # fInfoDict is the new child2, vInfoDict is parent
-                    existingChild = vInfoDict['child'][2]
-                    # no child OR new child infixInfoDict1 is wider than existingChild, grab it
-                    if (existingChild is None) or (vStart <= existingChild['startPos']  and existingChild['endPos'] <= vEnd):
-                        existingChild = { # should standardise children
-                            'name':fInfoDict['name'],
-                            'startPos':fInfoDict['startPos'],
-                            'endPos':fInfoDict['endPos'],
-                            'type':'backslash_function',
-                            'ganzStartPos':fInfoDict['ganzStartPos'],
-                            'ganzEndPos':fInfoDict['ganzEndPos']
-                        }
-                        vInfoDict['child'][2] = existingChild#grabbed
-                        #set parent only if we are setting child
-                        fInfoDict['parent'] = {
-                            'name':vInfoDict['name'],
-                            'startPos':vInfoDict['startPos'],
-                            'endPos':vInfoDict['endPos'],
-                            'type':'backslash_variable',
-                            'childIdx':2,
-                            'childStartPos':vInfoDict['argument2StartPosition'],
-                            'childEndPos':vInfoDict['argument2EndPosition'],
-                            'ganzStartPos':vInfoDict['ganzStartPos'],
-                            'ganzEndPos':vInfoDict['ganzEndPos']
-                        }
-
-        for fInfoDict in self.functionPos:
-            #find start,end of the whole backslash function
-            fStart = fInfoDict['ganzStartPos']
-            fEnd = fInfoDict['ganzEndPos']
-            #
-            #find start, end of arguments (children) of the backslash
-            if 'actualArg1Pos' in fInfoDict:
-                arg1 = fInfoDict['actualArg1Pos']
-            else:
-                arg1 = (
-                    (fInfoDict['argument1StartPosition'] if fInfoDict['argument1StartPosition'] is not None else -1) + (len(fInfoDict['argument1BracketType']) if fInfoDict['argument1BracketType'] is not None else 0),
-                    (fInfoDict['argument1EndPosition'] if fInfoDict['argument1EndPosition'] is not None else -1) + (len(fInfoDict['argument1BracketType']) if fInfoDict['argument1BracketType'] is not None else 0)
-                    )
-            if 'actualArg2Pos' in fInfoDict:
-                arg2 = fInfoDict['actualArg2Pos']
-            else:
-                arg2 = (
-                    (fInfoDict['argument2StartPosition'] if fInfoDict['argument2StartPosition'] is not None else -1) + (len(fInfoDict['argument2BracketType']) if fInfoDict['argument2BracketType'] is not None else 0),
-                    (fInfoDict['argument2EndPosition'] if fInfoDict['argument2EndPosition'] is not None else -1) + (len(fInfoDict['argument2BracketType']) if fInfoDict['argument2BracketType'] is not None else 0)
-                    )
-            #
-            ##############
-            # print('cross find children P1')
-            # import pdb;pdb.set_trace()
-            ##############
-            for infixInfoDict in self.listOfInfixInfoDict:
-                #find start, end of the whole infix
-                # iStart = infixInfoDict['left__startBracketPos'] if infixInfoDict['left__startBracketPos'] is not None else infixInfoDict['left__argStart'] # not supposed to be None
-                # iEnd = infixInfoDict['right__endBracketPos'] if infixInfoDict['right__endBracketPos'] is not None else infixInfoDict['right__argEnd'] # not supposed to be None
-                iStart = infixInfoDict['startPos']
-                iEnd = infixInfoDict['endPos']
-                #find start, end of arguments (children) of the infix
-                argLeft = (infixInfoDict['left__argStart'], infixInfoDict['left__argEnd'])
-                argRight = (infixInfoDict['right__argStart'], infixInfoDict['right__argEnd'])
-                #do matching
-                #if (iStart, iEnd) c= arg1 ==> infix is arg1(child) of backslashF
-                ########
-                # print('cross Find children')
-                # import pdb;pdb.set_trace()
-                ########
-                if arg1[0] <= iStart and iEnd <= arg1[1]: # infixInfoDict is the new child1, fInfoDict is parent
-                    existingChild = fInfoDict['child'][1]
-                    # no child OR new child infixInfoDict1 is wider than existingChild, grab it
-                    if (existingChild is None) or (iStart <= existingChild['startPos']  and existingChild['endPos'] <= iEnd):
-                        existingChild = { # should standardise children
-                            'name':infixInfoDict['name'],
-                            'startPos':infixInfoDict['position'],
-                            'endPos':infixInfoDict['position']+len(infixInfoDict['name']),
-                            'type':'infix',
-                            'ganzStartPos':iStart,
-                            'ganzEndPos':iEnd
-                        }
-                        fInfoDict['child'][1] = existingChild#grabbed
-                        #set parent only if we are setting child
-                        infixInfoDict['parent'] = {
-                            'name':fInfoDict['name'],
-                            'startPos':fInfoDict['startPos'],
-                            'endPos':fInfoDict['endPos'],
-                            'type':'backslash_function',
-                            'childIdx':1,
-                            'childStartPos':fInfoDict['argument1StartPosition'],
-                            'childEndPos':fInfoDict['argument1EndPosition'],
-                            'ganzStartPos':fInfoDict['startPos'],
-                            'ganzEndPos':fInfoDict['endPos']
-                        }
-                #if (iStart, IEnd) c= arg2 ==> infix is arg2(child) of backslashF
-                if arg2[0] <= iStart and iEnd <= arg2[1]: # infixInfoDict is the new child2, fInfoDict is parent
-                    existingChild = fInfoDict['child'][2]
-                    # no child OR new child infixInfoDict1 is wider than existingChild, grab it
-                    if (existingChild is None) or (iStart <= existingChild['startPos']  and existingChild['endPos'] <= iEnd):
-                        #############################
-                        print(infixInfoDict)
-                        #############################
-                        existingChild = { # should standardise children
-                            'name':infixInfoDict['name'],
-                            'startPos':infixInfoDict['position'],
-                            'endPos':infixInfoDict['position']+len(infixInfoDict['name']),
-                            'type':'infix',
-                            'ganzStartPos':iStart,
-                            'ganzEndPos':iEnd
-                        }
-                        fInfoDict['child'][2] = existingChild#grabbed
-                        #set parent only if we are setting child
-                        infixInfoDict['parent'] = {
-                            'name':fInfoDict['name'],
-                            'startPos':fInfoDict['startPos'],
-                            'endPos':fInfoDict['endPos'],
-                            'type':'backslash_function',
-                            'childIdx':2,
-                            'childStartPos':fInfoDict['argument2StartPosition'],
-                            'childEndPos':fInfoDict['argument2EndPosition'],
-                            'ganzStartPos':fInfoDict['ganzStartPos'],
-                            'ganzEndPos':fInfoDict['ganzEndPos']
-                        }
-
-                #if (fStart, fEnd) c= argleft ==> backslashF is argLeft(child) of infix
-                if argLeft[0] <= fStart and fEnd <= argLeft[1]: # fInfoDict is the new childLeft1, infixInfoDict is parent
-                    existingChild = infixInfoDict['child'][1]
-                    # no child OR new child infixInfoDict1 is wider than existingChild, grab it
-                    if (existingChild is None) or (iStart <= existingChild['startPos']  and existingChild['endPos'] <= iEnd):
-                        existingChild = { # should standardise children
-                            'name':fInfoDict['name'],
-                            'startPos':fInfoDict['startPos'],
-                            'endPos':fInfoDict['endPos'],
-                            'type':'backslash_function',
-                            'ganzStartPos':fInfoDict['ganzStartPos'],
-                            'ganzEndPos':fInfoDict['ganzEndPos']
-                        }
-                        infixInfoDict['child'][1] = existingChild#grabbed
-                        #set parent only if we are setting child
-                        fInfoDict['parent'] = {
-                            'name':infixInfoDict['name'],
-                            'startPos':infixInfoDict['position'],
-                            'endPos':infixInfoDict['position']+len(infixInfoDict['name']),
-                            'type':'infix',
-                            'childIdx':1,
-                            'childStartPos':infixInfoDict['left__argStart'],
-                            'childEndPos':infixInfoDict['left__argEnd'],
-                            'ganzStartPos':iStart,
-                            'ganzEndPos':iEnd
-                        }
-                #if (fStart, fEnd) c= argRight ==> backslashF is argRight(child) of infix
-                if argRight[0] <= fStart and fEnd <= argRight[1]: # fInfoDict is the new childRight2, infixInfoDict is parent
-                    existingChild = infixInfoDict['child'][2]
-                    # no child OR new child fInfoDict is wider than existingChild, grab it
-                    if (existingChild is None) or (iStart <= existingChild['startPos']  and existingChild['endPos'] <= iEnd):
-                        existingChild = { # should standardise children
-                            'name':fInfoDict['name'],
-                            'startPos':fInfoDict['startPos'],
-                            'endPos':fInfoDict['endPos'],
-                            'type':'backslash_function',
-                            'ganzStartPos':fInfoDict['ganzStartPos'],
-                            'ganzEndPos':fInfoDict['ganzEndPos']
-                        }
-                        infixInfoDict['child'][2] = existingChild#grabbed
-                        #set parent only if we are setting child
-                        fInfoDict['parent'] = {
-                            'name':infixInfoDict['name'],
-                            'startPos':infixInfoDict['position'],
-                            'endPos':infixInfoDict['position']+len(infixInfoDict['name']),
-                            'type':'infix',
-                            'childIdx':2,
-                            'childStartPos':infixInfoDict['right__argStart'],
-                            'childEndPos':infixInfoDict['right__argEnd'],
-                            'ganzStartPos':iStart,
-                            'ganzEndPos':iEnd
-                        }
-
-        for vInfoDict in self.variablesPos:
-            #find start,end of the hole backslash function
-            vStart = vInfoDict['ganzStartPos']
-            vEnd = vInfoDict['ganzEndPos']
-            #
-            #find start, end of arguments (children) of the backslash
-            if 'actualArg1Pos' in vInfoDict:
-                arg1 = vInfoDict['actualArg1Pos']
-            else:
-                arg1 = (
-                    (vInfoDict['argument1StartPosition'] if vInfoDict['argument1StartPosition'] is not None else -1) + (len(vInfoDict['argument1BracketType']) if vInfoDict['argument1BracketType'] is not None else 0),
-                    (vInfoDict['argument1EndPosition'] if vInfoDict['argument1EndPosition'] is not None else -1) + (len(vInfoDict['argument1BracketType']) if vInfoDict['argument1BracketType'] is not None else 0)
-                    )
-            #
-            for infixInfoDict in self.listOfInfixInfoDict:
-                #find start, end of the whole infix
-                # iStart = infixInfoDict['left__startBracketPos'] if infixInfoDict['left__startBracketPos'] is not None else infixInfoDict['left__argStart'] # not supposed to be None
-                # iEnd = infixInfoDict['right__endBracketPos'] if infixInfoDict['right__endBracketPos'] is not None else infixInfoDict['right__argEnd'] # not supposed to be None
-                iStart = infixInfoDict['startPos']
-                iEnd = infixInfoDict['endPos']
-                #find start, end of arguments (children) of the infix
-                argLeft = (infixInfoDict['left__argStart'], infixInfoDict['left__argEnd'])
-                argRight = (infixInfoDict['right__argStart'], infixInfoDict['right__argEnd'])
-                #do matching
-                #if (vStart, vEnd) c= argLeft ==> infix is arg1(child) of backslashF
-                if argLeft[0] <= vStart and vEnd <= argLeft[1]: # vInfoDict is the new childLeft1, infixInfoDict is parent
-                    existingChild = infixInfoDict['child'][1]
-                    # no child OR new child infixInfoDict1 is wider than existingChild, grab it
-                    if (existingChild is None) or (vStart <= existingChild['startPos']  and existingChild['endPos'] <= vEnd):
-                        existingChild = { # should standardise children
-                            'name':vInfoDict['name'],
-                            'startPos':vInfoDict['startPos'],
-                            'endPos':vInfoDict['endPos'],
-                            'type':'backslash_variable',
-                            'ganzStartPos':vInfoDict['ganzStartPos'],
-                            'ganzEndPos':vInfoDict['ganzEndPos']
-                        }
-                        infixInfoDict['child'][1] = existingChild#grabbed
-                        #set parent only if we are setting child
-                        vInfoDict['parent'] = {
-                            'name':infixInfoDict['name'],
-                            'startPos':infixInfoDict['position'],
-                            'endPos':infixInfoDict['position']+len(infixInfoDict['name']),
-                            'type':'infix',
-                            'childIdx':1,
-                            'childStartPos':infixInfoDict['left__argStart'],
-                            'childEndPos':infixInfoDict['left__argEnd'],
-                            'ganzStartPos':iStart,
-                            'ganzEndPos':iEnd
-                        }
-                #if (vStart, vEnd) c= argRight ==> infix is arg2(child) of backslashF
-                if argRight[0] <= vStart and vEnd <= argRight[1]: # vInfoDict is the new childRight2, infixInfoDict is parent
-                    existingChild = infixInfoDict['child'][2]
-                    # no child OR new child infixInfoDict1 is wider than existingChild, grab it
-                    if (existingChild is None) or (vStart <= existingChild['startPos']  and existingChild['endPos'] <= vEnd):
-                        existingChild = { # should standardise children
-                            'name':vInfoDict['name'],
-                            'startPos':vInfoDict['startPos'],
-                            'endPos':vInfoDict['endPos'],
-                            'type':'backslash_variable',
-                            'ganzStartPos':vInfoDict['ganzStartPos'],
-                            'ganzEndPos':vInfoDict['ganzEndPos']
-                        }
-                        infixInfoDict['child'][2] = existingChild#grabbed
-                        #set parent only if we are setting child
-                        vInfoDict['parent'] = {
-                            'name':infixInfoDict['name'],
-                            'startPos':infixInfoDict['position'],
-                            'endPos':infixInfoDict['position']+len(infixInfoDict['name']),
-                            'type':'infix',
-                            'childIdx':2,
-                            'childStartPos':infixInfoDict['right__argStart'],
-                            'childEndPos':infixInfoDict['right__argEnd'],
-                            'ganzStartPos':iStart,
-                            'ganzEndPos':iEnd
-                        }
-
-                #if (iStart, iEnd) c= arg1 ==> backslashF is argLeft(child) of infix
-                if arg1[0] <= iStart and iEnd <= arg1[1]: # infixInfoDict is the new child1, vInfoDict is parent
-                    existingChild = vInfoDict['child'][1]
-                    # no child OR new child infixInfoDict1 is wider than existingChild, grab it
-                    if (existingChild is None) or (iStart <= existingChild['startPos']  and existingChild['endPos'] <= iEnd):
-                        existingChild = { # should standardise children
-                            'name':infixInfoDict['name'],
-                            'startPos':infixInfoDict['position'],
-                            'endPos':infixInfoDict['position']+len(infixInfoDict['name']),
-                            'type':'infix',
-                            'ganzStartPos':iStart,
-                            'ganzEndPos':iEnd
-                        }
-                        vInfoDict['child'][1] = existingChild#grabbed
-                        #set parent only if we are setting child
-                        infixInfoDict['parent'] = {
-                            'name':vInfoDict['name'],
-                            'startPos':vInfoDict['startPos'],
-                            'endPos':vInfoDict['endPos'],
-                            'type':'backslash_variable',
-                            'childIdx':1,
-                            'childStartPos':vInfoDict['argument1StartPosition'],
-                            'childEndPos':vInfoDict['argument1EndPosition'],
-                            'ganzStartPos':vInfoDict['ganzStartPos'],
-                            'ganzEndPos':vInfoDict['ganzEndPos']
-                        }
-        # find infix, function, variables that are supposed to have children, but no children, then look into the leftovers for children (while adding implicit multiplication)
-        def getLeftOversWithinRange(startPos, endPos): #TODO binary search please.
-            #########
-            print(startPos, endPos, '<<<<<<<<<<<<getLeftOversWithinRange')
-            #########
-            if startPos is None or endPos is None: #for example, the sin(x) that has no power, the arg1 is (None, None)
-                return [], None, None
-            #TODO binary search please...
-            leftOversWithinRange = []
-            for contiguousInfoDict in self.contiguousInfoList:
-                if startPos <= contiguousInfoDict['startPos'] and contiguousInfoDict['endPos'] <= endPos:
-                    leftOversWithinRange.append(contiguousInfoDict) #TODO binary insert, then no need sort, waste time
-            leftOversWithinRange = sorted(leftOversWithinRange, key=lambda contiguousInfoDict: contiguousInfoDict['startPos'])
-            #might not be consecutive, since there is noBraBackslashPos
-            #get start and end pos
-            if len(leftOversWithinRange) == 0:
-                return [], None, None
-            startPos = leftOversWithinRange[0]['startPos']
-            endPos = leftOversWithinRange[-1]['endPos']
-            return leftOversWithinRange, startPos, endPos # type = number / type = variable.
-
-
-        #TODO binary search and then please refactor.
-        def getNoBraBackslashsWithinRange(startPos, endPos): #TODO binary search please.
-            #TODO binary search please...
-            if startPos is None or endPos is None: # for example the sin(x) that has no power, the arg1 is (None, None)
-                return [], None, None
-            noBraBackslashWithinRange = []
-            for noBraBackslashInfoDict in self.noBraBackslashPos:
-                if startPos <= noBraBackslashInfoDict['startPos'] and noBraBackslashInfoDict['endPos'] <= endPos:
-                    noBraBackslashWithinRange.append(noBraBackslashInfoDict) # TODO binary insert, then no need sort, waste time
-            noBraBackslashWithinRange = sorted(noBraBackslashWithinRange, key=lambda noBraBackslashInfoDict: noBraBackslashInfoDict['startPos'])
-            if len(noBraBackslashWithinRange) == 0:
-                return [], None, None
-            startPos = noBraBackslashWithinRange[0]['startPos']
-            endPos = noBraBackslashWithinRange[-1]['endPos']
-            return noBraBackslashWithinRange, startPos, endPos
-
-        for infixInfoDict in self.listOfInfixInfoDict:
-            if infixInfoDict['child'][1] is None:
-                ############
-                print('<<<<<<<<<<<<< 1611')
-                print(infixInfoDict)
-                print('<<<<<<<<<<<<<')
-                ############
-                leftOversWithinRange, startPos, endPos = getLeftOversWithinRange(infixInfoDict['left__argStart'],infixInfoDict['left__argEnd'])
-                noBraBackslashWithinRange, nstartPos, nendPos = getNoBraBackslashsWithinRange(infixInfoDict['left__argStart'],infixInfoDict['left__argEnd'])
-                #set each leftOversWithRange parent to infixInfoDict
-                for contiguousInfoDict in leftOversWithinRange:
-                    contiguousInfoDict['parent'] = {
-                        'name':infixInfoDict['name'],
-                        'startPos':infixInfoDict['position'],
-                        'endPos':infixInfoDict['position']+len(infixInfoDict['name']),
-                        'type':'infix',
-                        'childIdx':1,
-                        'ganzStartPos':infixInfoDict['left__startBracketPos'],
-                        'ganzEndPos':infixInfoDict['right__endBracketPos']
-                    }
-                for noBraBackslashInfoDict in noBraBackslashWithinRange:
-                    noBraBackslashInfoDict['parent'] = {
-                        'name':infixInfoDict['name'],
-                        'startPos':infixInfoDict['position'],
-                        'endPos':infixInfoDict['position']+len(infixInfoDict['name']),
-                        'type':'infix',
-                        'childIdx':1,
-                        'ganzStartPos':infixInfoDict['left__startBracketPos'],
-                        'ganzEndPos':infixInfoDict['right__endBracketPos']
-                    }
-                #if there is only one thing in leftOversWithinRange+noBraBackslashWithinRange, then we can assume thats the child :), else we leave it as None
-                if len(leftOversWithinRange) + len(noBraBackslashWithinRange) == 1:
-                    if len(leftOversWithinRange) == 1:
-                        child = {
-                            'name':leftOversWithinRange[0]['name'],
-                            'startPos':leftOversWithinRange[0]['startPos'],
-                            'endPos':leftOversWithinRange[0]['endPos'],
-                            'type':leftOversWithinRange[0]['type'],
-                            'ganzStartPos':leftOversWithinRange[0]['ganzStartPos'],
-                            'ganzEndPos':leftOversWithinRange[0]['ganzEndPos']
-                        }
-                    elif len(noBraBackslashWithinRange) == 1:
-                        child = {
-                            'name':leftOversWithinRange[0]['name'],
-                            'startPos':leftOversWithinRange[0]['startPos'],
-                            'endPos':leftOversWithinRange[0]['endPos'],
-                            'type':leftOversWithinRange[0]['type'],
-                            'ganzStartPos':leftOversWithinRange[0]['ganzStartPos'],
-                            'ganzEndPos':leftOversWithinRange[0]['ganzEndPos']
-                        }
-                    infixInfoDict['child'][1] = child
-            if infixInfoDict['child'][2] is None:
-                ############
-                print('<<<<<<<<<<<<< 1650')
-                print(infixInfoDict)
-                print('<<<<<<<<<<<<<')
-                ############
-                leftOversWithinRange, startPos, endPos = getLeftOversWithinRange(infixInfoDict['right__argStart'],infixInfoDict['right__argEnd'])
-                noBraBackslashWithinRange, nstartPos, nendPos = getNoBraBackslashsWithinRange(infixInfoDict['right__argStart'],infixInfoDict['right__argEnd'])
-                #set each leftOversWithRange parent to infixInfoDict
-                for contiguousInfoDict in leftOversWithinRange:
-                    contiguousInfoDict['parent'] = {
-                        'name':infixInfoDict['name'],
-                        'startPos':infixInfoDict['position'],
-                        'endPos':infixInfoDict['position']+len(infixInfoDict['name']),
-                        'type':'infix',
-                        'childIdx':2,
-                        'ganzStartPos':infixInfoDict['left__startBracketPos'],
-                        'ganzEndPos':infixInfoDict['right__endBracketPos']
-                    }
-                for noBraBackslashInfoDict in noBraBackslashWithinRange:
-                    noBraBackslashInfoDict['parent'] = {
-                        'name':infixInfoDict['name'],
-                        'startPos':infixInfoDict['position'],
-                        'endPos':infixInfoDict['position']+len(infixInfoDict['name']),
-                        'type':'infix',
-                        'childIdx':2,
-                        'ganzStartPos':infixInfoDict['left__startBracketPos'],
-                        'ganzEndPos':infixInfoDict['right__endBracketPos']
-                    }
-                #if there is only one thing in leftOversWithinRange+noBraBackslashWithinRange, then we can assume thats the child :), else we leave it as None
-                if len(leftOversWithinRange) + len(noBraBackslashWithinRange) == 1:
-                    if len(leftOversWithinRange) == 1:
-                        child = {
-                            'name':leftOversWithinRange[0]['name'],
-                            'startPos':leftOversWithinRange[0]['startPos'],
-                            'endPos':leftOversWithinRange[0]['endPos'],
-                            'type':leftOversWithinRange[0]['type'],
-                            'ganzStartPos':leftOversWithinRange[0]['ganzStartPos'],
-                            'ganzEndPos':leftOversWithinRange[0]['ganzEndPos']
-                        }
-                    elif len(noBraBackslashWithinRange) == 1:
-                        child = {
-                            'name':leftOversWithinRange[0]['name'],
-                            'startPos':leftOversWithinRange[0]['startPos'],
-                            'endPos':leftOversWithinRange[0]['endPos'],
-                            'type':leftOversWithinRange[0]['type'],
-                            'ganzStartPos':leftOversWithinRange[0]['ganzStartPos'],
-                            'ganzEndPos':leftOversWithinRange[0]['ganzEndPos']
-                        }
-                    infixInfoDict['child'][2] = child
-
-
-        for fInfoDict in self.functionPos:
-            if fInfoDict['child'][1] is None:
-                ############
-                print('<<<<<<<<<<<<< 1692')
-                print(fInfoDict)
-                print('<<<<<<<<<<<<<')
-                ############
-                leftOversWithinRange, startPos, endPos = getLeftOversWithinRange(fInfoDict['argument1StartPosition'],fInfoDict['argument1EndPosition'])
-                noBraBackslashWithinRange, nstartPos, nendPos = getNoBraBackslashsWithinRange(fInfoDict['argument1StartPosition'],fInfoDict['argument1EndPosition'])
-                #set each leftOversWithRange parent to infixInfoDict
-                for contiguousInfoDict in leftOversWithinRange:
-                    contiguousInfoDict['parent'] = {
-                        'name':fInfoDict['name'],
-                        'startPos':fInfoDict['startPos'],
-                        'endPos':fInfoDict['endPos'],
-                        'type':'backslash_function',
-                        'childIdx':1,
-                        'ganzStartPos':fInfoDict['ganzStartPos'],
-                        'ganzEndPos':fInfoDict['ganzEndPos']
-                    }
-                for noBraBackslashInfoDict in noBraBackslashWithinRange:
-                    noBraBackslashInfoDict['parent'] = {
-                        'name':fInfoDict['name'],
-                        'startPos':fInfoDict['startPos'],
-                        'endPos':fInfoDict['endPos'],
-                        'type':'backslash_function',
-                        'childIdx':1,
-                        'ganzStartPos':fInfoDict['ganzStartPos'],
-                        'ganzEndPos':fInfoDict['ganzEndPos']
-                    }
-                #if there is only one thing in leftOversWithinRange+noBraBackslashWithinRange, then we can assume thats the child :), else we leave it as None
-                if len(leftOversWithinRange) + len(noBraBackslashWithinRange) == 1:
-                    if len(leftOversWithinRange) == 1:
-                        child = {
-                            'name':leftOversWithinRange[0]['name'],
-                            'startPos':leftOversWithinRange[0]['startPos'],
-                            'endPos':leftOversWithinRange[0]['endPos'],
-                            'type':leftOversWithinRange[0]['type'],
-                            'ganzStartPos':leftOversWithinRange[0]['ganzStartPos'],
-                            'ganzEndPos':leftOversWithinRange[0]['ganzEndPos']
-                        }
-                    elif len(noBraBackslashWithinRange) == 1:
-                        child = {
-                            'name':leftOversWithinRange[0]['name'],
-                            'startPos':leftOversWithinRange[0]['startPos'],
-                            'endPos':leftOversWithinRange[0]['endPos'],
-                            'type':leftOversWithinRange[0]['type'],
-                            'ganzStartPos':leftOversWithinRange[0]['ganzStartPos'],
-                            'ganzEndPos':leftOversWithinRange[0]['ganzEndPos']
-                        }
-                    fInfoDict['child'][1] = child
-            if fInfoDict['child'][2] is None:
-                ############
-                print('<<<<<<<<<<<<< 1731')
-                print(infixInfoDict)
-                print('<<<<<<<<<<<<<')
-                ############
-                leftOversWithinRange, startPos, endPos = getLeftOversWithinRange(fInfoDict['argument2StartPosition'],fInfoDict['argument2EndPosition'])
-                noBraBackslashWithinRange, nstartPos, nendPos = getNoBraBackslashsWithinRange(fInfoDict['argument2StartPosition'],fInfoDict['argument2EndPosition'])
-                #set each leftOversWithRange parent to infixInfoDict
-                for contiguousInfoDict in leftOversWithinRange:
-                    contiguousInfoDict['parent'] = {
-                        'name':fInfoDict['name'],
-                        'startPos':fInfoDict['startPos'],
-                        'endPos':fInfoDict['endPos'],
-                        'type':'backslash_function',
-                        'childIdx':2,
-                        'ganzStartPos':fInfoDict['ganzStartPos'],
-                        'ganzEndPos':fInfoDict['ganzEndPos']
-                    }
-                for noBraBackslashInfoDict in noBraBackslashWithinRange:
-                    noBraBackslashInfoDict['parent'] = {
-                        'name':fInfoDict['name'],
-                        'startPos':fInfoDict['startPos'],
-                        'endPos':fInfoDict['endPos'],
-                        'type':'backslash_function',
-                        'childIdx':2,
-                        'ganzStartPos':fInfoDict['ganzStartPos'],
-                        'ganzEndPos':fInfoDict['ganzEndPos']
-                    }
-                #if there is only one thing in leftOversWithinRange+noBraBackslashWithinRange, then we can assume thats the child :), else we leave it as None
-                if len(leftOversWithinRange) + len(noBraBackslashWithinRange) == 1:
-                    if len(leftOversWithinRange) == 1:
-                        child = {
-                            'name':leftOversWithinRange[0]['name'],
-                            'startPos':leftOversWithinRange[0]['startPos'],
-                            'endPos':leftOversWithinRange[0]['endPos'],
-                            'type':leftOversWithinRange[0]['type'],
-                            'ganzStartPos':leftOversWithinRange[0]['ganzStartPos'],
-                            'ganzEndPos':leftOversWithinRange[0]['ganzEndPos']
-                        }
-                    elif len(noBraBackslashWithinRange) == 1:
-                        child = {
-                            'name':leftOversWithinRange[0]['name'],
-                            'startPos':leftOversWithinRange[0]['startPos'],
-                            'endPos':leftOversWithinRange[0]['endPos'],
-                            'type':leftOversWithinRange[0]['type'],
-                            'ganzStartPos':leftOversWithinRange[0]['ganzStartPos'],
-                            'ganzEndPos':leftOversWithinRange[0]['ganzEndPos']
-                        }
-                    fInfoDict['child'][2] = child
-
-
-        for vInfoDict in self.variablesPos:
-            if vInfoDict['child'][1] is None:
-                ############
-                print('<<<<<<<<<<<<< 1773')
-                print(infixInfoDict)
-                print('<<<<<<<<<<<<<')
-                ############
-                leftOversWithinRange, startPos, endPos = getLeftOversWithinRange(vInfoDict['argument1StartPosition'],vInfoDict['argument1EndPosition'])
-                noBraBackslashWithinRange, nstartPos, nendPos = getNoBraBackslashsWithinRange(vInfoDict['argument1StartPosition'],vInfoDict['argument1EndPosition'])
-                #set each leftOversWithRange parent to infixInfoDict
-                for contiguousInfoDict in leftOversWithinRange:
-                    contiguousInfoDict['parent'] = {
-                        'name':vInfoDict['name'],
-                        'startPos':vInfoDict['startPos'],
-                        'endPos':vInfoDict['endPos'],
-                        'type':'backslash_variable',
-                        'childIdx':1,
-                        'ganzStartPos':vInfoDict['ganzStartPos'],
-                        'ganzEndPos':vInfoDict['ganzEndPos']
-                    }
-                for noBraBackslashInfoDict in noBraBackslashWithinRange:
-                    noBraBackslashInfoDict['parent'] = {
-                        'name':vInfoDict['name'],
-                        'startPos':vInfoDict['startPos'],
-                        'endPos':vInfoDict['endPos'],
-                        'type':'backslash_variable',
-                        'childIdx':1,
-                        'ganzStartPos':vInfoDict['ganzStartPos'],
-                        'ganzEndPos':vInfoDict['ganzEndPos']
-                    }
-                #if there is only one thing in leftOversWithinRange+noBraBackslashWithinRange, then we can assume thats the child :), else we leave it as None
-                if len(leftOversWithinRange) + len(noBraBackslashWithinRange) == 1:
-                    if len(leftOversWithinRange) == 1:
-                        child = {
-                            'name':leftOversWithinRange[0]['name'],
-                            'startPos':leftOversWithinRange[0]['startPos'],
-                            'endPos':leftOversWithinRange[0]['endPos'],
-                            'type':leftOversWithinRange[0]['type'],
-                            'ganzStartPos':leftOversWithinRange[0]['ganzStartPos'],
-                            'ganzEndPos':leftOversWithinRange[0]['ganzEndPos']
-                        }
-                    elif len(noBraBackslashWithinRange) == 1:
-                        child = {
-                            'name':leftOversWithinRange[0]['name'],
-                            'startPos':leftOversWithinRange[0]['startPos'],
-                            'endPos':leftOversWithinRange[0]['endPos'],
-                            'type':leftOversWithinRange[0]['type'],
-                            'ganzStartPos':leftOversWithinRange[0]['ganzStartPos'],
-                            'ganzEndPos':leftOversWithinRange[0]['ganzEndPos']
-                        }
-                    vInfoDict['child'][1] = child
-
         self.event__infixFuncVarLeftoversCrossFindChildren.set()
 
 
@@ -1979,7 +922,7 @@ class Latexparser(Parser):
             if infixInfoDict['name']=='-' and infixInfoDict['child'][1] is None:
                 infixInfoDict['child'][1] = {
                     'name':'0',
-                    'startPos':infixInfoDict['position'],
+                    'startPos':infixInfoDict['position'], # it would be a problem we add more than one implicit 0 or * at the infixInfoDict['position']
                     'endPos':infixInfoDict['position'],
                     'type':'number',
                     'ganzStartPos':infixInfoDict['position'],
@@ -2002,6 +945,11 @@ class Latexparser(Parser):
                         'ganzEndPos':infixInfoDict['right__endBracketPos']
                     }
                 })
+
+        if self.verbose:
+            for d in self.contiguousInfoList:
+                print('>>>', d['name'], d['startPos'], d['endPos'], '<<<')
+            # import pdb;pdb.set_trace()
         self.event__addChildOnMinusInfixWithNoLeftArg.set()
 
 
@@ -2036,6 +984,33 @@ class Latexparser(Parser):
         allDings = sorted(self.contiguousInfoList+self.noBraBackslashPos+self.variablesPos+self.functionPos+self.listOfInfixInfoDict,key=lambda item: item['startPos'])
         consecutiveGroups = {} # (grenzeStartPos, grenzeEndPos) : [ding0, ding1, ...]
 
+
+        def ppprint(cg, scgi):#Debugging tool TODO refactor
+            m = {}
+            for grange, dings in cg.items():
+                sdings = []
+                for ding in dings:
+                    if ding['type'] == 'infix':
+                        sdings.append((ding['name'], ding['position'], ding['position']+len(ding['name'])))
+                    else:
+                        sdings.append((ding['name'], ding['ganzStartPos'], ding['ganzEndPos']))
+                m[grange] = sdings
+            import pprint
+            pp = pprint.PrettyPrinter(indent=4)
+            pp.pprint(m)
+            n = []
+            for grange, dings in scgi:
+                sdings = []
+                for ding in dings:
+                    if ding['type'] == 'infix':
+                        sdings.append((ding['name'], ding['position'], ding['position']+len(ding['name'])))
+                    else:
+                        sdings.append((ding['name'], ding['ganzStartPos'], ding['ganzEndPos']))
+                n.append([grange, sdings])
+            pp.pprint(n)
+
+
+
         #load each ding as keys first....
         for ding in allDings:
             if ding['type'] == 'infix':
@@ -2045,157 +1020,111 @@ class Latexparser(Parser):
                 eKey = 'ganzEndPos'
                 consecutiveGroups[(ding[sKey], ding[eKey])] = [ding]
 
-        def rangesConsecutiveInEqsIgnoringSpace(grenzeRange, ding):
-            #lets just assume that end0 < start1
-            #in the self._eqs, if the characters from end0 to start1 are all whitespaces,
-            #then stripping substring, that is self._eqs[end0:start1] will give len zero string....
-            #TODO not so easy? depends on whether there is bracket or not....
-            start0 = grenzeRange[0]
-            end0 = grenzeRange[1]
-            start1 = ding['ganzStartPos']
-            end1 = ding['ganzEndPos']
+        def rangesConsecutiveInEqsIgnoringSpace(grenzeRange0, grenzeRange1):
+            start0 = grenzeRange0[0]
+            end0 = grenzeRange0[1]
+            start1 = grenzeRange1[0]#ding['ganzStartPos']
+            end1 = grenzeRange1[1]#ding['ganzEndPos']
             ##############
-            print(start0, end0, start1, end1, '<<<<<<<<<')
+            # print(start0, end0, start1, end1, '<<<<<<<<<')
             # import pdb;pdb.set_trace()
 
             ##############
             if end0<=start1 and len(self._eqs[end0:start1].strip()) == 0:
-                print('>>>>>>>>>>>>>>>>>>>>append')
+                # print('>>>>>>>>>>>>>>>>>>>>append')
                 return 'append'
             if end1<=start0 and len(self._eqs[end1:start0].strip()) == 0:
-                print('>>>>>>>>>>>>>>>>>>>>prepend')
+                # print('>>>>>>>>>>>>>>>>>>>>prepend')
                 return 'prepend'
             return None
 
+        sortedConsecutiveGroupsItems = sorted(consecutiveGroups.items(), key=lambda item: item[0][0])
+        ###################################
+        if self.verbose:
+            print('))))))))))))))))))))))))))))')
+            ppprint(consecutiveGroups, sorted(consecutiveGroups.items(), key=lambda item: item[0][0]))
+            print('SGGISGGISGGISGGISGGISGGISGGISGGISGGISGGISGGISGGISGGISGGISGGISGGISGGISGGISGGISGGI')
+            print('))))))))))))))))))))))))))))')
+        ###################################
+        changed = True
+        while changed:
+            #sortedConsecutiveGroupsItems = sorted(consecutiveGroups.items(), key=lambda item: item[0][0])
+            changed = False
+            ###################
+            if self.verbose:
+                print('@@@@@@@@@@@@@@@@@@@@@@@, reset sortedConsecutiveGroupsItems')
+                ppprint(consecutiveGroups, sortedConsecutiveGroupsItems)
+                print('@@@@@@@@@@@@@@@@@@@@@@@, reset sortedConsecutiveGroupsItems')
+            ###################
+            for grenzeRange0, existingDings0 in sortedConsecutiveGroupsItems: # TODO refactor to more dimensions
 
-        # def ppprint(scgi):#Debugging tool TODO refactor
-        #     m = {}
-        #     for grange, dings in scgi.items():
-        #         sdings = list(map(lambda ding: (ding['name'], ding['startPos'], ding['endPos']), dings))
-        #         m[grange] = sdings
-        #     import pprint
-        #     pp = pprint.PrettyPrinter(indent=4)
-        #     pp.pprint(m)
-
-        for ding in allDings:
-            #############
-            print(ding['name'], ding['ganzStartPos'], ding['ganzEndPos'])
-            print('________________')
-            #############
-            #find THE existing range that ding is already consecutive to.
-            theGrenzeRange = None
-            theExistingDings = None
-            sortedConsecutiveGroupsItems = sorted(consecutiveGroups.items(), key=lambda item: item[0][0])
-            for grenzeRange, existingDings in sortedConsecutiveGroupsItems:
-                ###################
-                # print('$$$$$$$$$$$$  ',grenzeRange, list(map(lambda d: (d['name'], d['startPos'], d['endPos']), existingDings)))
-                # ppprint(consecutiveGroups)  
-                ###################
-                #if ding is already in existingDings, we can ignore grenze
-                ignoreThisGrenze = False
-                for eDing in existingDings:
-                    if ding['name'] == eDing['name'] and ding['startPos'] == eDing['startPos'] and ding['endPos'] == eDing['endPos']:
-                        ignoreThisGrenze = True
-                if ignoreThisGrenze: # actually if this is already added, we can break and not check anymore... TODO
-                    print(ding['name'], 'ignoring', grenzeRange)
-                    continue
-
-                combineKata = rangesConsecutiveInEqsIgnoringSpace(grenzeRange, ding)
-                if combineKata is not None:
+                if changed:
+                    if self.verbose:
+                        print('BREAKKKKKKKKKKKKKKKKKKKKKKKKKKKK2')
                     break
-
-            if combineKata == 'append':#if grenzeRange[1] + 1 == ding['ganzStartPos']: # TODO redefine CONSECUTIVE to accomodate space....
-                theGrenzeRange = grenzeRange
-                theExistingDings = existingDings
-                #remove all the things that are appended or prepend from newAllDings
-                idxToPop = []
-                for idx in range(0, len(allDings)):
-                    for eDing in theExistingDings:
-                        if eDing['name']==allDings[idx]['name'] and eDing['startPos']==allDings[idx]['startPos'] and eDing['endPos']==allDings[idx]['endPos']:
-                            idxToPop.append(idx)
-                for popIdx in reversed(idxToPop):
-                    allDings.pop(popIdx)
-
-                #modify the grenzeRange to include this ding
-                newGrenzeRange = (theGrenzeRange[0], ding['ganzEndPos'])
-                #add ding to existing_list, and 
-                theExistingDings.append(ding)
-                #put updated_list under the new grenzeRange (key)
-                consecutiveGroups[newGrenzeRange] = theExistingDings
-                #delete the old theGrenzeRange
-                if theGrenzeRange != newGrenzeRange: # ranges like (0, 0) [implicit-zeros] can cause oldKey==newKey
-                    del consecutiveGroups[theGrenzeRange]
-                #delete the (ding['ganzStartPos'], ding['ganzEndPos']) from consecutiveGroups
-                mergedKey = (ding['ganzStartPos'], ding['ganzEndPos'])
-                if mergedKey in consecutiveGroups and mergedKey != newGrenzeRange: # ranges like (0, 0) [implicit-zeros] can cause oldKey==newKey
-                    del consecutiveGroups[mergedKey]
-                #check if original grenze of ding still in KEYS, if so, have to delete also
-
-                if ding['type'] == 'infix':
-                    oKey = (ding['position'], ding['position']+len(ding['name']))
-                else:
-                    sKey = 'ganzStartPos'
-                    eKey = 'ganzEndPos'
-                    oKey = (ding[sKey], ding[eKey])
-                if oKey in consecutiveGroups:
-                    del consecutiveGroups[oKey]
-                sortedConsecutiveGroupsItems = sorted(consecutiveGroups.items(), key=lambda item: item[0][0])
-                ########
-                print(ding['name'], ding['ganzStartPos'], ding['ganzEndPos'], ' append ', theGrenzeRange, ' newGrenzeRange ', newGrenzeRange)
-                #############
-                print('________________')
-                #############
-                ########
-
-
-            if combineKata == 'prepend':#if grenzeRange[1] + 1 == ding['ganzStartPos']: # TODO redefine CONSECUTIVE to accomodate space....
-                theGrenzeRange = grenzeRange
-                theExistingDings = existingDings
-                #remove all the things that are appended or prepend from newAllDings
-                idxToPop = []
-                for idx in range(0, len(allDings)):
-                    for eDing in theExistingDings:
-                        if eDing['name']==allDings[idx]['name'] and eDing['startPos']==allDings[idx]['startPos'] and eDing['endPos']==allDings[idx]['endPos']:
-                            idxToPop.append(idx)
-                for popIdx in reversed(idxToPop):
-                    allDings.pop(popIdx)
-
-                #modify the grenzeRange to include this ding
-                newGrenzeRange = (ding['ganzStartPos'], theGrenzeRange[1])
-                #add ding to existing_list, and 
-                theExistingDings.insert(0, ding) # this is not prepend
-                #put updated_list under the new grenzeRange (key)
-                consecutiveGroups[newGrenzeRange] = theExistingDings
-                #delete the old theGrenzeRange
-                if theGrenzeRange != newGrenzeRange: # ranges like (0, 0) [implicit-zeros] can cause oldKey==newKey
-                    del consecutiveGroups[theGrenzeRange]
-                #delete the (ding['ganzStartPos'], ding['ganzEndPos']) from consecutiveGroups
-                mergedKey = (ding['ganzStartPos'], ding['ganzEndPos'])
-                if mergedKey in consecutiveGroups and mergedKey != newGrenzeRange: # ranges like (0, 0) [implicit-zeros] can cause oldKey==newKey
-                    del consecutiveGroups[mergedKey]
-                if ding['type'] == 'infix':
-                    oKey = (ding['position'], ding['position']+len(ding['name']))
-                else:
-                    sKey = 'ganzStartPos'
-                    eKey = 'ganzEndPos'
-                    oKey = (ding[sKey], ding[eKey])
-                if oKey in consecutiveGroups:
-                    del consecutiveGroups[oKey]
-                sortedConsecutiveGroupsItems = sorted(consecutiveGroups.items(), key=lambda item: item[0][0])
-                ########
-                print(ding['name'], ding['ganzStartPos'], ding['ganzEndPos'], ' prepend ', theGrenzeRange, ' newGrenzeRange ', newGrenzeRange)
-                #############
-                print('________________')
-                #############
-                ########
-
+                for grenzeRange1, existingDings1 in sortedConsecutiveGroupsItems:
+                    if grenzeRange0 == grenzeRange1:
+                        continue
+                    #########
+                    if self.verbose:
+                        def slst(existingD):
+                            nD = []
+                            for din in existingD:
+                                if din['type'] == 'infix':
+                                    dingTup = lambda ding : (ding['name'], ding['position'], ding['position']+len(ding['name']))
+                                else:
+                                    dingTup = lambda ding : (ding['name'], ding['ganzStartPos'], ding['ganzEndPos'])
+                                nD.append(dingTup(din))
+                            return nD
+                        print('w', grenzeRange0, slst(existingDings0),'||||||', grenzeRange1, slst(existingDings1))
+                    #########
+                    action = rangesConsecutiveInEqsIgnoringSpace(grenzeRange0, grenzeRange1)
+                    if action is not None:
+                        if action == 'append':
+                            newGrenzeRange = (grenzeRange0[0], grenzeRange1[1])
+                            newExistingDings = existingDings0 + existingDings1
+                        else: #action == 'prepend'
+                            newGrenzeRange = (grenzeRange1[0], grenzeRange0[1])
+                            newExistingDings = existingDings1 + existingDings0
+                        if grenzeRange0 in consecutiveGroups:
+                            del consecutiveGroups[grenzeRange0]
+                        if grenzeRange1 in consecutiveGroups:
+                            del consecutiveGroups[grenzeRange1]
+                        consecutiveGroups[newGrenzeRange] = newExistingDings
+                        sortedConsecutiveGroupsItems = sorted(consecutiveGroups.items(), key=lambda item: item[0][0])
+                        changed = True
+                        #############
+                        if self.verbose:
+                            print('====================', action)
+                            if action == 'append':
+                                if ding['type'] == 'infix':
+                                    dingTup = lambda ding : (ding['name'], ding['position'], ding['position']+len(ding['name']))
+                                else:
+                                    dingTup = lambda ding : (ding['name'], ding['ganzStartPos'], ding['ganzEndPos'])
+                                print(grenzeRange0, list(map(lambda ding: dingTup(ding), existingDings0)))
+                                print('++++++++++++++++++++')
+                                print(grenzeRange1, list(map(lambda ding: dingTup(ding), existingDings1)))
+                            else:
+                                print(grenzeRange1, list(map(lambda ding: dingTup(ding), existingDings1)))
+                                print('++++++++++++++++++++')
+                                print(grenzeRange0, list(map(lambda ding: dingTup(ding), existingDings0)))
+                            ppprint(consecutiveGroups, sortedConsecutiveGroupsItems)
+                            print('====================')
+                        #############
+                        if self.verbose:
+                            print('BREAKKKKKKKKKKKKKKKKKKKKKKKKKKKK1')
+                        break
+                    if self.verbose:
+                        print('AFTER BREAK1, changed: ', changed)
 
         #here we would have allDings in consecutive-groupings, then we add the implicit multiplications yay! Complete answer....
 
         ##############
-        print('consecutiveGroups<<<<<<<<<<<<<<')
-        print(consecutiveGroups)
-        print('consecutiveGroups<<<<<<<<<<<<<<')
+        if self.verbose:
+            print('consecutiveGroups<<<<<<<<<<<<<<')
+            ppprint(consecutiveGroups, sorted(consecutiveGroups.items(), key=lambda item: item[0][0]))
+            print('consecutiveGroups<<<<<<<<<<<<<<')
+            # import pdb;pdb.set_trace()
         ##############
 
         def getMostLeftStartPos(ting, currentGanzStartPos):
@@ -2231,6 +1160,9 @@ class Latexparser(Parser):
                     treeifiedDingsGanzEndPos = getMostRightEndPos(ding, treeifiedDingsGanzEndPos)
                     if (prevDing['type'] == 'number' and ding['type'] == 'number') or (prevDing['type'] == 'variable' and ding['type'] == 'number'):
                         if not((prevDing['startPos'] == prevDing['endPos']) or (ding['startPos'] == ding['endPos'])): #then its added zero to the hanging minus infix
+                            ###########
+                            import pdb;pdb.set_trace()
+                            ###########
                             raise Exception('number&number, variable&number should have been catch earlier')
 
                     ################### find nearest infix with rightCloseBracket, left of dding, then first Ding in dings
@@ -2238,10 +1170,10 @@ class Latexparser(Parser):
                         leftest = dings[0]
                         for ding in dings: # assumes that dings are sorted by startPos
                             if ding['name'] == dding['name'] and ding['startPos'] == dding['startPos']:
-                                return lefttest
+                                return leftest
                             if ding['type'] == 'infix' and (ding['right__type'] =='enclosing' or ding['right__type'] == 'leftRight'):
                                 leftest = ding
-                        return lefttest
+                        return leftest
                     ################### find nearest infix with leftOpenBracket, right of dding, if no, then last Ding in dings
                     def findRightestInfixFrom(dding):
                         rightest = dings[-1]
@@ -2492,6 +1424,7 @@ class Latexparser(Parser):
                         #elif ding['left__startBracketType'] is not None:
                         elif ding['left__type'] == 'enclosing': #Ding*(...+???)
                             infixLeftOfDing = findLeftestInfixFrom(prevDing) # that has rightCloseBracket
+                            import pdb;pdb.set_trace()
                             implicitMultiplyNode = ('*', (implicitMultiplyId, -1))
                             implicitMultiplyId += 1
                             implicitMultiplyInfoDict = {# rightarg * ganz
@@ -2500,10 +1433,10 @@ class Latexparser(Parser):
                                 'type':'implicit',
                                 'startPos':infixLeftOfDing['startPos'],
                                 'endPos':ding['ganzEndPos'],
-                                'ganzStartPos':infixLeftOfDing['ganzStart'],
+                                'ganzStartPos':infixLeftOfDing['ganzStartPos'],
                                 'ganzEndPos':ding['ganzEndPos'],
                                 #Ding
-                                'left__startBracketPos':infixLeftOfDing['left__startBracketPos'], #TODO to test leaves with brackets..
+                                'left__startBracketPos':infixLeftOfDing['left__startBracketPos'], #somehow... infixLeftOfDing = {'name': 'x', 'startPos': 8, 'endPos': 9, 'parent': None, 'type': 'variable', 'ganzStartPos': 8, 'ganzEndPos': 9, 'position': 8}
                                 'left__startBracketType':infixLeftOfDing['left__startBracketType'], #TODO to test leaves with brackets..
                                 'left__endBracketPos':infixLeftOfDing['left__endBracketPos'], #TODO to test leaves with brackets..
                                 'left__endBracketType':infixLeftOfDing['left__endBracketType'], #TODO to test leaves with brackets..
@@ -2559,6 +1492,9 @@ class Latexparser(Parser):
                 #add child/parent relationship to infixes of newDings
                 #should have at least 2 things in newDings, else cannot form relationship
                 #need to sort according to ^/*-+, then we go from left to right
+                if self.verbose:
+                    print('grouping new dings by priority****************************************')
+                    # import pdb;pdb.set_trace()
                 processed = set() # this should include all the dingPos of the infixes, and then later the arguments that are linked to the infixes
                 prioritiesToDingsPos = {}
                 dingPosToPriorities = {}
@@ -2576,6 +1512,9 @@ class Latexparser(Parser):
                     # dingPosToPriorities[dingPos] = priority
                 prioritiesDingsPosItemList = sorted(prioritiesToDingsPos.items(), key=lambda item: item[0])
 
+                if self.verbose:
+                    print('build subtrees by INFIX PRIORITY')
+                    # import pdb;pdb.set_trace()
                 #should include all the prioritiesDingsPosItemList that are infixes
                 for priority, dingPoss in prioritiesDingsPosItemList: # for level -1, we should keep the child as is....
                     for dingPos in dingPoss:
@@ -2593,6 +1532,10 @@ class Latexparser(Parser):
                             dingToLeftIdx = idx
                             break
 
+
+                        #############
+                        # import pdb;pdb.set_trace()
+                        #############
 
 
 
@@ -2687,11 +1630,19 @@ class Latexparser(Parser):
         #we have to deal with the backslash_function/backslash_variable, whom have no children... since their children might be infixs, for example: \sin(2*x_0), the child2 of \sin is *
         #but child/ren of backslash_function/variable, will not be on the same dings as the backslash_function/variable.... and we can only do this after we build parent/child relationship with all the infixes...
         #preferably we can identify some parent/relationship-leveling between dings, if not, all i can think of is all-dings-each-dings-compare-each-argumentPos-v-ganzDingStartEnd
+        exponentialId = 0 # for id-ing new exponentials TODO all the implicitly added, should have 1 big id to draw from... TODO but if multiprocess--> livedeadlock
         self.alleDing = []
+        #################
+        if self.verbose:
+            print('*****************************************build parent/child relationship amongst subtree')
+            #check existing parent child relationship
+            # import pdb;pdb.set_trace()
+            print('*****************************************build parent/child relationship amongst subtree')
+        #################
         for grenzeRange, dings in newConsecutiveGroups.items():
             for ding in dings:
                 if (ding['type'] == 'backslash_function' and (ding['child'][1] is None or ding['child'][2] is None)) or \
-                (ding['type'] == 'backslash_variable' and ding['child'][1] is None):
+                (ding['type'] == 'backslash_variable' and ding['child'][1] is None): #only come here if there is some None child
                     #find the root of dings
                     if ding['type'] == 'backslash_function':
                         if ding['child'][1] is None and ding['child'][2] is None:
@@ -2703,6 +1654,7 @@ class Latexparser(Parser):
                                 return False
                         elif ding['child'][1] is None:
                             def rootIsContained(tGSPos, tGEPos):
+                                # import pdb;pdb.set_trace()
                                 if ding['argument1StartPosition'] <= tGSPos and  tGEPos <= ding['argument1EndPosition']:
                                     return 1
                                 return False
@@ -2725,8 +1677,18 @@ class Latexparser(Parser):
                     theGanzStartPos2 = len(self._eqs) + 1#largest num
                     theGanzEndPos2 = -1#smallest num
                     for rootInfoDict in rootsAndGanzeWidth:
+                        ####
+                        if self.verbose:
+                            print('checking ding', ding['name'], ' contains rootInfoDict of rootsAndGanzeWidth ', rootInfoDict['root']['name'])
+                            # import pdb;pdb.set_trace()
+                        ####
                         containedArgument = rootIsContained(rootInfoDict['ganzStartPos'], rootInfoDict['ganzEndPos'])
                         if containedArgument:
+                            ####
+                            if self.verbose:
+                                print('ding', ding['name'], ' contains  rootInfoDict of rootsAndGanzeWidth ', rootInfoDict['root']['name'], ' containedment child:', containedArgument)
+                                # import pdb;pdb.set_trace()
+                            ####
                             if containedArgument == 1 and ( rootInfoDict['ganzStartPos'] <= theGanzStartPos1 and theGanzEndPos1 <= rootInfoDict['ganzEndPos'] ):
                                 theRoot1 = rootInfoDict['root']
                                 theGanzStartPos1 = rootInfoDict['ganzStartPos']
@@ -2736,8 +1698,13 @@ class Latexparser(Parser):
                                 theGanzStartPos2 = rootInfoDict['ganzStartPos']
                                 theGanzEndPos2 = rootInfoDict['ganzEndPos']
                     #There are trigo function with no power(arg1), if there is nothing fitting here for trigo function in arg1, then we take from argument1
-
-                        #Put the child into the right place
+                    #Put the child into the right place
+                    ################
+                    if self.verbose:
+                        print('**************************check what theRoot1 or theRoot2 we found...')
+                        # import pdb;pdb.set_trace()
+                        print('**************************check what theRoot1 or theRoot2 we found...')
+                    ################
                     if ding['type'] == 'backslash_variable':
                         ding['child'][1] = {
                             'name':theRoot1['name'],
@@ -2756,36 +1723,40 @@ class Latexparser(Parser):
                             'ganzStartPos':ding['ganzStartPos'],
                             'ganzEndPos':ding['ganzEndPos']
                         }
-                    if ding['type'] == 'backslash_function' and ding['child'][1] is None and ding['argument1StartPosition'] <= theGanzStartPos1 and  theGanzEndPos1 <= ding['argument1EndPosition']:
-                        if theRoot1 is None and ding['name'] in self.TRIGOFUNCTION and ding['child'][1] is None:
-                            # ding['child'][1] = {
-                            #     'name':1,
-                            #     'startPos':None,
-                            #     'endPos':None,
-                            #     'type':'number',
-                            #     'ganzStartPos':None,
-                            #     'ganzEndPos':None
-                            # }
-                            ding['child'][1] = None # leave it as None, then it will not appear in AST...
-                        else:
-                            ding['child'][1] = {
-                                'name':theRoot1['name'],
-                                'startPos':theRoot1['startPos'],
-                                'endPos':theRoot1['endPos'],
-                                'type':theRoot1['type'],
-                                'ganzStartPos':theRoot1['startPos'],
-                                'ganzEndPos':theRoot1['endPos']
-                            }
-                            theRoot1['parent'] = {
-                                'name':ding['name'],
-                                'startPos':ding['startPos'],
-                                'endPos':ding['endPos'],
-                                'type':ding['type'],
-                                'childIdx':1,
-                                'ganzStartPos':ding['ganzStartPos'],
-                                'ganzEndPos':ding['ganzEndPos']
-                            }
-                    if ding['type'] == 'backslash_function' and ding['child'][2] is None and ding['argument2StartPosition'] <= theGanzStartPos2 and  theGanzEndPos2 <= ding['argument2EndPosition']:
+                    # if ding['type'] == 'backslash_function' and ding['child'][1] is None and ding['argument1StartPosition'] <= theGanzStartPos1 and  theGanzEndPos1 <= ding['argument1EndPosition']:
+                    if theRoot1:
+                        # if theRoot1 is None and ding['name'] in self.TRIGOFUNCTION and ding['child'][1] is None:
+                        #     # ding['child'][1] = {
+                        #     #     'name':1,
+                        #     #     'startPos':None,
+                        #     #     'endPos':None,
+                        #     #     'type':'number',
+                        #     #     'ganzStartPos':None,
+                        #     #     'ganzEndPos':None
+                        #     # }
+                        #     ding['child'][1] = None # leave it as None, then it will not appear in AST...
+                        # else:
+                        ding['child'][1] = {
+                            'name':theRoot1['name'],
+                            'startPos':theRoot1['startPos'],
+                            'endPos':theRoot1['endPos'],
+                            'type':theRoot1['type'],
+                            'ganzStartPos':theRoot1['startPos'],
+                            'ganzEndPos':theRoot1['endPos']
+                        }
+                        theRoot1['parent'] = {
+                            'name':ding['name'],
+                            'startPos':ding['startPos'],
+                            'endPos':ding['endPos'],
+                            'type':ding['type'],
+                            'childIdx':1,
+                            'ganzStartPos':ding['ganzStartPos'],
+                            'ganzEndPos':ding['ganzEndPos']
+                        }
+
+
+                    # if ding['type'] == 'backslash_function' and ding['child'][2] is None and ding['argument2StartPosition'] <= theGanzStartPos2 and  theGanzEndPos2 <= ding['argument2EndPosition']:
+                    if theRoot2:
                         ding['child'][2] = {
                             'name':theRoot2['name'],
                             'startPos':theRoot2['startPos'],
@@ -2803,6 +1774,164 @@ class Latexparser(Parser):
                             'ganzStartPos':ding['ganzStartPos'],
                             'ganzEndPos':ding['ganzEndPos']
                         }
+                    #we have to do this no matter if children of trig is None or not. but, after we got children of trig (if trig was None in the first place)
+
+                if ding['name'] == 'sqrt' and ding['child'][1] is None: # arg1 is empty so, by default, arg1=2 (SQUARE root)
+                    ding['child'][1] = {
+                        'name':2,
+                        'startPos':exponentialId,
+                        'endPos':exponentialId,
+                        'type':'number',
+                        'ganzStartPos':exponentialId,
+                        'ganzEndPos':exponentialId
+                    }
+                    self.alleDing.append({
+                        'name':2,
+                        'startPos':exponentialId,
+                        'endPos':exponentialId,
+                        'type':'number',
+                        'ganzStartPos':exponentialId,
+                        'ganzEndPos':exponentialId,
+                        'parent':{
+                            'name':ding['name'],
+                            'startPos':ding['startPos'],
+                            'endPos':ding['endPos'],
+                            'type':ding['type'],
+                            'childIdx':1,
+                            'ganzStartPos':ding['ganzStartPos'],
+                            'ganzEndPos':ding['ganzEndPos']
+                        }
+                    })
+                    exponentialId += 1 #TODO rename exponentialId to general AlleDing
+
+                if ding['name'] == 'log' and ding['child'][1] is None:
+                    ding['child'][1] = {
+                        'name':10, # natural logarithms...
+                        'startPos':exponentialId,
+                        'endPos':exponentialId,
+                        'type':'number',
+                        'ganzStartPos':exponentialId,
+                        'ganzEndPos':exponentialId
+                    }
+                    self.alleDing.append({
+                        'name':10,
+                        'startPos':exponentialId,
+                        'endPos':exponentialId,
+                        'type':'number',
+                        'ganzStartPos':exponentialId,
+                        'ganzEndPos':exponentialId,
+                        'parent':{
+                            'name':ding['name'],
+                            'startPos':ding['startPos'],
+                            'endPos':ding['endPos'],
+                            'type':ding['type'],
+                            'childIdx':1,
+                            'ganzStartPos':ding['ganzStartPos'],
+                            'ganzEndPos':ding['ganzEndPos']
+                        }
+                    })
+                    exponentialId += 1 #TODO rename exponentialId to general AlleDing
+
+
+                if ding['name'] == 'ln':
+                    ding['name'] = 'log'
+                    ding['child'][1] = {
+                        'name':'e', # natural logarithms...
+                        'startPos':exponentialId,
+                        'endPos':exponentialId,
+                        'type':'number',
+                        'ganzStartPos':exponentialId,
+                        'ganzEndPos':exponentialId
+                    }
+                    self.alleDing.append({
+                        'name':'e',
+                        'startPos':exponentialId,
+                        'endPos':exponentialId,
+                        'type':'number',
+                        'ganzStartPos':exponentialId,
+                        'ganzEndPos':exponentialId,
+                        'parent':{
+                            'name':ding['name'],
+                            'startPos':ding['startPos'],
+                            'endPos':ding['endPos'],
+                            'type':ding['type'],
+                            'childIdx':1,
+                            'ganzStartPos':ding['ganzStartPos'],
+                            'ganzEndPos':ding['ganzEndPos']
+                        }
+                    })
+                    exponentialId += 1 #TODO rename exponentialId to general AlleDing
+
+
+                # import pdb;pdb.set_trace()#TODO debug, it seems that below code block is repeated too many times
+                #special case for TRIG, but we still want to process the second child, after process the first child of trig (since power of trig may not be a number)
+                if ding['name'] in self.TRIGOFUNCTION and ding['child'][1] is not None:
+                    #NO widest-arg1-on-ding and arg1(child)=None
+                    # if theRoot1 is None and ding['child'][1] is None: #no exponential on ding trig
+                    #     ding['child'][1] = None # leave it as None, then it will not appear in AST...
+                    #what about theRoot1 is not None ding['child'][1] is None,THEN hopefully, theRoot1==ding['child'][1]
+                    # else: #trig has power   ding['child'][1] is not None
+                        #add exponent, set as parent of [trig, power]
+                    expoDing = {
+                        'name':'^',
+                        'startPos':exponentialId, # not real, 
+                        'endPos':exponentialId,
+                        'ganzStartPos':exponentialId,
+                        'ganzEndPos':exponentialId,
+                        'type':'infix',
+                        'child':{
+                            1:{
+                            'name':ding['name'],
+                            'startPos':ding['startPos'],
+                            'endPos':ding['endPos'],
+                            'type':ding['type'],
+                            'ganzStartPos':ding['ganzStartPos'],
+                            'ganzEndPos':ding['ganzEndPos']
+                            },
+                            2:{#power is the arg1 of ding
+                            'name':ding['child'][1]['name'],
+                            'startPos':ding['child'][1]['startPos'],
+                            'endPos':ding['child'][1]['endPos'],
+                            'type':ding['child'][1]['type'],
+                            'ganzStartPos':ding['child'][1]['ganzStartPos'],
+                            'ganzEndPos':ding['child'][1]['ganzEndPos']
+                            }
+                        },
+                        'parent':ding['parent']
+                    }
+                    #need actual ding's parent and update its child to expoDing
+                    actualParent = None
+                    for grenzeRange0, dings0 in newConsecutiveGroups.items():
+                        for ding0 in dings0:
+                            if ding0['name'] == ding['parent']['name'] and ding0['startPos'] == ding['parent']['startPos'] and ding0['endPos'] == ding['parent']['endPos']:
+                                actualParent = ding0
+                    actualParent['child'][ding['parent']['childIdx']] = {
+                        'name':expoDing['name'],
+                        'startPos':expoDing['startPos'],
+                        'endPos':expoDing['endPos'],
+                        'type':expoDing['type'],
+                        'ganzStartPos':expoDing['ganzStartPos'],
+                        'ganzEndPos':expoDing['ganzEndPos']
+
+                    }
+                    exponentialId += 1
+                    self.alleDing.append(expoDing)
+                    #set ding parent as expoDing's child1
+                    ding['parent'] = {
+                        'name':expoDing['name'],
+                        'startPos':expoDing['startPos'],
+                        'endPos':expoDing['endPos'],
+                        'type':expoDing['type'],
+                        'childIdx':1,
+                        'ganzStartPos':expoDing['ganzStartPos'],
+                        'ganzEndPos':expoDing['ganzEndPos']
+                    }
+                    #remove ding arg1 (power)
+                    ding['child'][1] = None
+                    #############
+                    # import pdb;pdb.set_trace()
+                    #############
+
                 self.alleDing.append(ding)# just dump everything together
         #add the = (with children) in alleDing, YAY!
         #first find ding with no parent
@@ -2822,57 +1951,61 @@ class Latexparser(Parser):
         self.ast = {}
         child0Id = self.nameStartEndToNodeId[(dingsNoParents[0]['name'], dingsNoParents[0]['startPos'], dingsNoParents[0]['endPos'])]
         child1Id = self.nameStartEndToNodeId[(dingsNoParents[1]['name'], dingsNoParents[1]['startPos'], dingsNoParents[1]['endPos'])]
+        # import pdb;pdb.set_trace()
         if dingsNoParents[0]['position'] < dingsNoParents[1]['position']:
             self.ast[('=', 0)] = [(dingsNoParents[0]['name'], child0Id), (dingsNoParents[1]['name'], child1Id)]
         else:
             self.ast[('=', 0)] = [(dingsNoParents[1]['name'], child1Id), (dingsNoParents[0]['name'], child0Id)]
 
+
         for parent in self.alleDing:
             parentId = self.nameStartEndToNodeId[(parent['name'], parent['startPos'], parent['endPos'])]
+
             if 'child' in parent:
                 if len(parent['child']) == 1:
-                    if parent['child'][1]['name'] in self.TRIGOFUNCTION:
-                        import pdb;pdb.set_trace()
                     childKey = self.nameStartEndToNodeId[(parent['child'][1]['name'], parent['child'][1]['startPos'], parent['child'][1]['endPos'])]
-                    self.ast[(parent, parentId)] = [(parent['child'][1]['name'], childKey)]
+                    self.ast[(parent['name'], parentId)] = [(parent['child'][1]['name'], childKey)]
                 elif len(parent['child']) == 2: #current this is the only other possibility
-                    ###########special case for LATEX trigonometric functions.... 
-                    ###########arg1 of LATEX trigonometric functions are powers., so we have to make ^ the new parent, and ^'s arg2 be arg1 of this trig function
-                    if parent['name'] in self.TRIGOFUNCTION and parent['child'][1] is not None:
-                        exponentialParent = ('^', nodeId)
-                        nodeId += 1
-                        exponentialParentSecondArg = (parent['child'][1]['name'], nodeId)
-                        nodeId += 1
-                        self.ast[exponentialParent] = [(parent['name'], parentId), exponentialParentSecondArg]
-                    
-                    elif parent['child'][1]['name'] in self.TRIGOFUNCTION or parent['child'][2]['name']:
-                        import pdb;pdb.set_trace()
-                    else:# everything else
-                        if parent['child'][1] is not None:
-                            child1Name = parent['child'][1]['name']
-                            child1Key = self.nameStartEndToNodeId[(child1Name, parent['child'][1]['startPos'], parent['child'][1]['endPos'])]
-                            self.ast[(parent['name'], parentId)] = [(child1Name, child1Key)]
+                    if parent['child'][1] is not None:
+                        child1Name = parent['child'][1]['name']
+                        child1Key = self.nameStartEndToNodeId[(child1Name, parent['child'][1]['startPos'], parent['child'][1]['endPos'])]
+                        self.ast[(parent['name'], parentId)] = [(child1Name, child1Key)]
 
-                        if parent['child'][2] is not None:
-                            child2Name = parent['child'][2]['name']
-                            child2Key = self.nameStartEndToNodeId[(child2Name, parent['child'][2]['startPos'], parent['child'][2]['endPos'])]
-                            existingChildren = self.ast.get((parent['name'], parentId), [])
-                            existingChildren.append((child2Name, child2Key))
-                            self.ast[(parent['name'], parentId)] = existingChildren
+                    if parent['child'][2] is not None:
+                        child2Name = parent['child'][2]['name']
+                        child2Key = self.nameStartEndToNodeId[(child2Name, parent['child'][2]['startPos'], parent['child'][2]['endPos'])]
+                        existingChildren = self.ast.get((parent['name'], parentId), [])
+                        existingChildren.append((child2Name, child2Key))
+                        self.ast[(parent['name'], parentId)] = existingChildren
 
 
         
 
     def _parse(self):
+        """
+        1. Find backslash and their argEnclosure, ganzEnclosure
+        2. Find infix and their argEnclosure, ganzEnclosure, ignore '='
+        3. Find leftovers, Collate leftovers into variables/numbers
+        4. Add implicit-0 for (multiplicative-minus)
+        5. Collate backslash, infix, variables/numbers into contiguous (bubble merging)
+        6. Add implicit-multiply for (things like: 2x), should be actually 2*x
+        7. Combine subtrees by argEnclosure, handle sqrt, trigpower specialcases
+        8. Find 2 with subtreenoparent, attach them to =
+        9. Run through all backslash/infix to form AST...
+
+
+        10. convert backslash variables to internal variables mapping
+        11. convert backslash function name to standard function name IN automat.arithmetic.function.py
+        """
         self._findVariablesFunctionsPositions()
         self._findInfixAndEnclosingBrackets()
         self._removeCaretThatIsNotExponent()
-        self._varFindVarChildren()
-        self._funcFindFuncChildren()
-        self._infixFindInfixChildren()
+        self._varFindVarChildren() # remove
+        self._funcFindFuncChildren() # remove
+        self._infixFindInfixChildren() # remove
         self._findLeftOverPosition()
         self._contiguousLeftOvers()
-        self._infixFuncVarLeftoversCrossFindChildren()
+        self._infixFuncVarLeftoversCrossFindChildren() # remove
         self._addChildOnMinusInfixWithNoLeftArg()
         self._addImplicitMultipy()
         #TODO Pool multiprocessing with method priorities (Chodai!)
