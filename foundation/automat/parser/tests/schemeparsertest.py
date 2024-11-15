@@ -1,3 +1,24 @@
+import inspect
+import pprint
+
+from foundation.automat.parser.sorte import Schemeparser
+
+
+def test__schemeParserTest__add(verbose=False):
+    pp = pprint.PrettyPrinter(indent=4)
+
+    equationStr = '(= a (+ b c))'
+    parser = Schemeparser(equationStr, verbose=True)
+    ast = parser.ast
+    # expected_ast = #TODO fill in the test if same as expected
+    unparsedStr = parser._unparse()
+
+    print(inspect.currentframe().f_code.co_name, ' PASSED? ', equationStr==unparsedStr)
+    if verbose:
+        pp.pprint(parser.ast)
+
+
+
 if __name__=='__main__':
     from foundation.automat.parser.sorte import Schemeparser
 
