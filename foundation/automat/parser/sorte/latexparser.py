@@ -87,7 +87,7 @@ class Latexparser(Parser):
 
     def _findBackSlashPositions(self):
         """
-        THE BACKSLASH FINDER! TODO rename this method, damn-confusing.
+        THE BACKSLASH FINDER! 
 
         this is done with :
 
@@ -112,7 +112,7 @@ class Latexparser(Parser):
         1. all the "Text Mode: Accents and Symbols" 
         """
         if self.verbose:
-            print('lock__findVariablesFunctionsPositions IS AQCUIRED')
+            print('event__findBackSlashPositions IS AQCUIRED')
         self.variablesPos = [] # name, startPos, endPos, | argument1, argument1StartPosition, argument1EndPosition, argumentBracketType
         self.functionPos = [] # functionName, startPos, endPos, _, ^, arguments, TODO rename to functionsPos
         self.noBraBackslashPos = [] # are variables, but no brackets
@@ -332,7 +332,7 @@ class Latexparser(Parser):
                     })
 
         if self.verbose:
-            print('lock__findVariablesFunctionsPositions IS RELEASED')
+            print('event__findBackSlashPositions IS RELEASED')
         self.event__findBackSlashPositions.set() # Trigger the event to notify the waiting process
 
 
@@ -386,7 +386,7 @@ class Latexparser(Parser):
                      So if it was an enclosing backslashArg, it should not be ignored... ?
             """
             #######
-            print('collideWithNonEnclosingBackslashBrackets self.variablesPos: ', self.variablesPos)
+            # print('collideWithNonEnclosingBackslashBrackets self.variablesPos: ', self.variablesPos)
             # import pdb;pdb.set_trace()
             #######
             for vInfoDict in self.variablesPos:
@@ -404,41 +404,41 @@ class Latexparser(Parser):
                         continue
                     return True
             #######
-            print('collideWithNonEnclosingBackslashBrackets self.functionPos: ')
-            print(list(map(lambda f:(f['name'], f['startPos'], f['endPos']), self.functionPos)))
+            # print('collideWithNonEnclosingBackslashBrackets self.functionPos: ')
+            # print(list(map(lambda f:(f['name'], f['startPos'], f['endPos']), self.functionPos)))
             # import pdb;pdb.set_trace()
             #######
             for fInfoDict in self.functionPos:
                 ##########################
-                print("looking at: ", (fInfoDict['name'], fInfoDict['startPos'], fInfoDict['endPos']), "(arg1)'s ", fInfoDict['argument1StartPosition'] - lenOrZero(fInfoDict['argument1BracketType']), ' == ', startBracketPos)
+                # print("looking at: ", (fInfoDict['name'], fInfoDict['startPos'], fInfoDict['endPos']), "(arg1)'s ", fInfoDict['argument1StartPosition'] - lenOrZero(fInfoDict['argument1BracketType']), ' == ', startBracketPos)
                 # import pdb;pdb.set_trace()
                 ##########################
                 if fInfoDict['argument1BracketType'] is not None and startBracketPos == fInfoDict['argument1StartPosition'] - lenOrZero(fInfoDict['argument1BracketType']):
                 #check if arg1(fInfoDict) encloses infixPosition, if so ignore fInfoDict
                     ###########################
-                    print('startBracketPos : ', startBracketPos, ' collide with arg1 : ', (fInfoDict['name'], fInfoDict['startPos'], fInfoDict['endPos']))
+                    # print('startBracketPos : ', startBracketPos, ' collide with arg1 : ', (fInfoDict['name'], fInfoDict['startPos'], fInfoDict['endPos']))
                     # import pdb;pdb.set_trace()
                     ###########################
                     if fInfoDict['argument1StartPosition'] <= infixPosition and infixPosition <= fInfoDict['argument1EndPosition']:
                         ##########################
-                        print('ignoring seitdem, ', fInfoDict["argument1StartPosition"], ' <= ', infixPosition, ' <= ', fInfoDict['argument1EndPosition'])
+                        # print('ignoring seitdem, ', fInfoDict["argument1StartPosition"], ' <= ', infixPosition, ' <= ', fInfoDict['argument1EndPosition'])
                         # import pdb;pdb.set_trace()
                         ##########################
                         continue
                     return True
                 ##########################
-                print("looking at: ", (fInfoDict['name'], fInfoDict['startPos'], fInfoDict['endPos']), "(arg2)'s ", fInfoDict['argument2StartPosition'] - lenOrZero(fInfoDict['argument2BracketType']), ' == ', startBracketPos)
+                # print("looking at: ", (fInfoDict['name'], fInfoDict['startPos'], fInfoDict['endPos']), "(arg2)'s ", fInfoDict['argument2StartPosition'] - lenOrZero(fInfoDict['argument2BracketType']), ' == ', startBracketPos)
                 # import pdb;pdb.set_trace()
                 ##########################
                 if fInfoDict['argument2BracketType'] is not None and startBracketPos == fInfoDict['argument2StartPosition'] - lenOrZero(fInfoDict['argument2BracketType']):
                 #check if arg2(fInfoDict) encloses infixPosition, if so ignore fInfoDict
                     ###########################
-                    print('startBracketPos : ', startBracketPos, ' collide with arg2 : ', (fInfoDict['name'], fInfoDict['startPos'], fInfoDict['endPos']))
+                    # print('startBracketPos : ', startBracketPos, ' collide with arg2 : ', (fInfoDict['name'], fInfoDict['startPos'], fInfoDict['endPos']))
                     # import pdb;pdb.set_trace()
                     ###########################
                     if fInfoDict['argument2StartPosition'] <= infixPosition and infixPosition <= fInfoDict['argument2EndPosition']:
                         ############
-                        print('ignoring seitdem, ', fInfoDict["argument2StartPosition"], ' <= ', infixPosition, ' <= ', fInfoDict['argument2EndPosition'], 'infix in f_arg2')
+                        # print('ignoring seitdem, ', fInfoDict["argument2StartPosition"], ' <= ', infixPosition, ' <= ', fInfoDict['argument2EndPosition'], 'infix in f_arg2')
                         # import pdb;pdb.set_trace()
                         ############
                         continue
@@ -512,7 +512,8 @@ class Latexparser(Parser):
             for bracketInfoDict in self.matchingBracketsLocation: 
                 ###################START leftRight Brackets
                 ######
-                print((infixInfoDict0['name'], infixInfoDict0['startPos'], infixInfoDict0['endPos']), 'brack:', (bracketInfoDict['openBracketPos'], bracketInfoDict['closeBracketPos']), ' checking for collision with backslash arguments')
+                if self.verbose:
+                    print((infixInfoDict0['name'], infixInfoDict0['startPos'], infixInfoDict0['endPos']), 'brack:', (bracketInfoDict['openBracketPos'], bracketInfoDict['closeBracketPos']), ' checking for collision with backslash arguments')
                 if not collideWithNonEnclosingBackslashBrackets(bracketInfoDict['openBracketPos'], infixInfoDict0['position']): #not a bracket of backslash, that is non-enclosing
                     #direct left-side (of infixInfoDict0)
                     if bracketInfoDict['closeBracketPos'] + len(bracketInfoDict['closeBracketType']) == infixInfoDict0['position']:
@@ -1222,9 +1223,10 @@ class Latexparser(Parser):
             start1 = grenzeRange1[0]#ding['ganzStartPos']
             end1 = grenzeRange1[1]#ding['ganzEndPos']
             ##############
-            print(start0, end0, start1, end1, '<<<<rcieis<<<append<<', ' end0<=start1 ', end0<=start1, ' self._eqs[end0:start1].strip() ', self._eqs[end0:start1].strip(), ' len(self._eqs[end0:start1].strip()) ', len(self._eqs[end0:start1].strip()))
-            print('<<<<rcieis<<<prepend<<', ' end1<=start0 ', end1<=start0, ' self._eqs[end1:start0].strip() ', self._eqs[end1:start0].strip(), ' len(self._eqs[end1:start0].strip()) ', len(self._eqs[end1:start0].strip()))
-            # import pdb;pdb.set_trace()
+            if self.verbose:
+                print(start0, end0, start1, end1, '<<<<rcieis<<<append<<', ' end0<=start1 ', end0<=start1, ' self._eqs[end0:start1].strip() ', self._eqs[end0:start1].strip(), ' len(self._eqs[end0:start1].strip()) ', len(self._eqs[end0:start1].strip()))
+                print('<<<<rcieis<<<prepend<<', ' end1<=start0 ', end1<=start0, ' self._eqs[end1:start0].strip() ', self._eqs[end1:start0].strip(), ' len(self._eqs[end1:start0].strip()) ', len(self._eqs[end1:start0].strip()))
+                # import pdb;pdb.set_trace()
 
             ##############
             if end0<=start1 and len(self._eqs[end0:start1].strip()) == 0:
@@ -1364,17 +1366,17 @@ class Latexparser(Parser):
         def getMostLeftStartPos(ting, currentGanzStartPos):
             if ting['type'] == 'infix':
                 # ##########
-                print('tingleft', (ting['name'], ting['startPos'], ting['endPos']))
-                print(ting)
-                print(ting['type'], '&&&leftcontre: ', ting['left__argStart'], currentGanzStartPos)
+                # print('tingleft', (ting['name'], ting['startPos'], ting['endPos']))
+                # print(ting)
+                # print(ting['type'], '&&&leftcontre: ', ting['left__argStart'], currentGanzStartPos)
                 # import pdb;pdb.set_trace()
                 # ##########
                 return min(ting['left__argStart'], currentGanzStartPos)
             else:
                 # ##########
-                print('tingleft', (ting['name'], ting['startPos'], ting['endPos']))
-                print(ting)
-                print(ting['type'], '&&&leftcontre: ', ting['ganzStartPos'], currentGanzStartPos)
+                # print('tingleft', (ting['name'], ting['startPos'], ting['endPos']))
+                # print(ting)
+                # print(ting['type'], '&&&leftcontre: ', ting['ganzStartPos'], currentGanzStartPos)
                 # import pdb;pdb.set_trace()
                 # ##########
                 return min(ting['ganzStartPos'], currentGanzStartPos)
@@ -1473,11 +1475,12 @@ class Latexparser(Parser):
                     ###################
 
                     ###################
-                    print('adding implicit-multiply between')
-                    print((prevDing['name'], prevDing['startPos'], prevDing['endPos']))
-                    print('vs')
-                    print((ding['name'], ding['startPos'], ding['endPos']))
-                    print('*******************************adding implicit-multiply')
+                    if self.verbose:
+                        print('adding implicit-multiply between')
+                        print((prevDing['name'], prevDing['startPos'], prevDing['endPos']))
+                        print('vs')
+                        print((ding['name'], ding['startPos'], ding['endPos']))
+                        print('*******************************adding implicit-multiply')
                     ###################
                     if prevDing['type'] == 'infix' and ding['type'] == 'infix':
                         #if prevDing['right__startBracketType'] is not None and prevDing['right__endBracketType'] is not None and ding['left__startBracketType'] is not None and ding['left__endBracketType']: 
