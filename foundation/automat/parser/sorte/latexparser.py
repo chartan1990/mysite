@@ -2697,7 +2697,7 @@ $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$incomplete code to check variable_depende
         #~DRAFT~#
         name = keyTuple[0]
         #does not include backslash_variable although they are the real leaves. TODO have a consolidated AST, and a LatexAST...
-        if name in self.leaves:
+        if name in self.leaves: # TODO, rename self.leaves to something ChildClass specific (confusing later)
             return name # return the namestr
         if name in self.backslashes:
             aux = self.backslashes[name]

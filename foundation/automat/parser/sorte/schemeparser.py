@@ -159,6 +159,13 @@ class Schemeparser(Parser):
             )
         return rootNode
 
+    def _findEqualTuple(self):
+        self.equalTuple = None
+        for keyTuple in self.ast.keys():
+            if keyTuple[0] == '=':
+                self.equalTuple = keyTuple
+
+
     def _unparse(self):
         """
 
@@ -167,11 +174,7 @@ class Schemeparser(Parser):
         """
         #find the (=, id)
         if self.equalTuple is None:
-            self.equalTuple = None
-            for keyTuple in self.ast.keys():
-                if keyTuple[0] == '=':
-                    self.equalTuple = keyTuple
-                    break
+            self._findEqualTuple()
         if self.equalTuple is None:#noch equalTuple kann nicht finden
             raise Exception('No equal, Invalid Equation String')
         return self._recursiveUnparse(self.ast, equalTuple)
@@ -184,4 +187,54 @@ class Schemeparser(Parser):
 
 
     def _toLatex(self):
-        raise Exception('Unimplemented')
+        """
+        #~ DRAFT ~#
+        We convert self.ast to a Latex_AST...
+
+        Die Verschiedenen, den wir vorsichtiger merken mussen:
+        [Scheme] => `Latex`
+        1. [nroot] => `\\sqrt[n]`
+        2. [/] => `\\frac`
+        3. [(log a )] => `\\log` {if a = 10} or `\\ln` {if a = e} or `\\log_{a}`
+
+
+        We also need to fill up the 
+        1. self.leaves
+        2. self.backslashes
+        both are list, and each item within, looks like this:
+        {
+            'argument1SubSuper':'',
+            'argument1OpenBracket':'{',
+            'argument1CloseBracket':'}',
+            'hasArgument1':True,
+            'argument2SubSuper':'',
+            'argument2OpenBracket':'',
+            'argument2CloseBracket':'',
+            'hasArgument2':False
+        }
+
+        Then we call the _unparse function of Latex to get the NICESWEETSTRING
+        """
+
+        queue = [self.equalTuple]
+        while len(queue) != 0:
+            currentTuple = queue.pop()
+            arguments = self.ast[currentTuple]
+            ###TODO check if they are leaves=variables/numbers
+            ###TODO use (1)primitives , or (2)variablesD
+            ###TODO fill up self.leaves ...
+
+            ###TODO use functionsD
+            ###TODO fill up self.backslashes ...
+            #####verandern den Verschiedenen, den wir vorhin gesagt haben
+            newName = currentTuple[0] # default is we do not change the original
+            if currentTuple[0] == 'nroot':
+                newName = 'sqrt'
+            elif currentTuple[0] == '/':
+                newName = 'frac'
+            elif currentTuple[0] == 'log':
+                if arguments[0] == 'e':
+                    newName = 'ln'
+            #####
+            for argument in arguments:
+                queue.append(argument)
