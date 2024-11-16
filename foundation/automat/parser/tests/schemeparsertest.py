@@ -10,65 +10,49 @@ def test__schemeParserTest__add(verbose=False):
     equationStr = '(= a (+ b c))'
     parser = Schemeparser(equationStr, verbose=True)
     ast = parser.ast
-    # expected_ast = #TODO fill in the test if same as expected
+    pp.pprint(ast)
+    expected_ast = {
+    ('=', 0):[('a', 1), ('+', 2)],
+    ('+', 2):[('b', 3), ('c', 4)]
+    }
     unparsedStr = parser._unparse()
-
-    print(inspect.currentframe().f_code.co_name, ' PASSED? ', equationStr==unparsedStr)
+    print(inspect.currentframe().f_code.co_name, ' PASSED? ', (equationStr==unparsedStr) and (ast==expected_ast))
     if verbose:
         pp.pprint(parser.ast)
 
 
-
-if __name__=='__main__':
-    from foundation.automat.parser.sorte import Schemeparser
-
-    #############SchemeParser testing
-    import pprint
+def test__schemeParserTest__harmonicMean(verbose=False):
+    #HARMONIC MEAN : https://en.wikipedia.org/wiki/Harmonic_mean
     pp = pprint.PrettyPrinter(indent=4)
-    eqs = '(= a (+ b c))'
-    schemeParser = Schemeparser(eqs, verbose=False)
-    ast = schemeParser.ast
-    print('*********ast:')
+
+    equationStr = '(= (/ 1 a) (+ (/ 1 b) (/ 1 c)))'
+    parser = Schemeparser(equationStr, verbose=True)
+    ast = parser.ast
     pp.pprint(ast)
-    """
-    ast = {
-    ('=', 0):[(('a', 1), ('+', 2)],
-    ('+', 2):[('b', 3), ('c', 4)]
-    }
-    """
-    unparsedStr = schemeParser._unparse()
-    print(f'***********unparsedStr: modorimashitaka: {eqs==unparsedStr}')
-    print(unparsedStr)
-    print('*******************HARMONIC MEAN : https://en.wikipedia.org/wiki/Harmonic_mean')
-    eqs = '(= (/ 1 a) (+ (/ 1 b) (/ 1 c)))'
-    schemeParser = Schemeparser(eqs, verbose=False)
-    ast = schemeParser.ast
-    print('*********ast:')
-    pp.pprint(ast)
-    """
-    ast = {
+    expected_ast = {
     ('=', 0):[('/', 1), ('+', 2)],
     ('/', 1):[(1, 3), ('a', 4)],
     ('+', 5):[('/', 6), ('/', 7)],
     ('/', 6):[(1, 8), ('b', 9)],
     ('/', 7):[(1, 10), ('c', 11)]
     }
-    """
-    unparsedStr = schemeParser._unparse()
+    unparsedStr = parser._unparse()
+    print(inspect.currentframe().f_code.co_name, ' PASSED? ', (equationStr==unparsedStr) and (ast==expected_ast))
+    if verbose:
+        pp.pprint(parser.ast)
 
-    print(f'***********unparsedStr: modorimashitaka: {eqs==unparsedStr}')
-    print(unparsedStr)
 
-    print('*******************Phasor Diagram : https://en.wikipedia.org/wiki/Euler%27s_formula')
-    eqs = '(= (^ e (* i x)) (+ (cos x) (* i (sin x))))'
-    schemeParser = Schemeparser(eqs, verbose=False)
-    ast = schemeParser.ast
-    print('*********ast:')
+def test__schemeParserTest__phasorDiagram(verbose=False):
+    #Phasor Diagram : https://en.wikipedia.org/wiki/Euler%27s_formula
+    pp = pprint.PrettyPrinter(indent=4)
+
+    equationStr = '(= (^ e (* i x)) (+ (cos x) (* i (sin x))))'
+    parser = Schemeparser(equationStr, verbose=False)
+    ast = parser.ast
     pp.pprint(ast)
-    """
-    ast = {
+    expected_ast = {
     ('=', 0):[('^', 1), ('+', 2)],
-    ('^', 1):[(e, 3), ('*', 4)],
+    ('^', 1):[('e', 3), ('*', 4)],
     ('+', 2):[('cos', 5), ('*', 6)],
 
     ('*', 4):[('i', 7), ('x', 8)],
@@ -76,39 +60,52 @@ if __name__=='__main__':
     ('*', 6):[('i', 10), ('sin', 11)],
     ('sin', 11):[('x', 12)]
     }
-    """
-    unparsedStr = schemeParser._unparse()
-    print(f'***********unparsedStr: modorimashitaka {eqs==unparsedStr}')
-    print(unparsedStr)
+    unparsedStr = parser._unparse()
+    print(inspect.currentframe().f_code.co_name, ' PASSED? ', (equationStr==unparsedStr) and (ast==expected_ast))
+    if verbose:
+        pp.pprint(parser.ast)
 
-    print('*******************Ebers-Moll_model : https://en.wikipedia.org/wiki/Bipolar_junction_transistor#Ebers%E2%80%93Moll_model')
-    eqs = '(= I_E (* I_{ES} (- (^ e (/ V_{BE} V_T) 1))))'
-    schemeParser = Schemeparser(eqs, verbose=False)
-    ast = schemeParser.ast
-    print('*********ast:')
+
+def test__schemeParserTest__ebersMollModelp1(verbose=False):
+    #Ebers-Moll model : https://en.wikipedia.org/wiki/Bipolar_junction_transistor#Ebers%E2%80%93Moll_model
+    pp = pprint.PrettyPrinter(indent=4)
+
+    equationStr = '(= I_E (* I_{ES} (- (^ e (/ V_{BE} V_T) 1))))'
+    parser = Schemeparser(equationStr, verbose=False)
+    ast = parser.ast
     pp.pprint(ast)
-    """
-    ast = {
-    ('=', 0):[('I_E', 1), ('-', 2)]
-
-    ('-', 2):[('^', 3), (1, 4)],
-
-    ('^', 3):[('e', 5), ('/', 6)],
-    ('/', 6):[('V_{BE}', 7), ('V_T', 8)]
-    }
-    """
-    unparsedStr = schemeParser._unparse()
-    print(f'***********unparsedStr: modorimashitaka {eqs==unparsedStr}')
-    print(unparsedStr)
+    expected_ast = {   
+    ('*', 2): [('I_{ES}', 3), ('-', 4)],
+    ('-', 4): [('^', 5)],
+    ('/', 7): [('V_{BE}', 9), ('V_T', 10)],
+    ('=', 0): [('I_E', 1), ('*', 2)],
+    ('^', 5): [('e', 6), ('/', 7), ('1', 8)]}
+    unparsedStr = parser._unparse()
+    print(inspect.currentframe().f_code.co_name, ' PASSED? ', (equationStr==unparsedStr) and (ast==expected_ast))
 
 
-    print('*******************Early-effect_model(Collector current) : https://en.wikipedia.org/wiki/Early_effect#Large-signal_model')
-    eqs = '(= I_E (* I_S (* (^ e (/ V_{BE} V_T)) (+ 1 (/ V_{CE} V_A)))))'
-    schemeParser = Schemeparser(eqs, verbose=False)
-    ast = schemeParser.ast
-    print('*********ast:')
+def test__schemeParserTest__earlyEffectModel(verbose=False):
+    #https://en.wikipedia.org/wiki/Early_effect#Large-signal_model
+    pp = pprint.PrettyPrinter(indent=4)
+
+    equationStr = '(= I_E (* I_S (* (^ e (/ V_{BE} V_T)) (+ 1 (/ V_{CE} V_A)))))'
+    parser = Schemeparser(equationStr, verbose=False)
+    ast = parser.ast
     pp.pprint(ast)
-    unparsedStr = schemeParser._unparse()
-    print(f'***********unparsedStr: modorimashitaka {eqs==unparsedStr}')
-    print(unparsedStr)
+    expected_ast = {   ('*', 2): [('I_S', 3), ('*', 4)],
+    ('*', 4): [('^', 5), ('+', 6)],
+    ('+', 6): [('1', 9), ('/', 10)],
+    ('/', 8): [('V_{BE}', 11), ('V_T', 12)],
+    ('/', 10): [('V_{CE}', 13), ('V_A', 14)],
+    ('=', 0): [('I_E', 1), ('*', 2)],
+    ('^', 5): [('e', 7), ('/', 8)]}
+    unparsedStr = parser._unparse()
+    print(inspect.currentframe().f_code.co_name, ' PASSED? ', (equationStr==unparsedStr) and (ast==expected_ast))
 
+if __name__=='__main__':
+    TODO checking AST equality
+    test__schemeParserTest__add()
+    test__schemeParserTest__harmonicMean()
+    test__schemeParserTest__phasorDiagram()
+    test__schemeParserTest__ebersMollModelp1(True)
+    test__schemeParserTest__earlyEffectModel(True)

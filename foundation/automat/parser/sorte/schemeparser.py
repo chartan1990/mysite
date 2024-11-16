@@ -11,7 +11,7 @@ class Schemeparser(Parser):
         self._eqs = equationStr
         self.verbose = verbose
         self.veryVerbose = veryVerbose
-        self.ast, self.functions, self.variables, self.primitives, self.totalNodeCount = self._parse(equationStr)
+        self.ast, self.functions, self.variables, self.primitives, self.totalNodeCount = self._parse()
 
     def _parse(self):
         """
@@ -167,13 +167,13 @@ class Schemeparser(Parser):
         """
         #find the (=, id)
         equalTuple = None
-        for keyTuple in self._ast.keys():
+        for keyTuple in self.ast.keys():
             if keyTuple[0] == '=':
                 equalTuple = keyTuple
                 break
         if equalTuple is None:
             raise Exception('No equal, Invalid Equation String')
-        return self._recursiveUnparse(self._ast, equalTuple)
+        return self._recursiveUnparse(self.ast, equalTuple)
 
     def _recursiveUnparse(self, subAST, keyTuple):
         if keyTuple not in subAST: # is Leaf
