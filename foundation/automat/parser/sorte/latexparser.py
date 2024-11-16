@@ -2415,10 +2415,32 @@ class Latexparser(Parser):
         else:
             self.ast[self.equalTuple] = [(dingsNoParents[1]['name'], child1Id), (dingsNoParents[0]['name'], child0Id)]
 
-
+        self.nodeIdToInfixArgsBrackets = {} # this is for unparse function, bracket information
         for parent in self.alleDing:
             parentId = nameStartEndToNodeId[(parent['name'], parent['startPos'], parent['endPos'])]
-
+            ############ for unparse function
+            if parent['type'] == 'infix':
+                leftOpenBracket = ''
+                leftCloseBracket = ''
+                rightOpenBracket = ''
+                rightCloseBracket = ''
+                if parent['left__type'] != 'infix' and parent['left__type'] != 'arg':
+                    if parent['left__startBracketType'] is not None:
+                        leftOpenBracket = parent['left__startBracketType']
+                    if parent['left__endBracketType'] is not None:
+                        leftCloseBracket = parent['left__endBracketType']
+                if parent['right__type'] != 'infix' and parent['right__type'] != 'arg':
+                    if parent['right__startBracketType'] is not None:
+                        rightOpenBracket = parent['right__startBracketType']
+                    if parent['right__endBracketType'] is not None:
+                        rightCloseBracket = parent['reight__endBracketType']
+                self.nodeIdToInfixArgsBrackets[parentId] = {
+                    'leftOpenBracket':leftOpenBracket,
+                    'leftCloseBracket':leftCloseBracket,
+                    'rightOpenBracket':rightOpenBracket,
+                    'rightCloseBracket':rightCloseBracket,
+                }
+            ############
             if 'child' in parent:
                 if len(parent['child']) == 1:
                     childKey = nameStartEndToNodeId[(parent['child'][1]['name'], parent['child'][1]['startPos'], parent['child'][1]['endPos'])]
@@ -2699,6 +2721,8 @@ $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$incomplete code to check variable_depende
         #does not include backslash_variable although they are the real leaves. TODO have a consolidated AST, and a LatexAST...
         if name in self.leaves: # TODO, rename self.leaves to something ChildClass specific (confusing later)
             return name # return the namestr
+        nid = keyTuple[1]
+        arguments = self.ast[keyTuple]
         if name in self.backslashes:
             aux = self.backslashes[name]
             """
@@ -2713,15 +2737,24 @@ $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$incomplete code to check variable_depende
                 'hasArgument2':
             }
             """
-            arguments = self.ast[keyTuple] # what about \sqrt, \log, \ln....
+             # what about \sqrt, \log, \ln....
             if aux['hasArgument1'] and aux['hasArgument2']:
-                return f"\\{name}{aux['argument1SubSuper']}{aux['argument1OpenBracket']}{}{aux['argument1CloseBracket']}{aux['argument2SubSuper']}{aux['argument2OpenBracket']}{}{aux['argument2CloseBracket']}"
+                return f"\\{name}{aux['argument1SubSuper']}{aux['argument1OpenBracket']}{self._recursiveUnparse(arguments[0])}{aux['argument1CloseBracket']}{aux['argument2SubSuper']}{aux['argument2OpenBracket']}{self._recursiveUnparse(arguments[1])}{aux['argument2CloseBracket']}"
             elif aux['hasArgument1']:
-                return f"\\{name}{aux['argument1SubSuper']}{aux['argument1OpenBracket']}{}{aux['argument1CloseBracket']}"
+                return f"\\{name}{aux['argument1SubSuper']}{aux['argument1OpenBracket']}{self._recursiveUnparse(arguments[0])}{aux['argument1CloseBracket']}"
             elif aux['hasArgument2']:
-                return f"\\{name}{aux['argument2SubSuper']}{aux['argument2OpenBracket']}{}{aux['argument2CloseBracket']}"
+                return f"\\{name}{aux['argument2SubSuper']}{aux['argument2OpenBracket']}{self._recursiveUnparse(arguments[1])}{aux['argument2CloseBracket']}"
             else:
                 return f"\\{name}"
 
         if name in Latexparser.PRIOIRITIZED_INFIX:
-            return f"\\{}{}{}{name}{}{}{}"#need to get the brackets....
+            aux = self.nodeIdToInfixArgsBrackets[nid]
+            """
+            aux = {
+                'leftOpenBracket':leftOpenBracket,
+                'leftCloseBracket':leftCloseBracket,
+                'rightOpenBracket':rightOpenBracket,
+                'rightCloseBracket':rightCloseBracket,
+            }
+            """
+            return f"\\{aux['leftOpenBracket']}{self._recursiveUnparse(arguments[0])}{aux['leftCloseBracket']}{name}{aux['rightOpenBracket']}{self._recursiveUnparse(arguments[1])}{aux['rightCloseBracket']}"#need to get the brackets....

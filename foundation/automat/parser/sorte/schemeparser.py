@@ -215,17 +215,13 @@ class Schemeparser(Parser):
 
         Then we call the _unparse function of Latex to get the NICESWEETSTRING
         """
+        ##TODO check if self.leaves and self.backslashes are initialised
+        ##TODO if not initialise here
 
         queue = [self.equalTuple]
         while len(queue) != 0:
             currentTuple = queue.pop()
             arguments = self.ast[currentTuple]
-            ###TODO check if they are leaves=variables/numbers
-            ###TODO use (1)primitives , or (2)variablesD
-            ###TODO fill up self.leaves ...
-
-            ###TODO use functionsD
-            ###TODO fill up self.backslashes ...
             #####verandern den Verschiedenen, den wir vorhin gesagt haben
             newName = currentTuple[0] # default is we do not change the original
             if currentTuple[0] == 'nroot':
@@ -237,4 +233,64 @@ class Schemeparser(Parser):
                     newName = 'ln'
             #####
             for argument in arguments:
+                ###check if arguments are leaves=variables/numbers
+                ###use (1)primitives , or (2)variablesD
+                ###primitives: isNum(current.label)
+                ###variablesD: dict(name):count
+                ###fill up self.leaves ...
+                ###self.leaves = set()
+                name = argument[0]
+                if isNum(name) or name in variablesD: # is primitive
+                    self.leaves.add(name)
+
+                ###TODO use functionsD
+                ###TODO functionsD: dict(name):count
+                ###TODO fill up self.backslashes ...
+                """
+                self.backslashes = list
+                each item:
+                {
+                    'argument1SubSuper':'_',
+                    'argument1OpenBracket':'{',
+                    'argument1CloseBracket':'}',
+                    'hasArgument1':,
+                    'argument2SubSuper':'^',
+                    'argument2OpenBracket':'',
+                    'argument2CloseBracket':'',
+                    'hasArgument2':
+                }
+                """
+                if name in functionsD:
+                    #TODO need to break into cases... TODO good to refactor this into a common helper for latexparser._findBackSlashPositions
+                    if name =='sqrt':
+                        #if arg1 is 2, then hasArgument1 == False
+                        #else argument1OpenBracket = [
+                        pass
+                    elif name in Latexparser.TRIGOFUNCTION: # to check if latex use the same trigonames TODO else need to map
+                        #need to check for power of trigofunction.... need to re-order AST.... TODO 
+                        pass
+                    elif name == 'log':
+                        #if arg1 is 10, then hasArgument1 == False
+                        #if arg1 is e, then hasArgument1 == False (the renaming of log => ln, is done earlier)
+                        #else argument1OpenBracket = {, argument1SubSuper = _
+                        pass
+                    elif name == '/': # frac
+                        argument1SubSuper = ''
+                        argument1OpenBracket = '{'
+                        argument1CloseBracket = '}'
+                        hasArgument1 = True
+                        argument2SubSuper = ''
+                        argument2OpenBracket = '{'
+                        argument2CloseBracket = '}'
+                        hasArgument2 = True
+                    self.backslashes.append({
+                        'argument1SubSuper':,
+                        'argument1OpenBracket':,
+                        'argument1CloseBracket':,
+                        'hasArgument1':,
+                        'argument2SubSuper':,
+                        'argument2OpenBracket':,
+                        'argument2CloseBracket':,
+                        'hasArgument2':
+                    })
                 queue.append(argument)
