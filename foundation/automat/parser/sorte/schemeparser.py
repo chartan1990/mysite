@@ -166,12 +166,13 @@ class Schemeparser(Parser):
         :type abstractSyntaxTree:
         """
         #find the (=, id)
-        equalTuple = None
-        for keyTuple in self.ast.keys():
-            if keyTuple[0] == '=':
-                equalTuple = keyTuple
-                break
-        if equalTuple is None:
+        if self.equalTuple is None:
+            self.equalTuple = None
+            for keyTuple in self.ast.keys():
+                if keyTuple[0] == '=':
+                    self.equalTuple = keyTuple
+                    break
+        if self.equalTuple is None:#noch equalTuple kann nicht finden
             raise Exception('No equal, Invalid Equation String')
         return self._recursiveUnparse(self.ast, equalTuple)
 
@@ -183,4 +184,4 @@ class Schemeparser(Parser):
 
 
     def _toLatex(self):
-        pass
+        raise Exception('Unimplemented')

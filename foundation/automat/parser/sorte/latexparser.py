@@ -116,6 +116,7 @@ class Latexparser(Parser):
         self.variablesPos = [] # name, startPos, endPos, | argument1, argument1StartPosition, argument1EndPosition, argumentBracketType
         self.functionPos = [] # functionName, startPos, endPos, _, ^, arguments, TODO rename to functionsPos
         self.noBraBackslashPos = [] # are variables, but no brackets
+        self.backslashes = {} # for unparsing function
 
         #find \\functionName with regex (neater than character-by-character)
         for reMatch in findAllMatches('\\\\([a-zA-Z]+)', self._eqs): #capturing group omit the backslash
@@ -146,6 +147,16 @@ class Latexparser(Parser):
                     'parent':None,
                     'position':positionTuple[0]
                 })
+                self.backslashes[labelName] = {
+                    'argument1SubSuper':'',
+                    'argument1OpenBracket':'{',
+                    'argument1CloseBracket':'}',
+                    'hasArgument1':True,
+                    'argument2SubSuper':'',
+                    'argument2OpenBracket':'',
+                    'argument2CloseBracket':'',
+                    'hasArgument2':False
+                } # for unparsing function
             elif labelName in Latexparser.FUNCTIONNAMES: #all the function that we accept, TODO link this to automat.arithmetic module
                 """
                 sqrt - \sqrt[rootpower]{rootand} # note if rootand is a single character, then curly braces are not needed, if no rootpower, then rootpower=2
@@ -319,6 +330,16 @@ class Latexparser(Parser):
                     'child':{1:None, 2:None},
                     'parent':None
                 })
+                self.backslashes[labelName] = {
+                    'argument1SubSuper':argument1SubSuperType,
+                    'argument1OpenBracket':argument1BracketType,
+                    'argument1CloseBracket':self.open__close[argument1BracketType],
+                    'hasArgument1': argument1EndPosition is not None,
+                    'argument2SubSuper':argument2SubSuperType,
+                    'argument2OpenBracket':argument2SubSuperType,
+                    'argument2CloseBracket':self.open__close[argument2BracketType],
+                    'hasArgument2': argument2BracketType is not None
+                }#for unparsing function
             else: #has a backspace, but we have not targeted it... , we assume that its a zero-argument == variable...
                 # put this seperate from self.variablesPos, 
                 self.noBraBackslashPos.append({
@@ -330,6 +351,16 @@ class Latexparser(Parser):
                         'ganzStartPos':positionTuple[0],
                         'ganzEndPos':positionTuple[1]
                     })
+                self.backslashes[labelName] = {
+                    'argument1SubSuper':'',
+                    'argument1OpenBracket':'',
+                    'argument1CloseBracket':'',
+                    'hasArgument1':False,
+                    'argument2SubSuper':'',
+                    'argument2OpenBracket':'',
+                    'argument2CloseBracket':'',
+                    'hasArgument2':False
+                }#for unparsing function
 
         if self.verbose:
             print('event__findBackSlashPositions IS RELEASED')
@@ -1018,6 +1049,7 @@ class Latexparser(Parser):
         """
         self.event__findLeftOverPosition.wait()
         self.contiguousInfoList = []
+        self.leaves = set() # for the unparsing function to check for base case
         previousIsNume = None
         previousPos = -1
         word = ""
@@ -1066,6 +1098,7 @@ class Latexparser(Parser):
                         'ganzEndPos':wordStartPos+len(word),#wordPosRange[0]+len(word),
                         'position':wordStartPos,#wordPosRange[0]#this is for building AST's convienence
                     })#, 'parentsInfo':self.wordLowestBackSlashArgumentParents}) # 
+                    self.leaves.add(word)
                 if leftOverC not in ['=', ' ']:
                     word = leftOverC
                     # wordPosRange = [unoccupiedPos, None]
@@ -1095,6 +1128,7 @@ class Latexparser(Parser):
             'ganzEndPos':wordStartPos+len(word),#wordPosRange[0]+len(word),
             'position':wordStartPos#wordPosRange[0]#this is for building AST's convienence
         })#, 'parentsInfo':self.wordLowestBackSlashArgumentParents}) # 
+        self.leaves.add(word)
         #debugging double check that we got the contiguous right....
         if self.verbose:#TTTTTTTTTTTTTTTTTTTTTTTTTTT
             print('&&&&&&&&&&&&&&&contiguousInfoList&&&&&&&&&&&&&&&&&')
@@ -2375,10 +2409,11 @@ class Latexparser(Parser):
         child0Id = nameStartEndToNodeId[(dingsNoParents[0]['name'], dingsNoParents[0]['startPos'], dingsNoParents[0]['endPos'])]
         child1Id = nameStartEndToNodeId[(dingsNoParents[1]['name'], dingsNoParents[1]['startPos'], dingsNoParents[1]['endPos'])]
         # import pdb;pdb.set_trace()
+        self.equalTuple = ('=', 0)
         if dingsNoParents[0]['position'] < dingsNoParents[1]['position']:
-            self.ast[('=', 0)] = [(dingsNoParents[0]['name'], child0Id), (dingsNoParents[1]['name'], child1Id)]
+            self.ast[self.equalTuple] = [(dingsNoParents[0]['name'], child0Id), (dingsNoParents[1]['name'], child1Id)]
         else:
-            self.ast[('=', 0)] = [(dingsNoParents[1]['name'], child1Id), (dingsNoParents[0]['name'], child0Id)]
+            self.ast[self.equalTuple] = [(dingsNoParents[1]['name'], child1Id), (dingsNoParents[0]['name'], child0Id)]
 
 
         for parent in self.alleDing:
@@ -2652,5 +2687,41 @@ $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$incomplete code to check variable_depende
 
 
     def _unparse(self): # TODO from AST to LaTeX string... 
-        raise Exception('Unimplemented')
+       """
+        #~DRAFT~#
+       """
+       return self._recursiveUnparse(self.equalTuple)
 
+
+    def _recursiveUnparse(self, keyTuple):
+        #~DRAFT~#
+        name = keyTuple[0]
+        #does not include backslash_variable although they are the real leaves. TODO have a consolidated AST, and a LatexAST...
+        if name in self.leaves:
+            return name # return the namestr
+        if name in self.backslashes:
+            aux = self.backslashes[name]
+            """
+            aux = {
+                'argument1SubSuper':'_',
+                'argument1OpenBracket':'{',
+                'argument1CloseBracket':'}',
+                'hasArgument1':,
+                'argument2SubSuper':'^',
+                'argument2OpenBracket':'',
+                'argument2CloseBracket':'',
+                'hasArgument2':
+            }
+            """
+            arguments = self.ast[keyTuple] # what about \sqrt, \log, \ln....
+            if aux['hasArgument1'] and aux['hasArgument2']:
+                return f"\\{name}{aux['argument1SubSuper']}{aux['argument1OpenBracket']}{}{aux['argument1CloseBracket']}{aux['argument2SubSuper']}{aux['argument2OpenBracket']}{}{aux['argument2CloseBracket']}"
+            elif aux['hasArgument1']:
+                return f"\\{name}{aux['argument1SubSuper']}{aux['argument1OpenBracket']}{}{aux['argument1CloseBracket']}"
+            elif aux['hasArgument2']:
+                return f"\\{name}{aux['argument2SubSuper']}{aux['argument2OpenBracket']}{}{aux['argument2CloseBracket']}"
+            else:
+                return f"\\{name}"
+
+        if name in Latexparser.PRIOIRITIZED_INFIX:
+            return f"\\{}{}{}{name}{}{}{}"#need to get the brackets....

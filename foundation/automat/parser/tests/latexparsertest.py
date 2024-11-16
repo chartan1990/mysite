@@ -263,8 +263,8 @@ if __name__=='__main__':
     # test__findingBackSlashAndInfixOperations__tildeVariable()
     # test__findingBackSlashAndInfixOperations__SchrodingerWaveEquation()
     test__infixInBackslash__paraboloid()
-    # test__sqrtWithPowerCaretRightOtherInfix__hill()
-    # test__manyFracCaretEnclosingBrac__partialFrac()
-    # test__fracWithLogNoBase__changeLogBaseFormula()
-    # test__paveWayForDifferentiation__productRule()
-    # test__paveWayForDifferentiation__sumRule()
+    # test__sqrtWithPowerCaretRightOtherInfix__hill() # not tested yet
+    # test__manyFracCaretEnclosingBrac__partialFrac() # not tested yet
+    # test__fracWithLogNoBase__changeLogBaseFormula() # not tested yet
+    # test__paveWayForDifferentiation__productRule() # not tested yet
+    # test__paveWayForDifferentiation__sumRule() # not tested yet
