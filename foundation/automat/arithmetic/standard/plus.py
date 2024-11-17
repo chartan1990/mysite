@@ -60,6 +60,7 @@ class Plus(Function):
                 key1 = key
         if key0 is None or key1 is None:
             raise Exception("replacementDictionary not according to format")
+        
         return {key0: {"newKey": key0, "newValue": [replacementDictionary[key1][0], [Minus, replacementDictionary[key0][1][1]]]}, key1: {"newKey": [-, key1[1]], "newValue": [replacementDictionary[key0][0], replacementDictionary[key1][1]]}}, {Minus: 1, +: -1}, 0, 0
 
     
@@ -99,6 +100,7 @@ class Plus(Function):
                 key1 = key
         if key0 is None or key1 is None:
             raise Exception("replacementDictionary not according to format")
+        
         return {key0: {"newKey": key0, "newValue": [replacementDictionary[key1][1], [Minus, replacementDictionary[key0][1][1]]]}, key1: {"newKey": [Minus, key1[1]], "newValue": [replacementDictionary[key0][0], replacementDictionary[key1][0]]}}, {Minus: 1, +: -1}, 0, 0
 
     

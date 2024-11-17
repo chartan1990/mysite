@@ -7,21 +7,28 @@ from foundation.automat import AUTOMAT_MODULE_DIR
 from foundation.automat.common.backtracker import Backtracker
 
 
-class FunctionHook(type):
-    def __new__(cls, name, bases, dct):
-        if len(dct['TRIGONOMETRIC_NAMES']) == 0:
-            #gather all the trigonometric function names
-            module_dir = os.path.join(AUTOMAT_MODULE_DIR, 'arithmetic', 'standard')
-            for module in os.listdir(module_dir):
-                if module.endswith('.py') and module != '__init__.py':
-                    module_name = module[:-3] # remove .py
-                    module_obj = importlib.import_module(f'.{module_name}', package='foundation.automat.arithmetic.standard')#__name__)
-                    for name, ocls in inspect.getmembers(module_obj, predicate=inspect.isclass):
-                        if ocls.TYPE == 'trigonometric':
-                            dct['TRIGONOMETRIC_NAMES'].append(ocls.FUNC_NAME)
-        return super().__new__(cls, name, bases, dct)
+# class FunctionHook(type):
+#     def __new__(cls, name, bases, dct):
+#         if len(dct['TRIGONOMETRIC_NAMES']) == 0:
+#             this_filename = __name__.split('.')[-1]
+#             #gather all the trigonometric function names
+#             module_dir = os.path.join(AUTOMAT_MODULE_DIR, 'arithmetic', 'standard')
+#             for module in os.listdir(module_dir):
+#                 if module.endswith('.py') and module != '__init__.py':
+#                     module_name = module[:-3] # remove .py
+#                     if module_name == this_filename:
+#                         continue # do not process yourself.
+#                     # import pdb;pdb.set_trace()
+#                     try:
+#                         module_obj = importlib.import_module(f'.{module_name}', package='foundation.automat.arithmetic.standard')#__name__)
+#                     except:
+#                         import pdb;pdb.set_trace()
+#                     for name, ocls in inspect.getmembers(module_obj, predicate=inspect.isclass):
+#                         if ocls.TYPE == 'trigonometric':
+#                             dct['TRIGONOMETRIC_NAMES'].append(ocls.FUNC_NAME)
+#         return super().__new__(cls, name, bases, dct)
 
-class Function(metaclass=FunctionHook):
+class Function:#(metaclass=FunctionHook):
     """
     Should be able to take an AST (dictionary, key: node (tuple[label, id]), value: list of neighbours (list[tuple[label, id]])
     and do:
@@ -36,7 +43,22 @@ class Function(metaclass=FunctionHook):
     """
     FUNC_NAMES = [] # TODO this need to filled in __init__, need to parse the folder automat.arithmetic.standard
     FUNCNAME_FILENAME = [] # TODO this need to be filled in __init__, need to parse the folder automat.arithmetic.standard
-    TRIGONOMETRIC_NAMES = []
+    _TRIGONOMETRIC_NAMES = []
+
+    @classmethod
+    @property
+    def TRIGONOMETRIC_NAMES(cls):
+        return cls._TRIGONOMETRIC_NAMES
+
+    @TRIGONOMETRIC_NAMES.setter
+    def TRIGONOMETRIC_NAMES(cls, value):
+        cls._TRIGONOMETRIC_NAMES = value
+
+    # @TRIGONOMETRIC_NAMES.setter
+    # def TRIGONOMETRIC_NAMES(cls, value):
+    #     if value < 0:
+    #         raise ValueError("Default radius cannot be negative")
+    #     cls._default_radius = value
 
     def __init__(self, equation):
         self.eq = equation

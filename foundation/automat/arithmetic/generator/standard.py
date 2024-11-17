@@ -125,7 +125,8 @@ class StandardFunctionClassGenerator:
                         'reversedDict':str(functionReturns).replace("'", ""),#self.pformat(functionReturns).replace("'", ""), # we are assuming that pformat string always have use '"' to quote strings
                         'functionCountAdded':str(functionCountAdded).replace("'", ""),#self.pformat(functionCountAdded).replace("'", ""), # we are assuming that pformat string always have use '"' to quote strings
                         'primitivesCountAdded':primitiveCountAdded,
-                        'totalNodeCountAdded':totalNodeCountAdded
+                        'totalNodeCountAdded':totalNodeCountAdded,
+                        'imports':config['return_reverse']['imports'] if 'imports' in config['return_reverse'] else [],
                     })
                     returnReversesCode.append(renderedReverseFTemplate)
 

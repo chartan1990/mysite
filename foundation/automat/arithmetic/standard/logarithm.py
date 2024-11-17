@@ -60,6 +60,7 @@ class Logarithm(Function):
                 key1 = key
         if key0 is None or key1 is None:
             raise Exception("replacementDictionary not according to format")
+        
         return {key0: {"newKey": key0, "newValue": [replacementDictionary[key1][0], [Nroot.FUNC_NAME, replacementDictionary[key0][1][1]]]}, key1: {"newKey": key1, "newValue": [replacementDictionary[key0][0], replacementDictionary[key1][1]]}}, {Nroot.FUNC_NAME: 1, FUNC_NAME: -1}, 0, 0
 
     
@@ -99,6 +100,7 @@ class Logarithm(Function):
                 key1 = key
         if key0 is None or key1 is None:
             raise Exception("replacementDictionary not according to format")
+        
         return {key0: {"newKey": key0, "newValue": [replacementDictionary[key0][0], [Exponential.FUNC_NAME, replacementDictionary[key0][1][1]]]}, key1: {"newKey": key1, "newValue": [replacementDictionary[key1][0], replacementDictionary[key0][0]]}}, {Exponential.FUNC_NAME: 1, FUNC_NAME: -1}, 0, 0
 
     

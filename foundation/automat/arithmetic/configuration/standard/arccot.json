@@ -9,8 +9,9 @@
   "init_variableName_totalNodeCount": {"full": "totalNodeCount", "code": "@vtN@"},
   "init_string_newKey": {"full": "newKey", "code": "@vnK@"},
   "init_string_newValue": {"full": "newValue", "code": "@vnV@"},
-  "imports":["from foundation.automat.arithmetic.standard.cotangent import Cotangent"],
+  "imports":["from foundation.automat.arithmetic.function import Function"],
   "return_reverse": {
+    "imports":["from foundation.automat.arithmetic.standard.cotangent import Cotangent"],
     "reversedAst": [
       {
         "@vk0@": {

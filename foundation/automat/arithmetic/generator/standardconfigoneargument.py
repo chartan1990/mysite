@@ -26,7 +26,8 @@ class Standardconfigoneargument:
                 function_name=vorfname,
                 class_name=vorcname,
                 reverse_class_name=hincname,
-                imports=str([f"from foundation.automat.arithmetic.standard.{hincname.lower()} import {hincname}"]).replace("'", '"'),
+                imports=str(["from foundation.automat.arithmetic.function import Function"]).replace("'", '"'),
+                reverse_imports=str([f"from foundation.automat.arithmetic.standard.{hincname.lower()} import {hincname}"]).replace("'", '"'),
                 imports_as_str=str(mapping['import']).replace("'", '"'),
                 code_as_str=str(mapping['code']).replace("'", '"'),
             )
@@ -35,7 +36,8 @@ class Standardconfigoneargument:
                 function_name=hinfname,
                 class_name=hincname,
                 reverse_class_name=vorcname,
-                imports=str([f"from foundation.automat.arithmetic.standard.{vorcname.lower()} import {vorcname}"]).replace("'", '"'),
+                imports=str(["from foundation.automat.arithmetic.function import Function"]).replace("'", '"'),
+                reverse_imports=str([f"from foundation.automat.arithmetic.standard.{vorcname.lower()} import {vorcname}"]).replace("'", '"'),
                 imports_as_str=str(mapping['reverse_import']).replace("'", '"'),
                 code_as_str=str(mapping['reverse_code']).replace("'", '"'),
             )

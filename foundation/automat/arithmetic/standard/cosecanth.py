@@ -1,5 +1,5 @@
 
-from foundation.automat.arithmetic.standard.arccosecanth import Arccosecanth
+from foundation.automat.arithmetic.function import Function
 
 
 class Cosecanth(Function):
@@ -57,6 +57,9 @@ class Cosecanth(Function):
                 key1 = key
         if key0 is None or key1 is None:
             raise Exception("replacementDictionary not according to format")
+        
+        from foundation.automat.arithmetic.standard.arccosecanth import Arccosecanth
+        
         return {key0: {"newKey": key0, "newValue": [replacementDictionary[key1][0], [Arccosecanth.FUNC_NAME, replacementDictionary[key0][1][1]]]}, key1: {"newKey": [Arccosecanth.FUNC_NAME, key1[1]], "newValue": [replacementDictionary[key0][0]]}}, {Arccosecanth.FUNC_NAME: 1, FUNC_NAME: -1}, 0, 0
 
     

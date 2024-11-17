@@ -1,5 +1,5 @@
 
-from foundation.automat.arithmetic.standard.secant import Secant
+from foundation.automat.arithmetic.function import Function
 
 
 class Arcsecant(Function):
@@ -57,6 +57,9 @@ class Arcsecant(Function):
                 key1 = key
         if key0 is None or key1 is None:
             raise Exception("replacementDictionary not according to format")
+        
+        from foundation.automat.arithmetic.standard.secant import Secant
+        
         return {key0: {"newKey": key0, "newValue": [replacementDictionary[key1][0], [Secant.FUNC_NAME, replacementDictionary[key0][1][1]]]}, key1: {"newKey": [Secant.FUNC_NAME, key1[1]], "newValue": [replacementDictionary[key0][0]]}}, {Secant.FUNC_NAME: 1, FUNC_NAME: -1}, 0, 0
 
     

@@ -34,4 +34,7 @@
                 {{vKey1}} = key
         if {{vKey0}} is None or {{vKey1}} is None:
             raise Exception("{{vReplacementDict}} not according to format")
+        {% for import in imports %}
+        {{import}}
+        {% endfor %}
         return {{reversedDict}}, {{functionCountAdded}}, {{primitivesCountAdded}}, {{totalNodeCountAdded}}
