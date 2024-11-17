@@ -1,40 +1,37 @@
-def _reverse{{idx+1}}(self, {{vReplacementDict}}, {{vTotalNodeCount}}):
-	"""
-	{{vReplacementDict}} are the rows in the AST mapping that needs to be replaced.
-	Aim of this function is to make #{{idx+1}} input, the subject
-	{{vReplacementDict}} will always have exactly 2 rows, because of the nature of equality.
-	One of the list have this tuple ('{{funcName}}', nodeId) on the #2 argument. Since this is
-	the function that will operate on it.
+    def _reverse{{idx+1}}(self, {{vReplacementDict}}, {{vTotalNodeCount}}):
+        """
+        {{vReplacementDict}} are the rows in the AST mapping that needs to be replaced.
+        Aim of this function is to make #{{idx+1}} input, the subject
+        {{vReplacementDict}} will always have exactly 2 rows, because of the nature of equality.
+        One of the list have this tuple ('{{funcName}}', nodeId) on the #2 argument. Since this is
+        the function that will operate on it.
 
-	:param {{vReplacementDict}}: 
-	:type {{vReplacementDict}}: dict[tuple[str, int], list[tuple[str, int]]]
-	:param {{vTotalNodeCount}}:
-	:type {{vTotalNodeCount}}: int
-	:return: tuple
-	 - input that was reversed
-	 - mapping from FuncName to how many of FuncName was added by this reversal, if its a negative, then its removal
-	 - total number of primitives that was added. If its negative, then primitives was removed
-	 - total number of nodes that was added. If its negative, the nodes were removed
-	:rtype: tuple [
-		dict[str, dict[str, Any]],
-		dict[str, int],
-		int,
-		int
-	]
-	"""
-	#error checking 
-	if len({{vReplacementDict}}) != 2: # always be 2 due to nature of equality
-		raise Exception('{{vReplacementDict}} incorrect length')
-	{{vKey0}} = None
-	{{vKey1}} = None
-	for key, value in {{vReplacementDict}}.items():
-		if value[1][0] == self.FUNC_NAME:
-			{{vKey0}} = key
-		else:
-			{{vKey1}} = key
-	if {{vKey0}} is None or {{vKey1}} is None:
-		raise Exception("{{vReplacementDict}} not according to format")
-	return {{reversedDict}}, 
-			{{functionCountAdded}}, 
-			{{primitivesCountAdded}}, 
-			{{totalNodeCountAdded}}
+        :param {{vReplacementDict}}: 
+        :type {{vReplacementDict}}: dict[tuple[str, int], list[tuple[str, int]]]
+        :param {{vTotalNodeCount}}:
+        :type {{vTotalNodeCount}}: int
+        :return: tuple
+         - input that was reversed
+         - mapping from FuncName to how many of FuncName was added by this reversal, if its a negative, then its removal
+         - total number of primitives that was added. If its negative, then primitives was removed
+         - total number of nodes that was added. If its negative, the nodes were removed
+        :rtype: tuple [
+            dict[str, dict[str, Any]],
+            dict[str, int],
+            int,
+            int
+        ]
+        """
+        #error checking 
+        if len({{vReplacementDict}}) != 2: # always be 2 due to nature of equality
+            raise Exception('{{vReplacementDict}} incorrect length')
+        {{vKey0}} = None
+        {{vKey1}} = None
+        for key, value in {{vReplacementDict}}.items():
+            if value[1][0] == self.FUNC_NAME:
+                {{vKey0}} = key
+            else:
+                {{vKey1}} = key
+        if {{vKey0}} is None or {{vKey1}} is None:
+            raise Exception("{{vReplacementDict}} not according to format")
+        return {{reversedDict}}, {{functionCountAdded}}, {{primitivesCountAdded}}, {{totalNodeCountAdded}}

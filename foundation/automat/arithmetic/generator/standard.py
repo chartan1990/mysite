@@ -121,8 +121,9 @@ class StandardFunctionClassGenerator:
                         'funcName':initSubstitutionDict['@fN@'],
                         'vKey0':initSubstitutionDict['@vk0@'],
                         'vKey1':initSubstitutionDict['@vk1@'],
-                        'reversedDict':self.pformat(functionReturns).replace("'", ""), # we are assuming that pformat string always have use '"' to quote strings
-                        'functionCountAdded':self.pformat(functionCountAdded).replace("'", ""), # we are assuming that pformat string always have use '"' to quote strings
+                        #pretty Format makes bad indentation => unrunnable TODO
+                        'reversedDict':str(functionReturns).replace("'", ""),#self.pformat(functionReturns).replace("'", ""), # we are assuming that pformat string always have use '"' to quote strings
+                        'functionCountAdded':str(functionCountAdded).replace("'", ""),#self.pformat(functionCountAdded).replace("'", ""), # we are assuming that pformat string always have use '"' to quote strings
                         'primitivesCountAdded':primitiveCountAdded,
                         'totalNodeCountAdded':totalNodeCountAdded
                     })
@@ -140,6 +141,7 @@ class StandardFunctionClassGenerator:
                 #main template for this class
                 mainFTemplate = environment.get_template("function.py.jinja2")
                 renderedMainFTemplate = mainFTemplate.render({
+                    'type':initSubstitutionDict['@te@'] if '@te@' in initSubstitutionDict else 'other',
                     'className':initSubstitutionDict['@cN@'],
                     'funcName':initSubstitutionDict['@fN@'],
                     'num_of_variables':config['return_calculation'][0]['variableCount'],

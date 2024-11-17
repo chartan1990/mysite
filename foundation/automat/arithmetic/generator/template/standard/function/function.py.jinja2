@@ -3,27 +3,27 @@
 {% endfor %}
 
 class {{className}}(Function):
-	"""
-	
-	"""
-	TYPE = '{{type}}'
-	FUNC_NAME = '{{funcName}}'
+    """
 
-	def __init__(self, equation):
-		"""
+    """
+    TYPE = '{{type}}'
+    FUNC_NAME = '{{funcName}}'
 
-		"""
-		super({{className}}, self).__init__(equation)
-		self.reverses = {
-			{% for i in range(num_of_variables) %}
-				{{i+1}}: self._reverse{{i+1}}{% if not loop.last %},
-				{% endif %}
-			{% endfor %}
-		}
+    def __init__(self, equation):
+        """
 
-	{% for reverseFunctionStr in reverseFunctionStrs %}
-	{{reverseFunctionStr}}
+        """
+        super({{className}}, self).__init__(equation)
+        self.reverses = {
+            {% for i in range(num_of_variables) %}
+                {{i+1}}: self._reverse{{i+1}}{% if not loop.last %},
+                {% endif %}
+            {% endfor %}
+        }
 
-	{% endfor %}
+    {% for reverseFunctionStr in reverseFunctionStrs %}
+{{reverseFunctionStr}}
 
-	{{calculateFunctionStr}}
+    {% endfor %}
+
+{{calculateFunctionStr}}

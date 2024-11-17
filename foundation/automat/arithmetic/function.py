@@ -1,10 +1,27 @@
 from abc import ABC
 from copy import deepcopy
+import importlib
+import os
 
+from foundation.automat import AUTOMAT_MODULE_DIR
 from foundation.automat.common.backtracker import Backtracker
 
 
-class Function:
+class FunctionHook(type):
+    def __new__(cls, name, bases, dct):
+        if len(dct['TRIGONOMETRIC_NAMES']) == 0:
+            #gather all the trigonometric function names
+            module_dir = os.path.join(AUTOMAT_MODULE_DIR, 'arithmetic', 'standard')
+            for module in os.listdir(module_dir):
+                if module.endswith('.py') and module != '__init__.py':
+                    module_name = module[:-3] # remove .py
+                    module_obj = importlib.import_module(f'.{module_name}', package='foundation.automat.arithmetic.standard')#__name__)
+                    for name, ocls in inspect.getmembers(module_obj, predicate=inspect.isclass):
+                        if ocls.TYPE == 'trigonometric':
+                            dct['TRIGONOMETRIC_NAMES'].append(ocls.FUNC_NAME)
+        return super().__new__(cls, name, bases, dct)
+
+class Function(metaclass=FunctionHook):
     """
     Should be able to take an AST (dictionary, key: node (tuple[label, id]), value: list of neighbours (list[tuple[label, id]])
     and do:
@@ -25,15 +42,22 @@ class Function:
         self.eq = equation
         self.inverses = None
 
-        #gather all the trigonometric function names
-        module_dir = os.path.dirname(os.path.join(AUTOMAT_MODULE_DIR, 'arithmetic', 'standard'))
-        for module in os.listdir(module_dir):
-            if module.endswith('.py') and module != '__init__.py':
-                module_name = module[:-3] # remove .py
-                module_obj = importlib.import_module(f'.{module_name}', package=__name__)
-                for name, cls in inspect.getmembers(module_obj, predicate=inspect.isclass):
-                    if cls.TYPE == 'trigonometric':
-                        TRIGONOMETRIC_NAMES.append(cls.FUNC_NAME)
+
+
+
+
+    @classmethod
+    def __clsInit__(cls):
+        if len(TRIGONOMETRIC_NAMES) == 0:
+            #gather all the trigonometric function names
+            module_dir = os.path.dirname(os.path.join(AUTOMAT_MODULE_DIR, 'arithmetic', 'standard'))
+            for module in os.listdir(module_dir):
+                if module.endswith('.py') and module != '__init__.py':
+                    module_name = module[:-3] # remove .py
+                    module_obj = importlib.import_module(f'.{module_name}', package=__name__)
+                    for name, cls in inspect.getmembers(module_obj, predicate=inspect.isclass):
+                        if cls.TYPE == 'trigonometric':
+                            TRIGONOMETRIC_NAMES.append(cls.FUNC_NAME)
 
 
     def substitute(self, substitutionDictionary):
