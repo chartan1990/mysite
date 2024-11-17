@@ -19,10 +19,22 @@ class Function:
     """
     FUNC_NAMES = [] # TODO this need to filled in __init__, need to parse the folder automat.arithmetic.standard
     FUNCNAME_FILENAME = [] # TODO this need to be filled in __init__, need to parse the folder automat.arithmetic.standard
+    TRIGONOMETRIC_NAMES = []
 
     def __init__(self, equation):
         self.eq = equation
         self.inverses = None
+
+        #gather all the trigonometric function names
+        module_dir = os.path.dirname(os.path.join(AUTOMAT_MODULE_DIR, 'arithmetic', 'standard'))
+        for module in os.listdir(module_dir):
+            if module.endswith('.py') and module != '__init__.py':
+                module_name = module[:-3] # remove .py
+                module_obj = importlib.import_module(f'.{module_name}', package=__name__)
+                for name, cls in inspect.getmembers(module_obj, predicate=inspect.isclass):
+                    if cls.TYPE == 'trigonometric':
+                    TRIGONOMETRIC_NAMES.append(cls.FUNC_NAME)
+
 
     def substitute(self, substitutionDictionary):
         """

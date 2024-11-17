@@ -1,6 +1,7 @@
 import multiprocessing as mp # TODO for Django, we might need to re-int  Django
 
 from foundation.automat.common import findAllMatches, isNum, lenOrZero
+from foundation.automat.arithmetic.function import Function
 from foundation.automat.parser.parser import Parser
 
 
@@ -39,9 +40,10 @@ class Latexparser(Parser):
     #Math mode accents
     'acute', 'breve', 'ddot', 'grave', 'tilde', 'bar', 'check', 'dot', 'hat', 'vec'
     ] # these 'functions' must be preceded by {
-    TRIGOFUNCTION = ['arccos', 'cos', 'arcsin', 'sin', 'arctan', 'tan', 
+    TRIGOFUNCTION = Function.TRIGONOMETRIC_NAMES # then no need to map between latex and scheme
+    """['arccos', 'cos', 'arcsin', 'sin', 'arctan', 'tan', 
     'arccsc', 'csc', 'arcsec', 'sec', 'arccot', 'cot', 'arsinh', 'sinh', 'arcosh', 'cosh', 
-    'artanh', 'tanh', 'arcsch', 'csch', 'arsech', 'sech', 'arcoth', 'coth']
+    'artanh', 'tanh', 'arcsch', 'csch', 'arsech', 'sech', 'arcoth', 'coth']"""
     FUNCTIONNAMES = TRIGOFUNCTION + ['frac', 'sqrt',  'log', 'ln'] #+ ['int', 'oint', 'iint'] # TODO this is important... but i am weak now
 
     def __init__(self, equationStr, verbose=False):

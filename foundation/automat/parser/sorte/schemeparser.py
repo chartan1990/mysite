@@ -217,11 +217,11 @@ class Schemeparser(Parser):
         """
         ##TODO check if self.leaves and self.backslashes are initialised
         ##TODO if not initialise here
-
+        self.schemeToLatexAST = copy.deepcopy(self.ast)
         queue = [self.equalTuple]
         while len(queue) != 0:
             currentTuple = queue.pop()
-            arguments = self.ast[currentTuple]
+            arguments = self.schemeToLatexAST[currentTuple]
             #####verandern den Verschiedenen, den wir vorhin gesagt haben
             newName = currentTuple[0] # default is we do not change the original
             if currentTuple[0] == 'nroot':
@@ -262,19 +262,74 @@ class Schemeparser(Parser):
                 """
                 if name in functionsD:
                     #TODO need to break into cases... TODO good to refactor this into a common helper for latexparser._findBackSlashPositions
-                    if name =='sqrt':
+                    newName = name
+                    if name =='nroot':
+                        newName = 'sqrt'
                         #if arg1 is 2, then hasArgument1 == False
                         #else argument1OpenBracket = [
-                        pass
-                    elif name in Latexparser.TRIGOFUNCTION: # to check if latex use the same trigonames TODO else need to map
-                        #need to check for power of trigofunction.... need to re-order AST.... TODO 
-                        pass
+                        if str(arguments[0]) == '2':
+                            argument1SubSuper = ''
+                            argument1OpenBracket = ''
+                            argument1CloseBracket = ''
+                            hasArgument1 = False
+                            argument2SubSuper = ''
+                            argument2OpenBracket = '' if len(arguments[1]) <= 1 else '{'
+                            argument2CloseBracket = '' if len(arguments[1]) <= 1 else '}'
+                            hasArgument2 = True
+                        else:
+                            argument1SubSuper = ''
+                            argument1OpenBracket = '' if len(arguments[0]) <= 1 else '[' # brackets only if argument length more than 1
+                            argument1CloseBracket = '' if len(arguments[0]) <= 1 else ']'
+                            hasArgument1 = True
+                            argument2SubSuper = ''
+                            argument2OpenBracket = '' if len(arguments[1]) <= 1 else '{'
+                            argument2CloseBracket = '' if len(arguments[1]) <= 1 else '}'
+                            hasArgument2 = True
+
+                    elif name == '^' and arguments[0] in Function.TRIGONOMETRIC_NAMES: #to check for trigpower
+                        #no need to map name, since for latex, we restrict to Function.TRIGONOMETRIC_NAMES
+                        #need to check for power of trigofunction.... need to re-order AST....
+                        trigNode = arguments[0]
+                        trigPowerNode = arguments[1]
+                        #re-order AST
+                        trigArg = self.schemeToLatexAST[trigNode][0]
+                        self.schemeToLatexAST[trigNode] = [trigPowerNode, trigArg]
+                        del self.schemeToLatexAST[currentTuple]
                     elif name == 'log':
                         #if arg1 is 10, then hasArgument1 == False
                         #if arg1 is e, then hasArgument1 == False (the renaming of log => ln, is done earlier)
                         #else argument1OpenBracket = {, argument1SubSuper = _
-                        pass
+                        if str(arguments[0]) == '10':
+                            argument1SubSuper = ''
+                            argument1OpenBracket = ''
+                            argument1CloseBracket = ''
+                            hasArgument1 = False
+                            argument2SubSuper = ''
+                            argument2OpenBracket = '' if len(arguments[1]) <= 1 else '{'
+                            argument2CloseBracket = '' if len(arguments[1]) <= 1 else '}'
+                            hasArgument2 = True
+                        elif arguments[0] == 'e':
+                            newName = 'ln'
+                            argument1SubSuper = ''
+                            argument1OpenBracket = ''
+                            argument1CloseBracket = ''
+                            hasArgument1 = True
+                            argument2SubSuper = ''
+                            argument2OpenBracket = '' if len(arguments[1]) <= 1 else '{'
+                            argument2CloseBracket = '' if len(arguments[1]) <= 1 else '}'
+                            hasArgument2 = True
+                        else:
+                            argument1SubSuper = '_'
+                            argument1OpenBracket = '' if len(arguments[0]) <= 1 else '{' # brackets only if argument length more than 1
+                            argument1CloseBracket = '' if len(arguments[0]) <= 1 else '}'
+                            hasArgument1 = True
+                            argument2SubSuper = ''
+                            argument2OpenBracket = '' if len(arguments[1]) <= 1 else '{'
+                            argument2CloseBracket = '' if len(arguments[1]) <= 1 else '}'
+                            hasArgument2 = True
+
                     elif name == '/': # frac
+                        newName = 'frac'
                         argument1SubSuper = ''
                         argument1OpenBracket = '{'
                         argument1CloseBracket = '}'
@@ -283,14 +338,16 @@ class Schemeparser(Parser):
                         argument2OpenBracket = '{'
                         argument2CloseBracket = '}'
                         hasArgument2 = True
-                    self.backslashes.append({
-                        'argument1SubSuper':,
-                        'argument1OpenBracket':,
-                        'argument1CloseBracket':,
-                        'hasArgument1':,
-                        'argument2SubSuper':,
-                        'argument2OpenBracket':,
-                        'argument2CloseBracket':,
-                        'hasArgument2':
+                    self.backslashes[newName].append({
+                        'argument1SubSuper':argument1SubSuper,
+                        'argument1OpenBracket':argument1OpenBracket,
+                        'argument1CloseBracket':argument1CloseBracket,
+                        'hasArgument1':hasArgument1,
+                        'argument2SubSuper':argument2SubSuper,
+                        'argument2OpenBracket':argument2OpenBracket,
+                        'argument2CloseBracket':argument2CloseBracket,
+                        'hasArgument2':hasArgument2
                     })
                 queue.append(argument)
+        #latexparser = Latexparser("") # we cannot put empty.... TODO need some reconfiguring of code structure of Latexparser
+        #latexparser._unparse(self.schemeToLatexAST) #TODO, Latexparser._unparse does not take external arguments...
