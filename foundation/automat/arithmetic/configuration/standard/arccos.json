@@ -1,4 +1,5 @@
 {
+  "init_type": {"full": "trigonometric", "code":"@te@"},
   "init_funcName": {"full": "arccos", "code": "@fN@"},
   "init_className": {"full": "Arccosine", "code": "@cN@"},
   "init_variableName_funcName": {"full": "FUNC_NAME", "code": "@vfN@"},

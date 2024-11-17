@@ -969,7 +969,7 @@ class Latexparser(Parser):
     def _findLeftOverPosition(self):
         self.event__removeCaretThatIsNotExponent.wait()
         listOfOccupiedRanges = set() # note that ranges should not overlapp
-        # import pdb;pdb.set_trace()
+        import pdb;pdb.set_trace()
 
         for vInfoDict in self.noBraBackslashPos:
             listOfOccupiedRanges.add((vInfoDict['startPos'], vInfoDict['endPos']))
@@ -1020,7 +1020,11 @@ class Latexparser(Parser):
         if self.verbose:
             print('leftOverPoss*******unoccupiedPoss*****************')
             print(self.unoccupiedPoss)
+            unOccupiedChars = list(map(lambda pos: self._eqs[pos], self.unoccupiedPoss))
+            print(unOccupiedChars)
+            occupiedStrs = list(map(lambda ran: self._eqs[ran[0]:ran[1]], listOfOccupiedRanges))
             print(listOfOccupiedRanges)
+            print(occupiedStrs)
             # import pdb;pdb.set_trace()
         self.event__findLeftOverPosition.set()
 
@@ -1761,7 +1765,7 @@ class Latexparser(Parser):
                         #elif ding['left__startBracketType'] is not None:
                         elif ding['left__type'] == 'enclosing': #Ding*(...+???)
                             infixLeftOfDing = findLeftestInfixFrom(prevDing) # that has rightCloseBracket
-                            import pdb;pdb.set_trace()
+                            # import pdb;pdb.set_trace()
                             implicitMultiplyNode = ('*', (implicitMultiplyId, -1))
                             implicitMultiplyId += 1
                             implicitMultiplyInfoDict = {# rightarg * ganz

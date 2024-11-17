@@ -1,4 +1,5 @@
 {
+  "init_type": {"full": "trigonometric", "code":"@te@"},
   "init_funcName": {"full": "sinh", "code": "@fN@"},
   "init_className": {"full": "Sineh", "code": "@cN@"},
   "init_variableName_funcName": {"full": "FUNC_NAME", "code": "@vfN@"},

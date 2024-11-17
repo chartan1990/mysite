@@ -33,7 +33,7 @@ class Function:
                 module_obj = importlib.import_module(f'.{module_name}', package=__name__)
                 for name, cls in inspect.getmembers(module_obj, predicate=inspect.isclass):
                     if cls.TYPE == 'trigonometric':
-                    TRIGONOMETRIC_NAMES.append(cls.FUNC_NAME)
+                        TRIGONOMETRIC_NAMES.append(cls.FUNC_NAME)
 
 
     def substitute(self, substitutionDictionary):

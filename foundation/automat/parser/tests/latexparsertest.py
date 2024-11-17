@@ -251,7 +251,7 @@ def test__paveWayForDifferentiation__sumRule(verbose=False):
 #
 
 if __name__=='__main__':
-    # test__findingBackSlashAndInfixOperations__Trig0()
+    test__findingBackSlashAndInfixOperations__Trig0(True)
     # test__findingBackSlashAndInfixOperations__Trig1()
     # test__findingBackSlashAndInfixOperations__Trig2()
     # test__findingBackSlashAndInfixOperations__Sqrt0()
@@ -262,7 +262,7 @@ if __name__=='__main__':
     # test__findingBackSlashAndInfixOperations__Log1()
     # test__findingBackSlashAndInfixOperations__tildeVariable()
     # test__findingBackSlashAndInfixOperations__SchrodingerWaveEquation()
-    test__infixInBackslash__paraboloid()
+    # test__infixInBackslash__paraboloid()
     # test__sqrtWithPowerCaretRightOtherInfix__hill() # not tested yet
     # test__manyFracCaretEnclosingBrac__partialFrac() # not tested yet
     # test__fracWithLogNoBase__changeLogBaseFormula() # not tested yet
