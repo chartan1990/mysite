@@ -9,11 +9,16 @@ class Secant(Function):
     TYPE = 'trigonometric'
     FUNC_NAME = 'sec'
 
+    def __init_subclass__(cls, **kwargs):
+        kwargs['type'] = 'trigonometric'
+        kwargs['funcName'] = 'sec'
+        super().__init_subclass__(**kwargs)
+
     def __init__(self, equation):
         """
 
         """
-        super(Secant, self).__init__(equation)
+        super().__init__(equation)
         self.reverses = {
             
                 1: self._reverse1

@@ -9,11 +9,16 @@ class Cosecant(Function):
     TYPE = 'trigonometric'
     FUNC_NAME = 'cosec'
 
+    def __init_subclass__(cls, **kwargs):
+        kwargs['type'] = 'trigonometric'
+        kwargs['funcName'] = 'cosec'
+        super().__init_subclass__(**kwargs)
+
     def __init__(self, equation):
         """
 
         """
-        super(Cosecant, self).__init__(equation)
+        super().__init__(equation)
         self.reverses = {
             
                 1: self._reverse1

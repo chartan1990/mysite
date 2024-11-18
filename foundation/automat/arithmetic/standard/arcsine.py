@@ -9,11 +9,16 @@ class Arcsine(Function):
     TYPE = 'trigonometric'
     FUNC_NAME = 'arcsin'
 
+    def __init_subclass__(cls, **kwargs):
+        kwargs['type'] = 'trigonometric'
+        kwargs['funcName'] = 'arcsin'
+        super().__init_subclass__(**kwargs)
+
     def __init__(self, equation):
         """
 
         """
-        super(Arcsine, self).__init__(equation)
+        super().__init__(equation)
         self.reverses = {
             
                 1: self._reverse1

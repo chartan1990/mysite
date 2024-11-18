@@ -8,10 +8,11 @@
   "init_variableName_totalNodeCount": {"full": "totalNodeCount", "code": "@vtN@"},
   "init_string_newKey": {"full": "newKey", "code": "@vnK@"},
   "init_string_newValue": {"full": "newValue", "code": "@vnV@"},
-  "imports":["from foundation.automat.arithmetic.standard.divide import Divide",
+  "imports":["from foundation.automat.arithmetic.function import Function"],
+  "return_reverse": {
+    "imports":["from foundation.automat.arithmetic.standard.divide import Divide",
       "from foundation.automat.arithmetic.standard.logarithm import Logarithm"
   ],
-  "return_reverse": {
     "reversedAst": [
       {
         "@vk0@": {

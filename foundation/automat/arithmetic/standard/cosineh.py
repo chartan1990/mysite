@@ -9,11 +9,16 @@ class Cosineh(Function):
     TYPE = 'trigonometric'
     FUNC_NAME = 'cosh'
 
+    def __init_subclass__(cls, **kwargs):
+        kwargs['type'] = 'trigonometric'
+        kwargs['funcName'] = 'cosh'
+        super().__init_subclass__(**kwargs)
+
     def __init__(self, equation):
         """
 
         """
-        super(Cosineh, self).__init__(equation)
+        super().__init__(equation)
         self.reverses = {
             
                 1: self._reverse1

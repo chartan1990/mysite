@@ -1,5 +1,5 @@
 
-from foundation.automat.arithmetic.standard.nroot import Nroot
+from foundation.automat.arithmetic.function import Function
 
 
 class Logarithm(Function):
@@ -9,11 +9,16 @@ class Logarithm(Function):
     TYPE = 'other'
     FUNC_NAME = 'log'
 
+    def __init_subclass__(cls, **kwargs):
+        kwargs['type'] = 'other'
+        kwargs['funcName'] = 'log'
+        super().__init_subclass__(**kwargs)
+
     def __init__(self, equation):
         """
 
         """
-        super(Logarithm, self).__init__(equation)
+        super().__init__(equation)
         self.reverses = {
             
                 1: self._reverse1,
@@ -61,6 +66,8 @@ class Logarithm(Function):
         if key0 is None or key1 is None:
             raise Exception("replacementDictionary not according to format")
         
+        from foundation.automat.arithmetic.standard.nroot import Nroot
+        
         return {key0: {"newKey": key0, "newValue": [replacementDictionary[key1][0], [Nroot.FUNC_NAME, replacementDictionary[key0][1][1]]]}, key1: {"newKey": key1, "newValue": [replacementDictionary[key0][0], replacementDictionary[key1][1]]}}, {Nroot.FUNC_NAME: 1, FUNC_NAME: -1}, 0, 0
 
     
@@ -101,6 +108,8 @@ class Logarithm(Function):
         if key0 is None or key1 is None:
             raise Exception("replacementDictionary not according to format")
         
+        from foundation.automat.arithmetic.standard.nroot import Nroot
+        
         return {key0: {"newKey": key0, "newValue": [replacementDictionary[key0][0], [Exponential.FUNC_NAME, replacementDictionary[key0][1][1]]]}, key1: {"newKey": key1, "newValue": [replacementDictionary[key1][0], replacementDictionary[key0][0]]}}, {Exponential.FUNC_NAME: 1, FUNC_NAME: -1}, 0, 0
 
     
@@ -121,5 +130,5 @@ class Logarithm(Function):
         :rtype: float
         """
         from math import log
-        num=log(@v1@, @v0@)
+        num=log(v1, v0)
         return num

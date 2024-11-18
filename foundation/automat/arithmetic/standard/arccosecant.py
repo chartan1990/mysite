@@ -9,11 +9,16 @@ class Arccosecant(Function):
     TYPE = 'trigonometric'
     FUNC_NAME = 'arccosec'
 
+    def __init_subclass__(cls, **kwargs):
+        kwargs['type'] = 'trigonometric'
+        kwargs['funcName'] = 'arccosec'
+        super().__init_subclass__(**kwargs)
+
     def __init__(self, equation):
         """
 
         """
-        super(Arccosecant, self).__init__(equation)
+        super().__init__(equation)
         self.reverses = {
             
                 1: self._reverse1

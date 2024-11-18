@@ -9,11 +9,16 @@ class {{className}}(Function):
     TYPE = '{{type}}'
     FUNC_NAME = '{{funcName}}'
 
+    def __init_subclass__(cls, **kwargs):
+        kwargs['type'] = '{{type}}'
+        kwargs['funcName'] = '{{funcName}}'
+        super().__init_subclass__(**kwargs)
+
     def __init__(self, equation):
         """
 
         """
-        super({{className}}, self).__init__(equation)
+        super().__init__(equation)
         self.reverses = {
             {% for i in range(num_of_variables) %}
                 {{i+1}}: self._reverse{{i+1}}{% if not loop.last %},
