@@ -8,51 +8,6 @@ from foundation.automat import AUTOMAT_MODULE_DIR
 from foundation.automat.common.backtracker import Backtracker
 
 
-# Define class to register child classes (Registry Pattern) [Copied from ChatGPT]
-# class FunctionHook(type):
-#     _children = [] # container for child classes
-#     ___TRIGONOMETRIC_NAMES = [] # SHOULD NOT BE ACCESSED DIRECT, since might be unintentionally empty
-
-#     def __init__(cls, name, bases, dct):
-#         # Register the class only if it's a direct subclass of Parent
-#         if any(isinstance(base, FunctionHook) for base in bases):
-#             FunctionHook._children.append(cls)
-#         super().__init__(name, bases, dct)
-
-#     @classmethod
-#     def __TRIGONOMETRIC_NAMES(cls):
-#         if len(cls.___TRIGONOMETRIC_NAMES) > 0:
-#             return cls.___TRIGONOMETRIC_NAMES
-#         #try collect it from children, if coffers empty
-#         for childCls in cls._children:
-#             if childCls.TYPE == 'trigonometric':
-#                 cls.___TRIGONOMETRIC_NAMES.append(childCls.FUNC_NAME)
-#         return cls.___TRIGONOMETRIC_NAMES
-
-
-# class FunctionHook(type):
-#     def __new__(cls, name, bases, dct):
-#         if len(dct['TRIGONOMETRIC_NAMES']) == 0:
-#             this_filename = __name__.split('.')[-1]
-#             #gather all the trigonometric function names
-#             module_dir = os.path.join(AUTOMAT_MODULE_DIR, 'arithmetic', 'standard')
-#             for module in os.listdir(module_dir):
-#                 if module.endswith('.py') and module != '__init__.py':
-#                     module_name = module[:-3] # remove .py
-#                     if module_name == this_filename:
-#                         continue # do not process yourself.
-#                     # import pdb;pdb.set_trace()
-#                     try:
-#                         module_obj = importlib.import_module(f'.{module_name}', package='foundation.automat.arithmetic.standard')#__name__)
-#                     except:
-#                         import pdb;pdb.set_trace()
-#                     for name, ocls in inspect.getmembers(module_obj, predicate=inspect.isclass):
-#                         if ocls.TYPE == 'trigonometric':
-#                             dct['TRIGONOMETRIC_NAMES'].append(ocls.FUNC_NAME)
-#         return super().__new__(cls, name, bases, dct)
-
-
-
 class Function:#(metaclass=FunctionHook):
     """
     Should be able to take an AST (dictionary, key: node (tuple[label, id]), value: list of neighbours (list[tuple[label, id]])
@@ -68,26 +23,6 @@ class Function:#(metaclass=FunctionHook):
     """
     FUNC_NAMES = [] # TODO this need to filled in __init__, need to parse the folder automat.arithmetic.standard
     FUNCNAME_FILENAME = [] # TODO this need to be filled in __init__, need to parse the folder automat.arithmetic.standard
-    # TRIGONOMETRIC_NAMES = []
-########################PART OF REGISTRY PATTERN [copied from ChatGPT]
-    # def __init_subclass__(cls, type, funcName, **kwargs):
-    #     super().__init_subclass__(**kwargs)
-    #     if type == 'trigonometric':
-    #         cls.TRIGONOMETRIC_NAMES.append(funcName)
-    #     import pdb;pdb.set_trace()
-
-
-    # def __new__(cls):
-    #     print('in __new__')
-    #     instance = super().__new__(cls)
-    #     return instance
-    # @classmethod
-    # def TRIGONOMETRIC_NAMES(cls):
-    #     # Dynamically import all files in the current folder (so that FuncionHook is called)
-    #     if len(cls._TRIGONOMETRIC_NAMES) > 0:
-    #         return cls.TRIGONOMETRIC_NAMES
-    #     #load all the classes to be registered
-########################
     _TRIGNOMETRIC_NAMES = []
 
     def __init__subclass(cls, **kwargs):
@@ -99,7 +34,7 @@ class Function:#(metaclass=FunctionHook):
         #     cls.TRIGONOMETRIC_NAMES.append(funcName)
         # import pdb;pdb.set_trace()
 
-
+    # @property # for now it wll return a property-object, and the expected list... , TODO so we will use it as a cls_method FOR NOW
     @classmethod
     def TRIGONOMETRIC_NAMES(cls):
         if len(cls._TRIGNOMETRIC_NAMES) == 0:
@@ -122,27 +57,11 @@ class Function:#(metaclass=FunctionHook):
         return cls._TRIGNOMETRIC_NAMES
 
 
+
     def __init__(self, equation):
         print('in __init__')
         self.eq = equation
         self.inverses = None
-
-
-
-
-
-    # @classmethod
-    # def __clsInit__(cls):
-    #     if len(TRIGONOMETRIC_NAMES) == 0:
-    #         #gather all the trigonometric function names
-    #         module_dir = os.path.dirname(os.path.join(AUTOMAT_MODULE_DIR, 'arithmetic', 'standard'))
-    #         for module in os.listdir(module_dir):
-    #             if module.endswith('.py') and module != '__init__.py':
-    #                 module_name = module[:-3] # remove .py
-    #                 module_obj = importlib.import_module(f'.{module_name}', package=__name__)
-    #                 for name, cls in inspect.getmembers(module_obj, predicate=inspect.isclass):
-    #                     if cls.TYPE == 'trigonometric':
-    #                         TRIGONOMETRIC_NAMES.append(cls.FUNC_NAME)
 
 
     def substitute(self, substitutionDictionary):

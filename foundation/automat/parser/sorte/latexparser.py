@@ -40,7 +40,7 @@ class Latexparser(Parser):
     #Math mode accents
     'acute', 'breve', 'ddot', 'grave', 'tilde', 'bar', 'check', 'dot', 'hat', 'vec'
     ] # these 'functions' must be preceded by {
-    TRIGOFUNCTION = Function.TRIGONOMETRIC_NAMES # then no need to map between latex and scheme
+    TRIGOFUNCTION = Function.TRIGONOMETRIC_NAMES() # then no need to map between latex and scheme
     """['arccos', 'cos', 'arcsin', 'sin', 'arctan', 'tan', 
     'arccsc', 'csc', 'arcsec', 'sec', 'arccot', 'cot', 'arsinh', 'sinh', 'arcosh', 'cosh', 
     'artanh', 'tanh', 'arcsch', 'csch', 'arsech', 'sech', 'arcoth', 'coth']"""

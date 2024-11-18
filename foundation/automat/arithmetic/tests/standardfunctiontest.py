@@ -9,4 +9,4 @@ def test__trigNameListNotEmpty__Function(verbose=False):
 
 
 if __name__=='__main__':
-    print(Function.TRIGONOMETRIC_NAMES())
+    print(Function.TRIGONOMETRIC_NAMES)

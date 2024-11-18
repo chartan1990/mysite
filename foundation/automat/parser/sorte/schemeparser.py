@@ -286,7 +286,7 @@ class Schemeparser(Parser):
                             argument2CloseBracket = '' if len(arguments[1]) <= 1 else '}'
                             hasArgument2 = True
 
-                    elif name == '^' and arguments[0] in Function.TRIGONOMETRIC_NAMES: #to check for trigpower
+                    elif name == '^' and arguments[0] in Function.TRIGONOMETRIC_NAMES(): #to check for trigpower
                         #no need to map name, since for latex, we restrict to Function.TRIGONOMETRIC_NAMES
                         #need to check for power of trigofunction.... need to re-order AST....
                         trigNode = arguments[0]
