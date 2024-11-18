@@ -1,6 +1,7 @@
 from abc import ABC
 from copy import deepcopy
 import importlib
+import inspect
 import os
 
 from foundation.automat import AUTOMAT_MODULE_DIR
@@ -91,23 +92,33 @@ class Function:#(metaclass=FunctionHook):
 
     def __init__subclass(cls, **kwargs):
         super().__init_subclass__(**kwargs)
-        if kwargs.get('type') == 'trigonometric' and kwargs.get('funcName') is not None:
-            cls._TRIGONOMETRIC_NAMES.append(kwargs.get('funcName'))
+        # import pdb;pdb.set_trace()
+        # if kwargs.get('type') == 'trigonometric' and kwargs.get('funcName') is not None: # somehow, this is nie gerennt, wenn TRIGONOMETRIC_NAMES hiess
+        #     cls._TRIGONOMETRIC_NAMES.append(kwargs.get('funcName'))
         # if type == 'trigonometric':
         #     cls.TRIGONOMETRIC_NAMES.append(funcName)
-        import pdb;pdb.set_trace()
+        # import pdb;pdb.set_trace()
 
 
     @classmethod
     def TRIGONOMETRIC_NAMES(cls):
-        if len(cls._TRIGNOMETRIC_NAMES) > 0:
-            return cls._TRIGNOMETRIC_NAMES
-        #gather all the trigonometric function names
-        module_dir = os.path.join(AUTOMAT_MODULE_DIR, 'arithmetic', 'standard')
-        for module in os.listdir(module_dir):
-            if module.endswith('.py') and module != '__init__.py':
-                module_name = module[:-3] # remove .py
-                module_obj = importlib.import_module(f'.{module_name}', package='foundation.automat.arithmetic.standard')
+        if len(cls._TRIGNOMETRIC_NAMES) == 0:
+            #gather all the trigonometric function names
+            module_dir = os.path.join(AUTOMAT_MODULE_DIR, 'arithmetic', 'standard')
+            for module in os.listdir(module_dir):
+                # print('***', module)
+                if module.endswith('.py') and module != '__init__.py':
+                    module_name = module[:-3] # remove .py
+                    module_obj = importlib.import_module(f'.{module_name}', package='foundation.automat.arithmetic.standard')
+                    for name, ocls in inspect.getmembers(module_obj, predicate=inspect.isclass):
+                        if name in ['Function']:
+                            continue
+                        # print('name***', name, '***ocls***', ocls)
+                        # import pdb;pdb.set_trace()
+                        if ocls.TYPE == 'trigonometric':
+                            # import pdb;pdb.set_trace()
+                            cls._TRIGNOMETRIC_NAMES.append(ocls.FUNC_NAME)
+
         return cls._TRIGNOMETRIC_NAMES
 
 
@@ -120,18 +131,18 @@ class Function:#(metaclass=FunctionHook):
 
 
 
-    @classmethod
-    def __clsInit__(cls):
-        if len(TRIGONOMETRIC_NAMES) == 0:
-            #gather all the trigonometric function names
-            module_dir = os.path.dirname(os.path.join(AUTOMAT_MODULE_DIR, 'arithmetic', 'standard'))
-            for module in os.listdir(module_dir):
-                if module.endswith('.py') and module != '__init__.py':
-                    module_name = module[:-3] # remove .py
-                    module_obj = importlib.import_module(f'.{module_name}', package=__name__)
-                    for name, cls in inspect.getmembers(module_obj, predicate=inspect.isclass):
-                        if cls.TYPE == 'trigonometric':
-                            TRIGONOMETRIC_NAMES.append(cls.FUNC_NAME)
+    # @classmethod
+    # def __clsInit__(cls):
+    #     if len(TRIGONOMETRIC_NAMES) == 0:
+    #         #gather all the trigonometric function names
+    #         module_dir = os.path.dirname(os.path.join(AUTOMAT_MODULE_DIR, 'arithmetic', 'standard'))
+    #         for module in os.listdir(module_dir):
+    #             if module.endswith('.py') and module != '__init__.py':
+    #                 module_name = module[:-3] # remove .py
+    #                 module_obj = importlib.import_module(f'.{module_name}', package=__name__)
+    #                 for name, cls in inspect.getmembers(module_obj, predicate=inspect.isclass):
+    #                     if cls.TYPE == 'trigonometric':
+    #                         TRIGONOMETRIC_NAMES.append(cls.FUNC_NAME)
 
 
     def substitute(self, substitutionDictionary):
