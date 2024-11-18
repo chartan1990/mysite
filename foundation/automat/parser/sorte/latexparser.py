@@ -46,9 +46,10 @@ class Latexparser(Parser):
     'artanh', 'tanh', 'arcsch', 'csch', 'arsech', 'sech', 'arcoth', 'coth']"""
     FUNCTIONNAMES = TRIGOFUNCTION + ['frac', 'sqrt',  'log', 'ln'] #+ ['int', 'oint', 'iint'] # TODO this is important... but i am weak now
 
-    def __init__(self, equationStr, verbose=False):
+    def __init__(self, equationStr, verbose=False, parallelise=False):
         self._eqs = equationStr
         self.verbose = verbose
+        self.parallelise = parallelise
         """
         From ChatGPT:
         multiprocessing.Value:
@@ -72,17 +73,18 @@ class Latexparser(Parser):
         #each method will have a .wait() for the oMethod/s, its waiting for
         #oMethod/s that complete will call set(), signalling method (waiting for oMethod) to start. :)
 
-        self.event__findBackSlashPositions = mp.Event()
-        self.event__findInfixAndEnclosingBrackets = mp.Event()
-        self.event__updateInfixNearestBracketInfix = mp.Event()
-        self.event__removeCaretThatIsNotExponent = mp.Event()
-        self.event__findLeftOverPosition = mp.Event()
-        self.event__contiguousLeftOvers = mp.Event()
-        self.event__addChildOnMinusInfixWithNoLeftArg = mp.Event()
-        self.event__collateBackslashInfixLeftOversToContiguous = mp.Event()
-        self.event__addImplicitMultipy = mp.Event()
-        self.event__subTreeGraftingUntilTwoTrees = mp.Event()
-        self.event__reformatToAST = mp.Event()
+        if self.parallelise:
+            self.event__findBackSlashPositions = mp.Event()
+            self.event__findInfixAndEnclosingBrackets = mp.Event()
+            self.event__updateInfixNearestBracketInfix = mp.Event()
+            self.event__removeCaretThatIsNotExponent = mp.Event()
+            self.event__findLeftOverPosition = mp.Event()
+            self.event__contiguousLeftOvers = mp.Event()
+            self.event__addChildOnMinusInfixWithNoLeftArg = mp.Event()
+            self.event__collateBackslashInfixLeftOversToContiguous = mp.Event()
+            self.event__addImplicitMultipy = mp.Event()
+            self.event__subTreeGraftingUntilTwoTrees = mp.Event()
+            self.event__reformatToAST = mp.Event()
 
 
 
@@ -113,8 +115,6 @@ class Latexparser(Parser):
         From the requirements, we ignore these:
         1. all the "Text Mode: Accents and Symbols" 
         """
-        if self.verbose:
-            print('event__findBackSlashPositions IS AQCUIRED')
         self.variablesPos = [] # name, startPos, endPos, | argument1, argument1StartPosition, argument1EndPosition, argumentBracketType
         self.functionPos = [] # functionName, startPos, endPos, _, ^, arguments, TODO rename to functionsPos
         self.noBraBackslashPos = [] # are variables, but no brackets
@@ -332,14 +332,15 @@ class Latexparser(Parser):
                     'child':{1:None, 2:None},
                     'parent':None
                 })
+                # import pdb;pdb.set_trace()
                 self.backslashes[labelName] = {
                     'argument1SubSuper':argument1SubSuperType,
                     'argument1OpenBracket':argument1BracketType,
-                    'argument1CloseBracket':self.open__close[argument1BracketType],
+                    'argument1CloseBracket':self.open__close.get(argument1BracketType),
                     'hasArgument1': argument1EndPosition is not None,
                     'argument2SubSuper':argument2SubSuperType,
                     'argument2OpenBracket':argument2SubSuperType,
-                    'argument2CloseBracket':self.open__close[argument2BracketType],
+                    'argument2CloseBracket':self.open__close.get(argument2BracketType),
                     'hasArgument2': argument2BracketType is not None
                 }#for unparsing function
             else: #has a backspace, but we have not targeted it... , we assume that its a zero-argument == variable...
@@ -366,7 +367,8 @@ class Latexparser(Parser):
 
         if self.verbose:
             print('event__findBackSlashPositions IS RELEASED')
-        self.event__findBackSlashPositions.set() # Trigger the event to notify the waiting process
+        if self.parallelise:
+            self.event__findBackSlashPositions.set() # Trigger the event to notify the waiting process
 
 
     def _findInfixAndEnclosingBrackets(self):
@@ -404,7 +406,8 @@ class Latexparser(Parser):
         if len(mismatchedOpenBrackets) > 0:
             raise Exception(f'Mismatched brackets: {mismatchedOpenBrackets}')
         # import pdb;pdb.set_trace()
-        self.event__findInfixAndEnclosingBrackets.set()
+        if self.parallelise:
+            self.event__findInfixAndEnclosingBrackets.set()
 
 
     def __updateInfixNearestBracketInfix(self):
@@ -602,32 +605,6 @@ class Latexparser(Parser):
                                 widestRightEnclosingBracket['closeBracketPos'] = bracketInfoDict['closeBracketPos']
                                 widestRightEnclosingBracket['closeBracketType'] = bracketInfoDict['closeBracketType']
 
-
-
-                # widestEnclosingBracket = {
-                #     'openBracketType':None,
-                #     'closeBracketType':None,
-                #     'openBracketPos':-1 if infixInfoDict0['position'] < self.equalPos else infixInfoDict0['position']+len(infixInfoDict0['name']),
-                #     #if infixInfoDict0 is on the left of =,
-                #     #enclosingCloseBrac is sofort left of infixInfoDict0
-                #     #else
-                #     #enclosingClosebrac is end of equation == len(self._eqs)
-                #     'closeBracketPos':infixInfoDict0['position']-len(infixInfoDict0['name']) if self.equalPos else len(self._eqs)+1
-                # }
-                # if bracketInfoDict['openBracketPos'] <= infixInfoDict0['startPos'] and infixInfoDict0['endPos'] <= bracketInfoDict['closeBracketPos']: # is brac enclosing infix?
-                #     #TODO why no use a datastructure built earlier, so that is can be used here? (space for time)
-                #     containsOtherInfix = False
-                #     for infixInfoDict1 in self.tempInfixList1:
-                #         if infixInfoDict0['name'] == infixInfoDict1['name'] and infixInfoDict0['startPos'] == infixInfoDict1['startPos'] and infixInfoDict0['endPos'] == infixInfoDict1['endPos']:
-                #             continue # should not count the same again.
-                #         #infixInfoDict1 in bracketInfoDict
-                #         if bracketInfoDict['openBracketPos'] <= infixInfoDict1['startPos'] and infixInfoDict1['endPos'] <= bracketInfoDict['closeBracketPos']:
-                #             containsOtherInfix = True
-                #             break
-                #     if not containsOtherInfix: #then we may record this valid bracket as 'enclosing'
-                #         #is it the widest recorded?
-                #         if bracketInfoDict['openBracketPos'] <= widestEnclosingBracket['openBracketPos'] and widestEnclosingBracket['closeBracketPos'] <= bracketInfoDict['closeBracketPos']: # bracketInfoDict is wider than recorded
-                #             widestEnclosingBracket = bracketInfoDict
             #choose (or store everything TODO for now, we assume that people don't write equations like: "((a+b)-(c+d))", instead, they write it like this: "(a+b)-(c+d)" ) between
             #1. enclosing
             #2. one-sided bracket (leftRight)
@@ -659,34 +636,6 @@ class Latexparser(Parser):
                 'right__type':None
 
             })
-            # if widestEnclosingBracket['openBracketType'] is not None: # take enclosing yay
-            #     infixInfoDict0.update({
-            #         'startPos':infixInfoDict0['startPos'], # only the infix character/s
-            #         'endPos':infixInfoDict0['endPos'], # only the infix character/s
-            #         'ganzStartPos':widestEnclosingBracket['openBracketPos'], # infix with args and brackets
-            #         'ganzEndPos':widestEnclosingBracket['closeBracketPos'], # infix with args and brackets
-
-            #         'left__startBracketPos':widestEnclosingBracket['openBracketPos'],
-            #         'left__startBracketType':widestEnclosingBracket['openBracketType'],
-            #         'left__endBracketPos':None,
-            #         'left__endBracketType':None,
-            #         'left__argStart':widestEnclosingBracket['openBracketPos']+len(widestEnclosingBracket['openBracketType']),
-            #         'left__argEnd':infixInfoDict0['position']+len(infixInfoDict0['name']),#everything before infixInfoDict0
-            #         'left__type':'enclosing',
-
-            #         'right__startBracketPos':None,
-            #         'right__startBracketType':None,
-            #         'right__endBracketPos':widestEnclosingBracket['closeBracketPos'],
-            #         'right__endBracketType':widestEnclosingBracket['closeBracketType'],
-            #         'right__argStart':infixInfoDict0['position']-len(infixInfoDict0['name']),#everything after infixInfoDict0
-            #         'right__argEnd':widestEnclosingBracket['closeBracketPos']-len(widestEnclosingBracket['closeBracketType']),
-            #         'right__type':'enclosing'
-            #     })
-            # else:# no enclosing available
-
-
-
-
 
             #check left
             if widestLeftEnclosingBracket['openBracketType'] is not None:
@@ -836,18 +785,22 @@ class Latexparser(Parser):
                 })
 
     def _updateInfixNearestBracketInfix(self):
-        self.event__findBackSlashPositions.wait()
-        self.event__findInfixAndEnclosingBrackets.wait()
+
+        if self.parallelise:
+            self.event__findBackSlashPositions.wait()
+            self.event__findInfixAndEnclosingBrackets.wait()
         self.__updateInfixNearestBracketInfix()
         # import pdb;pdb.set_trace()
-        self.event__updateInfixNearestBracketInfix.set() ##########~~~
+        if self.parallelise:
+            self.event__updateInfixNearestBracketInfix.set() ##########~~~
 
 
     def _removeCaretThatIsNotExponent(self):
         """
         """
-        self.event__findBackSlashPositions.wait() #~~~~
-        self.event__findInfixAndEnclosingBrackets.wait()
+        if self.parallelise:
+            self.event__findBackSlashPositions.wait() #~~~~
+            self.event__findInfixAndEnclosingBrackets.wait()
         #^ would have been picked up by "findInfixAndEnclosingBrackets" as infix
         fakeExponents = []
         fakeExponentsQuickCheck = set()
@@ -963,13 +916,15 @@ class Latexparser(Parser):
             print(self.infixList)
             print('<<<<<<<<<<<<<<<<<<<')
         ###what about infixes, whose left and right are pretending to be exponents? TODO
-        self.event__removeCaretThatIsNotExponent.set()
+        if self.parallelise:
+            self.event__removeCaretThatIsNotExponent.set()
 
 
     def _findLeftOverPosition(self):
-        self.event__removeCaretThatIsNotExponent.wait()
+        if self.parallelise:
+            self.event__removeCaretThatIsNotExponent.wait()
         listOfOccupiedRanges = set() # note that ranges should not overlapp
-        import pdb;pdb.set_trace()
+        # import pdb;pdb.set_trace()
 
         for vInfoDict in self.noBraBackslashPos:
             listOfOccupiedRanges.add((vInfoDict['startPos'], vInfoDict['endPos']))
@@ -1026,7 +981,8 @@ class Latexparser(Parser):
             print(listOfOccupiedRanges)
             print(occupiedStrs)
             # import pdb;pdb.set_trace()
-        self.event__findLeftOverPosition.set()
+        if self.parallelise:
+            self.event__findLeftOverPosition.set()
 
 
     def _contiguousLeftOvers(self): # left overs can be part of infix as well...., self.infixOperatorPositions, infix with no enclosing brackets are the top?
@@ -1053,7 +1009,8 @@ class Latexparser(Parser):
         but we cannot have 
         NV (like 2x, this requires a implicit-multiplication, deviens: 2*x)
         """
-        self.event__findLeftOverPosition.wait()
+        if self.parallelise:
+            self.event__findLeftOverPosition.wait()
         self.contiguousInfoList = []
         self.leaves = set() # for the unparsing function to check for base case
         previousIsNume = None
@@ -1141,75 +1098,8 @@ class Latexparser(Parser):
             print(self.contiguousInfoList)
             print('&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&')
             # import pdb;pdb.set_trace()
-        self.event__contiguousLeftOvers.set()
-
-
-    def _addChildOnMinusInfixWithNoLeftArg(self):
-        """
-        we might have this:
-        -ab=-ba
-
-        Need to add a zero to this:
-
-        self.contiguousInfoList.append({
-            'word':word, 
-            'startPos':wordPosRange[0],
-            'endPos':wordPosRange[1],
-            'parent':None,
-            'type':'number' if isNum(word) else 'variable',
-            'ganzStartPos':wordPosRange[0],
-            'ganzEndPos':wordPosRange[1]
-        })#, 'parentsInfo':self.wordLowestBackSlashArgumentParents}) # 
-
-
-        contiguousInfoDict['parent'] = {
-            'name':fInfoDict['name'],
-            'startPos':fInfoDict['startPos'],
-            'endPos':fInfoDict['endPos'],
-            'type':'backslash_function',
-            'childIdx':1,
-            'ganzStartPos':fInfoDict['ganzStartPos'],
-            'ganzEndPos':fInfoDict['ganzEndPos']
-        }
-
-
-                    'child':{1:{'name', 'startPos', 'endPos', 'type', 'ganzStartPos', 'ganzEndPos'}, 2:},
-
-        """
-        self.event__contiguousLeftOvers.wait()
-        for infixInfoDict in self.infixList:
-            if infixInfoDict['name']=='-' and infixInfoDict['child'][1] is None:
-                infixInfoDict['child'][1] = {
-                    'name':'0',
-                    'startPos':infixInfoDict['position'], # it would be a problem we add more than one implicit 0 or * at the infixInfoDict['position']
-                    'endPos':infixInfoDict['position'],
-                    'type':'number',
-                    'ganzStartPos':infixInfoDict['position'],
-                    'ganzEndPos':infixInfoDict['position']
-                }
-                self.contiguousInfoList.append({
-                'name':'0', 
-                'startPos':infixInfoDict['position'],
-                'endPos':infixInfoDict['position'],
-                'type':'number',
-                'ganzStartPos':infixInfoDict['position'],
-                'ganzEndPos':infixInfoDict['position'],
-                'parent':{
-                        'name':infixInfoDict['name'],
-                        'startPos':infixInfoDict['position'],
-                        'endPos':infixInfoDict['position']+len(infixInfoDict['name']),
-                        'type':'infix',
-                        'childIdx':1,
-                        'ganzStartPos':infixInfoDict['left__startBracketPos'],
-                        'ganzEndPos':infixInfoDict['right__endBracketPos']
-                    }
-                })
-
-        if self.verbose:
-            for d in self.contiguousInfoList:
-                print('>>>', d['name'], d['startPos'], d['endPos'], '<<<')
-            # import pdb;pdb.set_trace()
-        self.event__addChildOnMinusInfixWithNoLeftArg.set()
+        if self.parallelise:
+            self.event__contiguousLeftOvers.set()
 
 
     def _collateBackslashInfixLeftOversToContiguous(self):
@@ -1217,7 +1107,8 @@ class Latexparser(Parser):
         we do this with bubble-merge, comes with a debugging tool <<ppprint>>
         so that we can see whats going on
         """
-        self.event__addChildOnMinusInfixWithNoLeftArg.wait()
+        if self.parallelise:
+            self.event__addChildOnMinusInfixWithNoLeftArg.wait()
         allDings = sorted(self.contiguousInfoList+self.noBraBackslashPos+self.variablesPos+self.functionPos+self.infixList,key=lambda item: item['startPos'])
         self.consecutiveGroups = {} # (grenzeStartPos, grenzeEndPos) : [ding0, ding1, ...]
 
@@ -1366,7 +1257,81 @@ class Latexparser(Parser):
             # import pdb;pdb.set_trace()
         ##############
 
-        self.event__collateBackslashInfixLeftOversToContiguous.set()
+        if self.parallelise:
+            self.event__collateBackslashInfixLeftOversToContiguous.set()
+
+
+    def _addChildOnMinusInfixWithNoLeftArg(self):
+        """TODO rename this to addImplicitZero, damn confusing
+        we might have this:
+        -ab=-ba
+
+        Need to add a zero to this:
+
+        self.contiguousInfoList.append({
+            'word':word, 
+            'startPos':wordPosRange[0],
+            'endPos':wordPosRange[1],
+            'parent':None,
+            'type':'number' if isNum(word) else 'variable',
+            'ganzStartPos':wordPosRange[0],
+            'ganzEndPos':wordPosRange[1]
+        })#, 'parentsInfo':self.wordLowestBackSlashArgumentParents}) # 
+
+
+        contiguousInfoDict['parent'] = {
+            'name':fInfoDict['name'],
+            'startPos':fInfoDict['startPos'],
+            'endPos':fInfoDict['endPos'],
+            'type':'backslash_function',
+            'childIdx':1,
+            'ganzStartPos':fInfoDict['ganzStartPos'],
+            'ganzEndPos':fInfoDict['ganzEndPos']
+        }
+
+
+                    'child':{1:{'name', 'startPos', 'endPos', 'type', 'ganzStartPos', 'ganzEndPos'}, 2:},
+
+        """
+        if self.parallelise:
+            self.event__contiguousLeftOvers.wait()
+        for infixInfoDict in self.infixList:
+            if infixInfoDict['name']=='-' and infixInfoDict['child'][1] is None: # what if the infix child1 is not added yet...., can we even check this properly
+                #how shall we do this? TODO
+                #1. move to function to later... <<<<<<<< may be just after the bubble-merging algorithm? there we have tree-level-consecutivity?
+                #2. remove redundant implicit-0
+                infixInfoDict['child'][1] = {
+                    'name':'0',
+                    'startPos':infixInfoDict['position'], # it would be a problem we add more than one implicit 0 or * at the infixInfoDict['position']
+                    'endPos':infixInfoDict['position'],
+                    'type':'number',
+                    'ganzStartPos':infixInfoDict['position'],
+                    'ganzEndPos':infixInfoDict['position']
+                }
+                self.contiguousInfoList.append({
+                'name':'0', 
+                'startPos':infixInfoDict['position'],
+                'endPos':infixInfoDict['position'],
+                'type':'number',
+                'ganzStartPos':infixInfoDict['position'],
+                'ganzEndPos':infixInfoDict['position'],
+                'parent':{
+                        'name':infixInfoDict['name'],
+                        'startPos':infixInfoDict['position'],
+                        'endPos':infixInfoDict['position']+len(infixInfoDict['name']),
+                        'type':'infix',
+                        'childIdx':1,
+                        'ganzStartPos':infixInfoDict['left__startBracketPos'],
+                        'ganzEndPos':infixInfoDict['right__endBracketPos']
+                    }
+                })
+
+        if self.verbose:
+            for d in self.contiguousInfoList:
+                print('>>>', d['name'], d['startPos'], d['endPos'], '<<<')
+            # import pdb;pdb.set_trace()
+        if self.parallelise:
+            self.event__addChildOnMinusInfixWithNoLeftArg.set()
 
 
     def _addImplicitMultipy(self):
@@ -1396,7 +1361,8 @@ class Latexparser(Parser):
         #have to do all-pairs consecutiveness checking.
         #TODO maybe this can be a general algorithm.... grouping by consecutiveness.... even in 3D space... like how bubbles come together to make bigger bubbles (or atoms => molecules :))
         
-        self.event__collateBackslashInfixLeftOversToContiguous.wait()
+        if self.parallelise:
+            self.event__collateBackslashInfixLeftOversToContiguous.wait()
 
         self.rootsAndGanzeWidth = [] #these are treeified-dings, each item is {'root':, 'ganzStartPos':, 'ganzEndPos':}
         implicitMultiplyId = 0
@@ -1765,7 +1731,7 @@ class Latexparser(Parser):
                         #elif ding['left__startBracketType'] is not None:
                         elif ding['left__type'] == 'enclosing': #Ding*(...+???)
                             infixLeftOfDing = findLeftestInfixFrom(prevDing) # that has rightCloseBracket
-                            # import pdb;pdb.set_trace()
+                            import pdb;pdb.set_trace()
                             implicitMultiplyNode = ('*', (implicitMultiplyId, -1))
                             implicitMultiplyId += 1
                             implicitMultiplyInfoDict = {# rightarg * ganz
@@ -2057,11 +2023,13 @@ class Latexparser(Parser):
             print('******************rootsAndGanzeWidth****************************')
             print(self.rootsAndGanzeWidth)
             print('******************rootsAndGanzeWidth****************************')
-        self.event__addImplicitMultipy.set()
+        if self.parallelise:
+            self.event__addImplicitMultipy.set()
 
 
     def _subTreeGraftingUntilTwoTrees(self):
-        self.event__addImplicitMultipy.wait()
+        if self.parallelise:
+            self.event__addImplicitMultipy.wait()
         #we have to deal with the backslash_function/backslash_variable, whom have no children... since their children might be infixs, for example: \sin(2*x_0), the child2 of \sin is *
         #but child/ren of backslash_function/variable, will not be on the same dings as the backslash_function/variable.... and we can only do this after we build parent/child relationship with all the infixes...
         #preferably we can identify some parent/relationship-leveling between dings, if not, all i can think of is all-dings-each-dings-compare-each-argumentPos-v-ganzDingStartEnd
@@ -2388,11 +2356,13 @@ class Latexparser(Parser):
                     #############
 
                 self.alleDing.append(ding)# just dump everything together
-        self.event__subTreeGraftingUntilTwoTrees.set()
+        if self.parallelise:
+            self.event__subTreeGraftingUntilTwoTrees.set()
 
 
     def _reformatToAST(self):
-        self.event__subTreeGraftingUntilTwoTrees.wait()
+        if self.parallelise:
+            self.event__subTreeGraftingUntilTwoTrees.wait()
         #add the = (with children) in alleDing, YAY!
         #first find ding with no parent
         dingsNoParents = []
@@ -2430,16 +2400,17 @@ class Latexparser(Parser):
                 leftCloseBracket = ''
                 rightOpenBracket = ''
                 rightCloseBracket = ''
-                if parent['left__type'] != 'infix' and parent['left__type'] != 'arg':
+                # import pdb;pdb.set_trace()
+                if 'left__type' in parent and parent['left__type'] != 'infix' and parent['left__type'] != 'arg':
                     if parent['left__startBracketType'] is not None:
                         leftOpenBracket = parent['left__startBracketType']
                     if parent['left__endBracketType'] is not None:
                         leftCloseBracket = parent['left__endBracketType']
-                if parent['right__type'] != 'infix' and parent['right__type'] != 'arg':
+                if 'right__type'in parent and parent['right__type'] != 'infix' and parent['right__type'] != 'arg':
                     if parent['right__startBracketType'] is not None:
                         rightOpenBracket = parent['right__startBracketType']
                     if parent['right__endBracketType'] is not None:
-                        rightCloseBracket = parent['reight__endBracketType']
+                        rightCloseBracket = parent['right__endBracketType']
                 self.nodeIdToInfixArgsBrackets[parentId] = {
                     'leftOpenBracket':leftOpenBracket,
                     'leftCloseBracket':leftCloseBracket,
@@ -2463,7 +2434,8 @@ class Latexparser(Parser):
                         existingChildren = self.ast.get((parent['name'], parentId), [])
                         existingChildren.append((child2Name, child2Key))
                         self.ast[(parent['name'], parentId)] = existingChildren
-        self.event__reformatToAST.set()
+        if self.parallelise:
+            self.event__reformatToAST.set()
 
 
         
@@ -2715,10 +2687,15 @@ $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$incomplete code to check variable_depende
 
 
     def _unparse(self): # TODO from AST to LaTeX string... 
-       """
-        #~DRAFT~#
-       """
-       return self._recursiveUnparse(self.equalTuple)
+        """
+        #~ DRAFT ~#
+        TODO
+        1. remove implicit 0-
+        2. remove implicit-multiply
+        """
+        #find the implicit 0- in AST and remove (would subtree equivalence be easier?)
+        #find the implicit-multiply in AST and remove
+        return self._recursiveUnparse(self.equalTuple)
 
 
     def _recursiveUnparse(self, keyTuple):
@@ -2764,3 +2741,4 @@ $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$incomplete code to check variable_depende
             }
             """
             return f"\\{aux['leftOpenBracket']}{self._recursiveUnparse(arguments[0])}{aux['leftCloseBracket']}{name}{aux['rightOpenBracket']}{self._recursiveUnparse(arguments[1])}{aux['rightCloseBracket']}"#need to get the brackets....
+        raise Exception(f'Unhandled {keyTuple}')

@@ -21,7 +21,7 @@ def test__findingBackSlashAndInfixOperations__Trig0(verbose=False):
     ('sin', 13): [('x_0', 1)]}
     print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
     if verbose:
-        pp.pprint(parser.ast)
+        pp.pprint(parser.ast) # rename ast to latex_ast 
 
 
 
@@ -196,7 +196,13 @@ def test__sqrtWithPowerCaretRightOtherInfix__hill(verbose=False):
     equationStr = 'z=-\\sqrt[2](x^2+y^2)'
     parser = Latexparser(equationStr, verbose=verbose)
     parser._parse()
-    expected_ast = None # to be filled in
+    expected_ast = {   
+    ('+', 9): [('^', 7), ('^', 11)],
+    ('-', 4): [('0', 3), ('sqrt', 5)],
+    ('=', 0): [('z', 1), ('-', 4)],
+    ('^', 7): [('x', 6), ('2', 8)],
+    ('^', 11): [('y', 10), ('2', 12)],
+    ('sqrt', 5): [('2', 2), ('+', 9)]}
     print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
     if verbose:
         pp.pprint(parser.ast)
@@ -251,7 +257,7 @@ def test__paveWayForDifferentiation__sumRule(verbose=False):
 #
 
 if __name__=='__main__':
-    test__findingBackSlashAndInfixOperations__Trig0(True)
+    # test__findingBackSlashAndInfixOperations__Trig0()
     # test__findingBackSlashAndInfixOperations__Trig1()
     # test__findingBackSlashAndInfixOperations__Trig2()
     # test__findingBackSlashAndInfixOperations__Sqrt0()
@@ -263,8 +269,8 @@ if __name__=='__main__':
     # test__findingBackSlashAndInfixOperations__tildeVariable()
     # test__findingBackSlashAndInfixOperations__SchrodingerWaveEquation()
     # test__infixInBackslash__paraboloid()
-    # test__sqrtWithPowerCaretRightOtherInfix__hill() # not tested yet
-    # test__manyFracCaretEnclosingBrac__partialFrac() # not tested yet
+    # test__sqrtWithPowerCaretRightOtherInfix__hill()
+    test__manyFracCaretEnclosingBrac__partialFrac() # not tested yet
     # test__fracWithLogNoBase__changeLogBaseFormula() # not tested yet
     # test__paveWayForDifferentiation__productRule() # not tested yet
     # test__paveWayForDifferentiation__sumRule() # not tested yet
