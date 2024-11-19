@@ -80,7 +80,7 @@ class Latexparser(Parser):
             self.event__removeCaretThatIsNotExponent = mp.Event()
             self.event__findLeftOverPosition = mp.Event()
             self.event__contiguousLeftOvers = mp.Event()
-            self.event__addChildOnMinusInfixWithNoLeftArg = mp.Event()
+            self.event__addImplicitZero = mp.Event()
             self.event__collateBackslashInfixLeftOversToContiguous = mp.Event()
             self.event__addImplicitMultipy = mp.Event()
             self.event__subTreeGraftingUntilTwoTrees = mp.Event()
@@ -413,7 +413,7 @@ class Latexparser(Parser):
     def __updateInfixNearestBracketInfix(self):
         ###########helpers
         #check if the bracket belongs to fBackslash/vBackslash
-        def collideWithNonEnclosingBackslashBrackets(startBracketPos, infixPosition):
+        def collideWithNonEnclosingBackslashBrackets(startBracketPos):#, infixPosition):
             #TODO 
             """
             'z=\\sqrt(x^2+y^2)'
@@ -427,17 +427,18 @@ class Latexparser(Parser):
             #######
             for vInfoDict in self.variablesPos:
                 if vInfoDict['argument1StartPosition'] is not None and startBracketPos == vInfoDict['argument1StartPosition'] - lenOrZero(vInfoDict['argument1BracketType']):
-                #check if arg1(vInfoDict) encloses infixPosition, if so ignore vInfoDict
-                    #######
-                    print("collideWithNonEnclosingBackslashBrackets vInfoDict['argument1StartPosition']: ", vInfoDict['argument1StartPosition'], " same bracket ? ", startBracketPos == vInfoDict['argument1StartPosition'] - lenOrZero(vInfoDict['argument1BracketType']))
-                    # import pdb;pdb.set_trace()
-                    #######
-                    if vInfoDict['argument1StartPosition'] <= infixPosition and infixPosition <= vInfoDict['argument1EndPosition']:
-                        ########
-                        print('ignoring seitdem, ', fInfoDict["argument1StartPosition"], ' <= ', infixPosition, ' <= ', fInfoDict['argument1EndPosition'])
-                        # import pdb;pdb.set_trace()
-                        ########
-                        continue
+                # #check if arg1(vInfoDict) encloses infixPosition, if so ignore vInfoDict
+                #     #######
+                #     print("collideWithNonEnclosingBackslashBrackets vInfoDict['argument1StartPosition']: ", vInfoDict['argument1StartPosition'], " same bracket ? ", startBracketPos == vInfoDict['argument1StartPosition'] - lenOrZero(vInfoDict['argument1BracketType']))
+                #     # import pdb;pdb.set_trace()
+                #     #######
+                #     #check
+                #     if vInfoDict['argument1StartPosition'] <= infixPosition and infixPosition <= vInfoDict['argument1EndPosition']:
+                #         ########
+                #         print('ignoring seitdem, ', fInfoDict["argument1StartPosition"], ' <= ', infixPosition, ' <= ', fInfoDict['argument1EndPosition'])
+                #         # import pdb;pdb.set_trace()
+                #         ########
+                #         continue
                     return True
             #######
             # print('collideWithNonEnclosingBackslashBrackets self.functionPos: ')
@@ -446,38 +447,38 @@ class Latexparser(Parser):
             #######
             for fInfoDict in self.functionPos:
                 ##########################
-                # print("looking at: ", (fInfoDict['name'], fInfoDict['startPos'], fInfoDict['endPos']), "(arg1)'s ", fInfoDict['argument1StartPosition'] - lenOrZero(fInfoDict['argument1BracketType']), ' == ', startBracketPos)
+                # print("f1looking at: ", (fInfoDict['name'], fInfoDict['startPos'], fInfoDict['endPos']), "(arg1)'s ", fInfoDict['argument1StartPosition'] - lenOrZero(fInfoDict['argument1BracketType']), ' == ', startBracketPos)
                 # import pdb;pdb.set_trace()
                 ##########################
                 if fInfoDict['argument1BracketType'] is not None and startBracketPos == fInfoDict['argument1StartPosition'] - lenOrZero(fInfoDict['argument1BracketType']):
-                #check if arg1(fInfoDict) encloses infixPosition, if so ignore fInfoDict
-                    ###########################
-                    # print('startBracketPos : ', startBracketPos, ' collide with arg1 : ', (fInfoDict['name'], fInfoDict['startPos'], fInfoDict['endPos']))
-                    # import pdb;pdb.set_trace()
-                    ###########################
-                    if fInfoDict['argument1StartPosition'] <= infixPosition and infixPosition <= fInfoDict['argument1EndPosition']:
-                        ##########################
-                        # print('ignoring seitdem, ', fInfoDict["argument1StartPosition"], ' <= ', infixPosition, ' <= ', fInfoDict['argument1EndPosition'])
-                        # import pdb;pdb.set_trace()
-                        ##########################
-                        continue
+                # #check if arg1(fInfoDict) encloses infixPosition, if so ignore fInfoDict
+                #     ###########################
+                #     print('startBracketPos : ', startBracketPos, ' collide with arg1 : ', (fInfoDict['name'], fInfoDict['startPos'], fInfoDict['endPos']))
+                #     # import pdb;pdb.set_trace()
+                #     ###########################
+                #     if fInfoDict['argument1StartPosition'] <= infixPosition and infixPosition <= fInfoDict['argument1EndPosition']:
+                #         ##########################
+                #         print('ignoring seitdem, ', fInfoDict["argument1StartPosition"], ' <= ', infixPosition, ' <= ', fInfoDict['argument1EndPosition'])
+                #         # import pdb;pdb.set_trace()
+                #         ##########################
+                #         continue
                     return True
                 ##########################
-                # print("looking at: ", (fInfoDict['name'], fInfoDict['startPos'], fInfoDict['endPos']), "(arg2)'s ", fInfoDict['argument2StartPosition'] - lenOrZero(fInfoDict['argument2BracketType']), ' == ', startBracketPos)
+                # print("f2looking at: ", (fInfoDict['name'], fInfoDict['startPos'], fInfoDict['endPos']), "(arg2)'s ", fInfoDict['argument2StartPosition'] - lenOrZero(fInfoDict['argument2BracketType']), ' == ', startBracketPos)
                 # import pdb;pdb.set_trace()
                 ##########################
                 if fInfoDict['argument2BracketType'] is not None and startBracketPos == fInfoDict['argument2StartPosition'] - lenOrZero(fInfoDict['argument2BracketType']):
-                #check if arg2(fInfoDict) encloses infixPosition, if so ignore fInfoDict
-                    ###########################
-                    # print('startBracketPos : ', startBracketPos, ' collide with arg2 : ', (fInfoDict['name'], fInfoDict['startPos'], fInfoDict['endPos']))
-                    # import pdb;pdb.set_trace()
-                    ###########################
-                    if fInfoDict['argument2StartPosition'] <= infixPosition and infixPosition <= fInfoDict['argument2EndPosition']:
-                        ############
-                        # print('ignoring seitdem, ', fInfoDict["argument2StartPosition"], ' <= ', infixPosition, ' <= ', fInfoDict['argument2EndPosition'], 'infix in f_arg2')
-                        # import pdb;pdb.set_trace()
-                        ############
-                        continue
+                # #check if arg2(fInfoDict) encloses infixPosition, if so ignore fInfoDict
+                #     ###########################
+                #     print('startBracketPos : ', startBracketPos, ' collide with arg2 : ', (fInfoDict['name'], fInfoDict['startPos'], fInfoDict['endPos']))
+                #     # import pdb;pdb.set_trace()
+                #     ###########################
+                #     if fInfoDict['argument2StartPosition'] <= infixPosition and infixPosition <= fInfoDict['argument2EndPosition']:
+                #         ############
+                #         print('ignoring seitdem, ', fInfoDict["argument2StartPosition"], ' <= ', infixPosition, ' <= ', fInfoDict['argument2EndPosition'], 'infix in f_arg2')
+                #         # import pdb;pdb.set_trace()
+                #         ############
+                #         continue
                     return True
             return False
         #are dic0 and dic1 on the same side?
@@ -495,6 +496,10 @@ class Latexparser(Parser):
             return True
         self.allowedInfix = ali
         for infixInfoDict0 in self.tempInfixList0:
+            ############
+            if self.verbose:
+                print('infixBracMatch: ', (infixInfoDict0['name'], infixInfoDict0['startPos'], infixInfoDict0['endPos']), '^^^<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<')
+            ############
             #ignore = and self
             # if infixInfoDict0['name'] == '=': # already ignored
             #     continue
@@ -550,60 +555,104 @@ class Latexparser(Parser):
                 ######
                 if self.verbose:
                     print((infixInfoDict0['name'], infixInfoDict0['startPos'], infixInfoDict0['endPos']), 'brack:', (bracketInfoDict['openBracketPos'], bracketInfoDict['closeBracketPos']), ' checking for collision with backslash arguments')
-                if not collideWithNonEnclosingBackslashBrackets(bracketInfoDict['openBracketPos'], infixInfoDict0['position']): #not a bracket of backslash, that is non-enclosing
-                    #direct left-side (of infixInfoDict0)
-                    if bracketInfoDict['closeBracketPos'] + len(bracketInfoDict['closeBracketType']) == infixInfoDict0['position']:
-                        #wider than recorded?
-                        if bracketInfoDict['openBracketPos'] <= widestLeftBracket['openBracketPos'] and widestLeftBracket['closeBracketPos'] <= bracketInfoDict['closeBracketPos']:
-                            widestLeftBracket = bracketInfoDict
-                    else: # since we are on a line, (not left-side => right-side)
-                        #wider than recorded?
-                        if bracketInfoDict['openBracketPos'] <= widestRightBracket['openBracketPos'] and widestRightBracket['closeBracketPos'] <= bracketInfoDict['closeBracketPos']:
-                            widestRightBracket = bracketInfoDict
-                    ###################START enclosing Brackets
-                    #find enclosing bracket, need to check if
-                    #1. is it enclosing infixInfoDict0
-                    #2. does it contain any other infixes
-                    if bracketInfoDict['openBracketPos'] <= infixInfoDict0['startPos']:
-                        #TODO why no use a datastructure built earlier, so that is can be used here? (space for time)
-                        containsOtherInfix = False
-                        for infixInfoDict1 in self.tempInfixList1:
-                            if infixInfoDict0['name'] == infixInfoDict1['name'] and infixInfoDict0['startPos'] == infixInfoDict1['startPos'] and infixInfoDict0['endPos'] == infixInfoDict1['endPos']:
-                                continue # should not count the same again.
-                            #infixInfoDict1 in bracketInfoDict
-                            if bracketInfoDict['openBracketPos'] <= infixInfoDict1['startPos'] and infixInfoDict1['endPos'] < infixInfoDict0['startPos']:
-                                #########
-                                # print('left brackets contains other infix left of ........................')
-                                # import pdb;pdb.set_trace()
-                                #########
-                                containsOtherInfix = True
-                                break
-                        #########
-                        # print('left brackets........................')
-                        # import pdb;pdb.set_trace()
-                        #########
-                        if not containsOtherInfix: #then we may record this valid bracket as 'enclosing'
-                            #is it the widest recorded?
-                            if bracketInfoDict['openBracketPos'] <= widestLeftEnclosingBracket['openBracketPos']: # bracketInfoDict is wider than recorded
-                                widestLeftEnclosingBracket['openBracketPos'] = bracketInfoDict['openBracketPos']
-                                widestLeftEnclosingBracket['openBracketType'] = bracketInfoDict['openBracketType']
+                
+                isBackSlashBrackets = collideWithNonEnclosingBackslashBrackets(bracketInfoDict['openBracketPos'])
+
+                #direct left-side (of infixInfoDict0)
+                if bracketInfoDict['closeBracketPos'] + len(bracketInfoDict['closeBracketType']) == infixInfoDict0['position']:
+                    #wider than recorded?
+                    if bracketInfoDict['openBracketPos'] <= widestLeftBracket['openBracketPos'] and widestLeftBracket['closeBracketPos'] <= bracketInfoDict['closeBracketPos']:
+                        widestLeftBracket = bracketInfoDict
+                        widestLeftBracket['belongToBackslash'] = isBackSlashBrackets
+                else: # since we are on a line, (not left-side => right-side)
+                    #wider than recorded?
+                    if bracketInfoDict['openBracketPos'] <= widestRightBracket['openBracketPos'] and widestRightBracket['closeBracketPos'] <= bracketInfoDict['closeBracketPos']:
+                        widestRightBracket = bracketInfoDict
+                        widestRightBracket['belongToBackslash'] = isBackSlashBrackets
+                ###################START enclosing Brackets
+                #find enclosing bracket, need to check if
+                #1. is it enclosing infixInfoDict0
+                #2. does it contain any other infixes
+                if bracketInfoDict['openBracketPos'] <= infixInfoDict0['startPos']:
+                    #TODO why no use a datastructure built earlier, so that is can be used here? (space for time)
+                    for infixInfoDict1 in self.tempInfixList1:
+                        if infixInfoDict0['name'] == infixInfoDict1['name'] and infixInfoDict0['startPos'] == infixInfoDict1['startPos'] and infixInfoDict0['endPos'] == infixInfoDict1['endPos']:
+                            continue # should not count the same again.
+                        #is it the widest recorded?
+                        if bracketInfoDict['openBracketPos'] <= widestLeftEnclosingBracket['openBracketPos']: # bracketInfoDict is wider than recorded
+                            widestLeftEnclosingBracket['openBracketPos'] = bracketInfoDict['openBracketPos']
+                            widestLeftEnclosingBracket['openBracketType'] = bracketInfoDict['openBracketType']
+                            widestLeftEnclosingBracket['belongToBackslash'] = isBackSlashBrackets
 
 
-                    if infixInfoDict0['endPos'] <= bracketInfoDict['closeBracketPos']:
-                        #TODO why no use a datastructure built earlier, so that is can be used here? (space for time)
-                        containsOtherInfix = False
-                        for infixInfoDict1 in self.tempInfixList1:
-                            if infixInfoDict0['name'] == infixInfoDict1['name'] and infixInfoDict0['startPos'] == infixInfoDict1['startPos'] and infixInfoDict0['endPos'] == infixInfoDict1['endPos']:
-                                continue # should not count the same again.
-                            #infixInfoDict1 in bracketInfoDict
-                            if infixInfoDict0['endPos'] <= infixInfoDict1['startPos'] and infixInfoDict1['endPos'] <= bracketInfoDict['closeBracketPos']:
-                                containsOtherInfix = True
-                                break
-                        if not containsOtherInfix: #then we may record this valid bracket as 'enclosing'
-                            #is it the widest recorded?
-                            if widestRightEnclosingBracket['closeBracketPos'] <= bracketInfoDict['closeBracketPos']: # bracketInfoDict is wider than recorded
-                                widestRightEnclosingBracket['closeBracketPos'] = bracketInfoDict['closeBracketPos']
-                                widestRightEnclosingBracket['closeBracketType'] = bracketInfoDict['closeBracketType']
+                if infixInfoDict0['endPos'] <= bracketInfoDict['closeBracketPos']:
+                    #TODO why no use a datastructure built earlier, so that is can be used here? (space for time)
+                    for infixInfoDict1 in self.tempInfixList1:
+                        if infixInfoDict0['name'] == infixInfoDict1['name'] and infixInfoDict0['startPos'] == infixInfoDict1['startPos'] and infixInfoDict0['endPos'] == infixInfoDict1['endPos']:
+                            continue # should not count the same again.
+                        #is it the widest recorded?
+                        if widestRightEnclosingBracket['closeBracketPos'] <= bracketInfoDict['closeBracketPos']: # bracketInfoDict is wider than recorded
+                            widestRightEnclosingBracket['closeBracketPos'] = bracketInfoDict['closeBracketPos']
+                            widestRightEnclosingBracket['closeBracketType'] = bracketInfoDict['closeBracketType']
+                            widestRightEnclosingBracket['belongToBackslash'] = isBackSlashBrackets
+
+
+
+
+                # if not collideWithNonEnclosingBackslashBrackets(bracketInfoDict['openBracketPos'], infixInfoDict0['position']): #not a bracket of backslash, that is non-enclosing
+                #     #direct left-side (of infixInfoDict0)
+                #     if bracketInfoDict['closeBracketPos'] + len(bracketInfoDict['closeBracketType']) == infixInfoDict0['position']:
+                #         #wider than recorded?
+                #         if bracketInfoDict['openBracketPos'] <= widestLeftBracket['openBracketPos'] and widestLeftBracket['closeBracketPos'] <= bracketInfoDict['closeBracketPos']:
+                #             widestLeftBracket = bracketInfoDict
+                #     else: # since we are on a line, (not left-side => right-side)
+                #         #wider than recorded?
+                #         if bracketInfoDict['openBracketPos'] <= widestRightBracket['openBracketPos'] and widestRightBracket['closeBracketPos'] <= bracketInfoDict['closeBracketPos']:
+                #             widestRightBracket = bracketInfoDict
+                #     ###################START enclosing Brackets
+                #     #find enclosing bracket, need to check if
+                #     #1. is it enclosing infixInfoDict0
+                #     #2. does it contain any other infixes
+                #     if bracketInfoDict['openBracketPos'] <= infixInfoDict0['startPos']:
+                #         #TODO why no use a datastructure built earlier, so that is can be used here? (space for time)
+                #         containsOtherInfix = False
+                #         for infixInfoDict1 in self.tempInfixList1:
+                #             if infixInfoDict0['name'] == infixInfoDict1['name'] and infixInfoDict0['startPos'] == infixInfoDict1['startPos'] and infixInfoDict0['endPos'] == infixInfoDict1['endPos']:
+                #                 continue # should not count the same again.
+                #             #infixInfoDict1 in bracketInfoDict
+                #             if bracketInfoDict['openBracketPos'] <= infixInfoDict1['startPos'] and infixInfoDict1['endPos'] < infixInfoDict0['startPos']:
+                #                 #########
+                #                 # print('left brackets contains other infix left of ........................')
+                #                 # import pdb;pdb.set_trace()
+                #                 #########
+                #                 containsOtherInfix = True
+                #                 break
+                #         #########
+                #         # print('left brackets........................')
+                #         # import pdb;pdb.set_trace()
+                #         #########
+                #         if not containsOtherInfix: #then we may record this valid bracket as 'enclosing'
+                #             #is it the widest recorded?
+                #             if bracketInfoDict['openBracketPos'] <= widestLeftEnclosingBracket['openBracketPos']: # bracketInfoDict is wider than recorded
+                #                 widestLeftEnclosingBracket['openBracketPos'] = bracketInfoDict['openBracketPos']
+                #                 widestLeftEnclosingBracket['openBracketType'] = bracketInfoDict['openBracketType']
+
+
+                #     if infixInfoDict0['endPos'] <= bracketInfoDict['closeBracketPos']:
+                #         #TODO why no use a datastructure built earlier, so that is can be used here? (space for time)
+                #         containsOtherInfix = False
+                #         for infixInfoDict1 in self.tempInfixList1:
+                #             if infixInfoDict0['name'] == infixInfoDict1['name'] and infixInfoDict0['startPos'] == infixInfoDict1['startPos'] and infixInfoDict0['endPos'] == infixInfoDict1['endPos']:
+                #                 continue # should not count the same again.
+                #             #infixInfoDict1 in bracketInfoDict
+                #             if infixInfoDict0['endPos'] <= infixInfoDict1['startPos'] and infixInfoDict1['endPos'] <= bracketInfoDict['closeBracketPos']:
+                #                 containsOtherInfix = True
+                #                 break
+                #         if not containsOtherInfix: #then we may record this valid bracket as 'enclosing'
+                #             #is it the widest recorded?
+                #             if widestRightEnclosingBracket['closeBracketPos'] <= bracketInfoDict['closeBracketPos']: # bracketInfoDict is wider than recorded
+                #                 widestRightEnclosingBracket['closeBracketPos'] = bracketInfoDict['closeBracketPos']
+                #                 widestRightEnclosingBracket['closeBracketType'] = bracketInfoDict['closeBracketType']
 
             #choose (or store everything TODO for now, we assume that people don't write equations like: "((a+b)-(c+d))", instead, they write it like this: "(a+b)-(c+d)" ) between
             #1. enclosing
@@ -653,7 +702,8 @@ class Latexparser(Parser):
                     'left__argStart':widestLeftEnclosingBracket['openBracketPos']+len(widestLeftEnclosingBracket['openBracketType']),
                     # 'left__argEnd':widestLeftBracket['closeBracketPos']+len(widestLeftBracket['closeBracketType']),
                     #if halfEnclosing, we should not try to add implicit-multiply, only when enclosing, then we try to add implicit-multiply
-                    'left__type':'enclosing' if widestRightEnclosingBracket['closeBracketType'] is not None else 'halfEnclosing'
+                    'left__type':'backslashArg' if widestLeftEnclosingBracket['belongToBackslash'] else 'enclosing'
+                    #'left__type':'enclosing' if widestRightEnclosingBracket['closeBracketType'] is not None else 'halfEnclosing'
                 })
 
             elif widestLeftBracket['openBracketType'] is not None:
@@ -670,7 +720,8 @@ class Latexparser(Parser):
                     'left__endBracketType':widestLeftBracket['closeBracketType'],
                     'left__argStart':widestLeftBracket['openBracketPos']+len(widestLeftBracket['openBracketType']),
                     'left__argEnd':widestLeftBracket['closeBracketPos']+len(widestLeftBracket['closeBracketType']),
-                    'left__type':'leftRight' if widestRightBracket['closeBracketType'] is not None else 'halfLeftRight'
+                    'left__type':'backslashArg' if widestLeftBracket['belongToBackslash'] else 'leftRight'
+                    # 'left__type':'leftRight' if widestRightBracket['closeBracketType'] is not None else 'halfLeftRight'
                 })
             elif nearestLeftInfix['name'] is not None: # has left infix
                 infixInfoDict0.update({
@@ -728,7 +779,8 @@ class Latexparser(Parser):
                     # 'right__argStart':widestRightBracket['openBracketPos']+len(widestRightBracket['openBracketType']),
                     'right__argEnd':widestRightEnclosingBracket['closeBracketPos']+len(widestRightEnclosingBracket['closeBracketType']),
                     #if halfEnclosing, we should not try to add implicit-multiply, only when enclosing, then we try to add implicit-multiply
-                    'right__type':'enclosing' if widestLeftEnclosingBracket['openBracketType'] is not None else 'halfEnclosing'
+                    'right__type':'backslashArg' if widestRightEnclosingBracket['belongToBackslash'] else 'enclosing'
+                    # 'right__type':'enclosing' if widestLeftEnclosingBracket['openBracketType'] is not None else 'halfEnclosing'
                 })
             elif widestRightBracket['closeBracketType'] is not None: # has right brackets
                 infixInfoDict0.update({
@@ -743,7 +795,8 @@ class Latexparser(Parser):
                     'right__endBracketType':widestRightBracket['closeBracketType'],
                     'right__argStart':widestRightBracket['openBracketPos']+len(widestRightBracket['openBracketType']),
                     'right__argEnd':widestRightBracket['closeBracketPos']+len(widestRightBracket['closeBracketType']),
-                    'right__type':'leftRight' if widestLeftBracket['openBracketType'] is not None else 'halfLeftRight'
+                    'right__type':'backslashArg' if widestLeftBracket['belongToBackslash'] else 'leftRight'
+                    # 'right__type':'leftRight' if widestLeftBracket['openBracketType'] is not None else 'halfLeftRight'
                 })
             elif nearestRightInfix['name'] is not None: # has right infix
                 infixInfoDict0.update({
@@ -990,7 +1043,7 @@ class Latexparser(Parser):
         N=>number character
         V=>non-number character
 
-        At the beginning, where we have no previous to compare type with, we just take it was word.
+        At the beginning, where we have no previous to compare type with, we just take it as word.
         This case, is handled by this logic:
         previousIsNume is None
         and we set previousIsNume = None
@@ -1104,11 +1157,13 @@ class Latexparser(Parser):
 
     def _collateBackslashInfixLeftOversToContiguous(self):
         """
+        #TODO maybe this can be a general algorithm.... grouping by consecutiveness.... even in 3D space... like how bubbles come together to make bigger bubbles (or atoms => molecules :))
+        
         we do this with bubble-merge, comes with a debugging tool <<ppprint>>
         so that we can see whats going on
         """
         if self.parallelise:
-            self.event__addChildOnMinusInfixWithNoLeftArg.wait()
+            self.event__addImplicitZero.wait()
         allDings = sorted(self.contiguousInfoList+self.noBraBackslashPos+self.variablesPos+self.functionPos+self.infixList,key=lambda item: item['startPos'])
         self.consecutiveGroups = {} # (grenzeStartPos, grenzeEndPos) : [ding0, ding1, ...]
 
@@ -1261,8 +1316,8 @@ class Latexparser(Parser):
             self.event__collateBackslashInfixLeftOversToContiguous.set()
 
 
-    def _addChildOnMinusInfixWithNoLeftArg(self):
-        """TODO rename this to addImplicitZero, damn confusing
+    def _addImplicitZero(self):
+        """
         we might have this:
         -ab=-ba
 
@@ -1295,47 +1350,85 @@ class Latexparser(Parser):
         """
         if self.parallelise:
             self.event__contiguousLeftOvers.wait()
-        for infixInfoDict in self.infixList:
-            if infixInfoDict['name']=='-' and infixInfoDict['child'][1] is None: # what if the infix child1 is not added yet...., can we even check this properly
-                #how shall we do this? TODO
-                #1. move to function to later... <<<<<<<< may be just after the bubble-merging algorithm? there we have tree-level-consecutivity?
-                #2. remove redundant implicit-0
-                infixInfoDict['child'][1] = {
+
+        for grenzeRange, dings in self.consecutiveGroups.items():
+            #if dings[0] is -
+            # import pdb;pdb.set_trace()
+            if len(dings) > 1 and dings[0]['name'] == '-':
+                dings[0]['child'][1] = {
                     'name':'0',
-                    'startPos':infixInfoDict['position'], # it would be a problem we add more than one implicit 0 or * at the infixInfoDict['position']
-                    'endPos':infixInfoDict['position'],
+                    'startPos':dings[0]['startPos'],
+                    'endPos':dings[0]['startPos'], # implicit-zero is slim :)
                     'type':'number',
-                    'ganzStartPos':infixInfoDict['position'],
-                    'ganzEndPos':infixInfoDict['position']
+                    'ganzStartPos':dings[0]['ganzStartPos'],
+                    'ganzEndPos':dings[0]['ganzStartPos']
                 }
-                self.contiguousInfoList.append({
-                'name':'0', 
-                'startPos':infixInfoDict['position'],
-                'endPos':infixInfoDict['position'],
-                'type':'number',
-                'ganzStartPos':infixInfoDict['position'],
-                'ganzEndPos':infixInfoDict['position'],
-                'parent':{
-                        'name':infixInfoDict['name'],
-                        'startPos':infixInfoDict['position'],
-                        'endPos':infixInfoDict['position']+len(infixInfoDict['name']),
+                implicitZero = {
+                    'name':'0',
+                    'startPos':dings[0]['startPos'],
+                    'endPos':dings[0]['startPos'], # implicit-zero is slim :)
+                    'type':'number',
+                    'ganzStartPos':dings[0]['ganzStartPos'],
+                    'ganzEndPos':dings[0]['ganzStartPos'],
+                    'parent':{
+                        'name':dings[0]['name'],
+                        'startPos':dings[0]['startPos'],
+                        'endPos':dings[0]['endPos'],
                         'type':'infix',
                         'childIdx':1,
-                        'ganzStartPos':infixInfoDict['left__startBracketPos'],
-                        'ganzEndPos':infixInfoDict['right__endBracketPos']
+                        'ganzStartPos':dings[0]['left__startBracketPos'],
+                        'ganzEndPos':dings[0]['right__endBracketPos']
                     }
-                })
+                }
+                self.contiguousInfoList.append(implicitZero)
+                #also need to add to consecutiveGroups....
+                dings.insert(0, implicitZero)
+
+
+
+        # for infixInfoDict in self.infixList:
+        #     if infixInfoDict['name']=='-' and infixInfoDict['child'][1] is None: # what if the infix child1 is not added yet...., can we even check this properly
+        #         #how shall we do this? TODO
+        #         #1. move to function to later... <<<<<<<< may be just after the bubble-merging algorithm? there we have tree-level-consecutivity?
+        #         #2. remove redundant implicit-0
+        #         infixInfoDict['child'][1] = {
+        #             'name':'0',
+        #             'startPos':infixInfoDict['position'], # it would be a problem we add more than one implicit 0 or * at the infixInfoDict['position']
+        #             'endPos':infixInfoDict['position'],
+        #             'type':'number',
+        #             'ganzStartPos':infixInfoDict['position'],
+        #             'ganzEndPos':infixInfoDict['position']
+        #         }
+        #         self.contiguousInfoList.append({
+        #         'name':'0', 
+        #         'startPos':infixInfoDict['position'],
+        #         'endPos':infixInfoDict['position'],
+        #         'type':'number',
+        #         'ganzStartPos':infixInfoDict['position'],
+        #         'ganzEndPos':infixInfoDict['position'],
+        #         'parent':{
+        #                 'name':infixInfoDict['name'],
+        #                 'startPos':infixInfoDict['position'],
+        #                 'endPos':infixInfoDict['position']+len(infixInfoDict['name']),
+        #                 'type':'infix',
+        #                 'childIdx':1,
+        #                 'ganzStartPos':infixInfoDict['left__startBracketPos'],
+        #                 'ganzEndPos':infixInfoDict['right__endBracketPos']
+        #             }
+        #         })
 
         if self.verbose:
             for d in self.contiguousInfoList:
                 print('>>>', d['name'], d['startPos'], d['endPos'], '<<<')
             # import pdb;pdb.set_trace()
         if self.parallelise:
-            self.event__addChildOnMinusInfixWithNoLeftArg.set()
+            self.event__addImplicitZero.set()
 
 
     def _addImplicitMultipy(self):
         """
+        _addImplicitMultiply cannot have left/Right_enclosing that is a backslash_arg
+
         start leftovers and noBra, others must have children, since child=argument, and only leftovers and noBra have no argument
 
         #turn the leftOvers into an AST with these rules:
@@ -1359,7 +1452,6 @@ class Latexparser(Parser):
         #B will not be groupped together with A and C, only with either B and C, unless we re-check those existing in self.consecutiveGroups...
         #SO PLEASE NARABEKAENASAI! (startPos nishitagatte ne)
         #have to do all-pairs consecutiveness checking.
-        #TODO maybe this can be a general algorithm.... grouping by consecutiveness.... even in 3D space... like how bubbles come together to make bigger bubbles (or atoms => molecules :))
         
         if self.parallelise:
             self.event__collateBackslashInfixLeftOversToContiguous.wait()
@@ -2023,11 +2115,35 @@ class Latexparser(Parser):
             print('******************rootsAndGanzeWidth****************************')
             print(self.rootsAndGanzeWidth)
             print('******************rootsAndGanzeWidth****************************')
+            print('*********parentChildR Status after _addImplicitMultipy(2ndpart interlevel parentChildR building)********************************')
+            sadchildByLevel = {}
+            for grenzeRange, dings in self.newConsecutiveGroups.items():
+                sadchild = {}
+                for d in dings:
+                    idd = (d['name'], d['startPos'], d['endPos'])
+                    c0 = None if 'child' not in d or d['child'][1] is None else (d['child'][1]['name'], d['child'][1]['startPos'], d['child'][1]['endPos'])
+                    c1 = None if 'child' not in d or d['child'][2] is None else (d['child'][2]['name'], d['child'][2]['startPos'], d['child'][2]['endPos'])
+                    pard = None if d['parent'] is None else (d['parent']['name'], d['parent']['startPos'], d['parent']['endPos'])
+                    sadchild[idd] = {'c1':c0, 'c2':c1, 'parent':pard}
+                sadchildByLevel[grenzeRange] = sadchild
+            import pprint
+            pp = pprint.PrettyPrinter(indent=4)
+            pp.pprint(sadchildByLevel)
+            print('*********parentChildR Status after _addImplicitMultipy(2ndpart interlevel parentChildR building)********************************')
         if self.parallelise:
             self.event__addImplicitMultipy.set()
 
 
     def _subTreeGraftingUntilTwoTrees(self):
+        """
+        each key in newConsecutiveGroups is a level,
+        and during the 2nd part of _addImplicitMultiply (TODO refactor this out, cause damn confusing),
+        we build parent-child-relationship within each level
+
+        Here, we build parent-child-relationship across levels.
+        So, after this step, we should only have 2-subtrees with no parents
+        Those 2 are the direct children of '='
+        """
         if self.parallelise:
             self.event__addImplicitMultipy.wait()
         #we have to deal with the backslash_function/backslash_variable, whom have no children... since their children might be infixs, for example: \sin(2*x_0), the child2 of \sin is *
@@ -2124,7 +2240,13 @@ class Latexparser(Parser):
                     #Put the child into the right place
                     ################
                     if self.verbose:
-                        print('**************************check what theRoot1 or theRoot2 we found...')
+                        print('**************************check what theRoot1 or theRoot2 we found... ding:', (ding['name'], ding['startPos'], ding['endPos']))
+                        print('theRoot1', theRoot1)
+                        print('theGanzStartPos1', theGanzStartPos1)
+                        print('theGanzEndPos1', theGanzEndPos1)
+                        print('theRoot2', theRoot2)
+                        print('theGanzStartPos2', theGanzStartPos2)
+                        print('theGanzEndPos2', theGanzEndPos2)
                         # import pdb;pdb.set_trace()
                         print('**************************check what theRoot1 or theRoot2 we found...')
                     ################
@@ -2198,6 +2320,17 @@ class Latexparser(Parser):
                             'ganzEndPos':ding['ganzEndPos']
                         }
                     #we have to do this no matter if children of trig is None or not. but, after we got children of trig (if trig was None in the first place)
+                    if self.verbose:
+                        print('checked ding: ', (ding['name'], ding['startPos'], ding['endPos']), 'parentchildrBuildAcrossLevel***************************')
+                        if theRoot1: # ding has theRoot1 as child1
+                            print('ding child1 is: ', (theRoot1['name'], theRoot1['startPos'], theRoot1['endPos']))
+                        if theRoot2: # ding has theRoot2 as child2
+                            print('ding child2 is: ', (theRoot2['name'], theRoot2['startPos'], theRoot2['endPos']))
+                        else:
+                            print('ding has no child!!!!!!!!')
+                        print('parentchildrBuildAcrossLevel**************************************************************************************')
+                        import pdb;pdb.set_trace()
+                #already built parent-child-relationship across levels, heran, we handle special cases because of LATEX language quirks
 
                 if ding['name'] == 'sqrt' and ding['child'][1] is None: # arg1 is empty so, by default, arg1=2 (SQUARE root)
                     ding['child'][1] = {
@@ -2371,6 +2504,17 @@ class Latexparser(Parser):
                 dingsNoParents.append(ding)
         if len(dingsNoParents) != 2:
             print('BAD number of parents: ', len(dingsNoParents))
+            print('parent/child relationship:')
+            sadchild = {}
+            for d in self.alleDing:
+                idd = (d['name'], d['startPos'], d['endPos'])
+                c0 = None if 'child' not in d or d['child'][1] is None else (d['child'][1]['name'], d['child'][1]['startPos'], d['child'][1]['endPos'])
+                c1 = None if 'child' not in d or d['child'][2] is None else (d['child'][2]['name'], d['child'][2]['startPos'], d['child'][2]['endPos'])
+                pard = None if d['parent'] is None else (d['parent']['name'], d['parent']['startPos'], d['parent']['endPos'])
+                sadchild[idd] = {'c1':c0, 'c2':c1, 'parent':pard}
+            import pprint
+            pp = pprint.PrettyPrinter(indent=4)
+            pp.pprint(sadchild)
             print("dingsNoParents:")
             print(dingsNoParents)
             import pdb;pdb.set_trace()
@@ -2493,7 +2637,7 @@ event__contiguousLeftOvers
 <-self.unoccupiedPoss
 ->self.contiguousInfoList
 
-event__addChildOnMinusInfixWithNoLeftArg
+event__addImplicitZero
 <-self.infixList
 ->self.contiguousInfoList
 
@@ -2555,7 +2699,7 @@ event__contiguousLeftOvers
 <-self.unoccupiedPoss
 ->self.contiguousInfoList
 
-event__addChildOnMinusInfixWithNoLeftArg
+event__addImplicitZero
 <-self.infixList
 ->self.contiguousInfoList
 
@@ -2675,8 +2819,8 @@ $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$incomplete code to check variable_depende
         self._removeCaretThatIsNotExponent()
         self._findLeftOverPosition()
         self._contiguousLeftOvers()
-        self._addChildOnMinusInfixWithNoLeftArg()
         self._collateBackslashInfixLeftOversToContiguous()
+        self._addImplicitZero()
         self._addImplicitMultipy()
         self._subTreeGraftingUntilTwoTrees()
         self._reformatToAST()
