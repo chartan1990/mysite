@@ -11,6 +11,7 @@ class Schemeparser(Parser):
         self._eqs = equationStr
         self.verbose = verbose
         self.veryVerbose = veryVerbose
+        self.equalTuple = None
         self.ast, self.functions, self.variables, self.primitives, self.totalNodeCount = self._parse()
 
     def _parse(self):
@@ -177,7 +178,7 @@ class Schemeparser(Parser):
             self._findEqualTuple()
         if self.equalTuple is None:#noch equalTuple kann nicht finden
             raise Exception('No equal, Invalid Equation String')
-        return self._recursiveUnparse(self.ast, equalTuple)
+        return self._recursiveUnparse(self.ast, self.equalTuple)
 
     def _recursiveUnparse(self, subAST, keyTuple):
         if keyTuple not in subAST: # is Leaf

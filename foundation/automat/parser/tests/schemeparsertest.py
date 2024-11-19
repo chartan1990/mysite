@@ -103,7 +103,7 @@ def test__schemeParserTest__earlyEffectModel(verbose=False):
     print(inspect.currentframe().f_code.co_name, ' PASSED? ', (equationStr==unparsedStr) and (ast==expected_ast))
 
 if __name__=='__main__':
-    TODO checking AST equality
+    #TODO checking AST equality
     test__schemeParserTest__add()
     test__schemeParserTest__harmonicMean()
     test__schemeParserTest__phasorDiagram()
