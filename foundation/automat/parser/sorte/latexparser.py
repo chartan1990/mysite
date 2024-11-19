@@ -57,17 +57,23 @@ class Latexparser(Parser):
             '__updateInfixNearestBracketInfix':False,
             '_updateInfixNearestBracketInfix':False,
             '_removeCaretThatIsNotExponent':False,
-            '_findLeftOverPosition':True,
+            '_findLeftOverPosition':False,
             '_contiguousLeftOvers':False,
-            '_collateBackslashInfixLeftOversToContiguous':False,
+            '_collateBackslashInfixLeftOversToContiguous':True,
             '_addImplicitZero':False,
             '_addImplicitMultipy':False,
             '_subTreeGraftingUntilTwoTrees':False,
             '_reformatToAST':False
         }
-        def showError():
-            methodName = inspect.currentframe().f_back.f_code.co_name#f_back goes 1 frame up the call stack.
-            return self.verbose and methodName in self.methodVerbose and self.methodVerbose[methodName]
+        def showError(): # TODO this call is very expensive..., maybe write everything to a log file?
+            if self.verbose:
+                for frame in inspect.stack():
+                    methodName = frame.function
+                    if self.methodVerbose.get(methodName, False):
+                        return True
+            return False
+            # methodName = inspect.currentframe().f_back.f_code.co_name#f_back goes 1 frame up the call stack.
+            # return self.verbose and methodName in self.methodVerbose and self.methodVerbose[methodName]
         self.showError = showError
 
         self.parallelise = parallelise
@@ -1111,6 +1117,10 @@ class Latexparser(Parser):
             if infixInfoDict['right__type'] != 'infix' and infixInfoDict['right__endBracketType'] is not None: # right__startBracketType is not None =/=> right__endBracketType is not None, since we may have enclosing brackets
                 listOfOccupiedRanges.add((infixInfoDict['right__endBracketPos'], infixInfoDict['right__endBracketPos']+len(infixInfoDict['right__endBracketType'])))
 
+        """
+        after putting all the backslash_function, backslash_variable, infix, we still have brackets like these that are not removed:
+        (x-3)(x+1)=x^2-6x-3
+        """
         self.unoccupiedPoss = set()
         for pos in range(0, len(self._eqs)):
             # TODO binary search
@@ -1118,7 +1128,7 @@ class Latexparser(Parser):
             for occupiedRange in listOfOccupiedRanges:
                 if occupiedRange[0] <= pos and pos < occupiedRange[1]:
                     occupied = True
-            if not occupied:
+            if not occupied and self._eqs[pos] not in (Latexparser.OPEN_BRACKETS+Latexparser.CLOSE_BRACKETS):
                 self.unoccupiedPoss.add(pos)
         self.unoccupiedPoss = sorted(list(self.unoccupiedPoss))
         if self.showError():
@@ -1245,7 +1255,9 @@ class Latexparser(Parser):
         if self.showError():#TTTTTTTTTTTTTTTTTTTTTTTTTTT
             print('&&&&&&&&&&&&&&&contiguousInfoList&&&&&&&&&&&&&&&&&')
             print(self.contiguousInfoList)
-            print('&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&')
+            print('&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&shorter:')
+            print(list(map(lambda conti: (conti['name'], conti['startPos'], conti['endPos']), self.contiguousInfoList)))
+            print('&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&')
             # import pdb;pdb.set_trace()
         if self.parallelise:
             self.event__contiguousLeftOvers.set()

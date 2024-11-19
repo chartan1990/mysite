@@ -256,8 +256,32 @@ def test__paveWayForDifferentiation__sumRule(verbose=False):
         pp.pprint(parser.ast)
 #
 
+def test__paveWayForIntegration__enclosingBracketNonBackslash(verbose=False):
+    pp = pprint.PrettyPrinter(indent=4)
+
+    equationStr = '\\int{(x-3)(x+1)}dx=\\frac{1}{3}x^3-3x^2-3x+C'
+    parser = Latexparser(equationStr, verbose=verbose)
+    parser._parse()
+    expected_ast = None # to be filled in
+    print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
+    if verbose:
+        pp.pprint(parser.ast)
+
+
+def test__paveWayForIntegrtion__exponentOnEnclosingNonBackslash(verbose=False):
+    pp = pprint.PrettyPrinter(indent=4)
+
+    equationStr = '\\int{(x-1)(x+1)^2}dx=\\frac{1}{4}x^4+\\frac{1}{3}x^3-\\frac{1}{2}x^2-x+C'
+    parser = Latexparser(equationStr, verbose=verbose)
+    parser._parse()
+    expected_ast = None # to be filled in
+    print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
+    if verbose:
+        pp.pprint(parser.ast)
+
+
 if __name__=='__main__':
-    # test__findingBackSlashAndInfixOperations__Trig0()
+    test__findingBackSlashAndInfixOperations__Trig0(True)
     # test__findingBackSlashAndInfixOperations__Trig1()
     # test__findingBackSlashAndInfixOperations__Trig2()
     # test__findingBackSlashAndInfixOperations__Sqrt0()
@@ -270,7 +294,9 @@ if __name__=='__main__':
     # test__findingBackSlashAndInfixOperations__SchrodingerWaveEquation()
     # test__infixInBackslash__paraboloid()
     # test__sqrtWithPowerCaretRightOtherInfix__hill()
-    test__manyFracCaretEnclosingBrac__partialFrac(True) # not tested yet
+    # test__manyFracCaretEnclosingBrac__partialFrac(True) # not tested yet
     # test__fracWithLogNoBase__changeLogBaseFormula() # not tested yet
     # test__paveWayForDifferentiation__productRule() # not tested yet
     # test__paveWayForDifferentiation__sumRule() # not tested yet
+    # test__paveWayForIntegration__enclosingBracketNonBackslash() # not tested yet
+    # test__paveWayForIntegrtion__exponentOnEnclosingNonBackslash() # not tested yet
