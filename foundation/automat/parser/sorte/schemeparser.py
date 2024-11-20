@@ -1,5 +1,5 @@
 from foundation.automat.arithmetic.function import Function
-from foundation.automat.common import Backtracker, findAllMatches, makeEnclosureTreeWithLevel, isNum, lenOrZero
+from foundation.automat.common import Backtracker, findAllMatches, isNum, lenOrZero
 from foundation.automat.parser.parser import Parser
 
 class Schemeparser(Parser):
