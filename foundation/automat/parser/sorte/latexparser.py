@@ -50,28 +50,32 @@ class Latexparser(Parser):
     def __init__(self, equationStr, verbose=False, parallelise=False):
         self._eqs = equationStr
         self.verbose = verbose
+        self.addedSymbolId = 0 # for adding new symbols when handling special cases of latex language
+        self.alleDing = [] # collect all symbol after interlevelsubtreegrafting
         #method specfific verbosity
         self.methodVerbose = {
             '_findBackSlashPositions':False,
             '_findInfixAndEnclosingBrackets':False,
-            '__updateInfixNearestBracketInfix':False,
             '_updateInfixNearestBracketInfix':False,
             '_removeCaretThatIsNotExponent':False,
             '_findLeftOverPosition':False,
             '_contiguousLeftOvers':False,
-            '_collateBackslashInfixLeftOversToContiguous':True,
-            '_addImplicitZero':False,
-            '_addImplicitMultipy':False,
-            '_intraGrenzeSubtreeUe':False,
-            '_subTreeGraftingUntilTwoTrees':False,
-            '_reformatToAST':False
+            '_collateBackslashInfixLeftOversToContiguous':False,
+            '_graftGrenzeRangesIntoContainmentTree':True,
+            '__addImplicitZero':False,
+            '__addImplicitMultiply':False,
+            '__intraGrenzeSubtreeUe':False,
+            '__interLevelSubtreeGrafting':False,
+            '_reformatToAST':False,
         }
         def showError(): # TODO this call is very expensive..., maybe write everything to a log file?
             if self.verbose:
                 for frame in inspect.stack():
                     methodName = frame.function
-                    if self.methodVerbose.get(methodName, False):
-                        return True
+                    #try to get the first frame that is in methodVerbose:
+                    show = self.methodVerbose.get(methodName)
+                    if show is not None: # found methodName
+                        return show # show is True/False (not None)
             return False
             # methodName = inspect.currentframe().f_back.f_code.co_name#f_back goes 1 frame up the call stack.
             # return self.verbose and methodName in self.methodVerbose and self.methodVerbose[methodName]
@@ -866,6 +870,7 @@ class Latexparser(Parser):
                 print('left__type: ', infixInfoDict0['left__type'], ' right__type: ', infixInfoDict0['right__type'])
                 print('^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^')
 
+
     def _updateInfixNearestBracketInfix(self):
 
         if self.parallelise:
@@ -1383,22 +1388,67 @@ class Latexparser(Parser):
             for parent, children in enclosureTree.items():
                 if grenzeRange in children:
                     return parent
+        #####################
+        if self.showError():
+            print('**********************alleDing:')
+            print(list(map(lambda ding: (ding['name'], ding['startPos'], ding['endPos']), self.alleDing)))
+            print('**********************alleDing:')
+        #####################
         for level, grenzeRanges in sorted(list(levelToIDs.items()), key=lambda t: t[0]): # t[0] is the level
+            ################
+            if self.showError():
+                print('**************************')
+                print('level: ', level, 'grenzeRanges: ', grenzeRanges)
+                print('**************************')
+            ################
             for grenzeRange in grenzeRanges:
                 dings = self.consecutiveGroups[grenzeRange]
+                ################
+                if self.showError():
+                    print('**************************')
+                    print('level: ', level, 'grenzeRange: ', grenzeRange)
+                    print('BEGINT dings: ', list(map(lambda ding: (ding['name'], ding['startPos'], ding['endPos']), dings)))
+                    print('**************************')
+                ################
                 #here, we need to 
                 #__addImplicitZero
                 dings = self.__addImplicitZero(dings)
+                ################
+                if self.showError():
+                    print('**************************')
+                    print('level: ', level, 'grenzeRange: ', grenzeRange)
+                    print('After implicitzero dings: ', list(map(lambda ding: (ding['name'], ding['startPos'], ding['endPos']), dings)))
+                    print('**************************')
+                ################
                 #__addImplicitMultiply
-                dings = self.__addImplicitMultiply(dings)
+                dings = self.__addImplicitMultiply(dings) 
                 #__intraGrenzeSubtreeUe
                 rootOfDingsWithGanzRange = self.__intraGrenzeSubtreeUe(dings) #{'root':ding, 'ganzStartPos':[of the whole tree], 'ganzEndPos':[of the whole tree]}
+                ################
+                if self.showError():
+                    print('**************************')
+                    print('level: ', level, 'grenzeRange: ', grenzeRange)
+                    print('After __intraGrenzeSubtreeUe dings: ', list(map(lambda ding: (ding['name'], ding['startPos'], ding['endPos']), dings)))
+                    print('root: ', (rootOfDingsWithGanzRange['root']['name'], rootOfDingsWithGanzRange['root']['startPos'], rootOfDingsWithGanzRange['root']['endPos']), ' ganzrange: ', (rootOfDingsWithGanzRange['ganzStartPos'], rootOfDingsWithGanzRange['ganzEndPos']))
+                    print('**************************')
+                ################
                 #interlevel subtreeGrafting
-                parentDings = self.consecutiveGroups[getParent(grenzeRange)]
-                #replace the rootOfSubtree in the getParent(grenzeRange)=grenzeRange in self.consecutiveGroups
-                #update the parent/child relationship
-                self.__interLevelSubtreeGrafting(rootSubTree, parentDings)
+                grenzeRangeParent = getParent(grenzeRange)
+                if grenzeRangeParent is not None: # we reached =, not need to interlevelsubtreegrafting
+                    parentDings = self.consecutiveGroups[grenzeRangeParent]
+                    #replace the rootOfSubtree in the getParent(grenzeRange)=grenzeRange in self.consecutiveGroups
+                    #update the parent/child relationship
+                    sammeltDings = self.__interLevelSubtreeGrafting(rootOfDingsWithGanzRange, parentDings)
+                else:
+                    sammeltDings = dings
+                self.alleDing += sammeltDings # TODO something wrong with alleDing, its repeating dings that should not be
 
+                #####################
+                if self.showError():
+                    print('**********************alleDing: <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<')
+                    print(list(map(lambda ding: (ding['name'], ding['startPos'], ding['endPos']), self.alleDing)))
+                    print('**********************alleDing:')
+                #####################
 
 
     def __addImplicitZero(self, dings):
@@ -1433,6 +1483,16 @@ class Latexparser(Parser):
                     'child':{1:{'name', 'startPos', 'endPos', 'type', 'ganzStartPos', 'ganzEndPos'}, 2:},
 
         """
+        if self.showError():
+            # for d in self.contiguousInfoList:
+            #     print('>>>', d['name'], d['startPos'], d['endPos'], '<<<')
+            # import pdb;pdb.set_trace()
+            # print('self.consecutiveGroups<<<<<<<<<<<<<< _addImplicitZero')
+            # self.ppprint(self.consecutiveGroups, sorted(self.consecutiveGroups.items(), key=lambda item: item[0][0]))
+            # print('self.consecutiveGroups<<<<<<<<<<<<<<')
+            # import pdb;pdb.set_trace()
+            print('dings ~~~~~~~~addImplicitZero VOR')
+            print(list(map(lambda d: (d['name'], d['startPos'], d['endPos']), dings)))
         if len(dings) > 1 and dings[0]['name'] == '-':
             dings[0]['child'][1] = {
                 'name':'0',
@@ -1464,15 +1524,16 @@ class Latexparser(Parser):
             dings.insert(0, implicitZero)
 
         if self.showError():
-            for d in self.contiguousInfoList:
-                print('>>>', d['name'], d['startPos'], d['endPos'], '<<<')
+            # for d in self.contiguousInfoList:
+            #     print('>>>', d['name'], d['startPos'], d['endPos'], '<<<')
             # import pdb;pdb.set_trace()
-            print('self.consecutiveGroups<<<<<<<<<<<<<< _addImplicitZero')
-            self.ppprint(self.consecutiveGroups, sorted(self.consecutiveGroups.items(), key=lambda item: item[0][0]))
-            print('self.consecutiveGroups<<<<<<<<<<<<<<')
+            # print('self.consecutiveGroups<<<<<<<<<<<<<< _addImplicitZero')
+            # self.ppprint(self.consecutiveGroups, sorted(self.consecutiveGroups.items(), key=lambda item: item[0][0]))
+            # print('self.consecutiveGroups<<<<<<<<<<<<<<')
             # import pdb;pdb.set_trace()
+            print('dings ~~~~~~~~addImplicitZero NACH')
+            print(list(map(lambda d: (d['name'], d['startPos'], d['endPos']), dings)))
         return dings
-
 
 
     def __addImplicitMultiply(self, dings):
@@ -1502,7 +1563,7 @@ class Latexparser(Parser):
         #B will not be groupped together with A and C, only with either B and C, unless we re-check those existing in self.consecutiveGroups...
         #SO PLEASE NARABEKAENASAI! (startPos nishitagatte ne)
         #have to do all-pairs consecutiveness checking.
-        implicitMultiplyId = 0
+        self.addedSymbolId = 0
         ding = dings[0] # this will be the root of treeified-dings (or be replaced)
         newDings = [ding]
 
@@ -1543,8 +1604,8 @@ class Latexparser(Parser):
                 if prevDing['type'] == 'infix' and ding['type'] == 'infix':
                     #if prevDing['right__startBracketType'] is not None and prevDing['right__endBracketType'] is not None and ding['left__startBracketType'] is not None and ding['left__endBracketType']: 
                     if prevDing['right__type'] == 'leftRight' and ding['left__type'] == 'leftRight':# ???+(...)*(...)+???
-                        implicitMultiplyNode = ('*', (implicitMultiplyId, -1))
-                        implicitMultiplyId += 1
+                        # implicitMultiplyNode = ('*', (self.addedSymbolId, -1))
+                        self.addedSymbolId += 1
                         implicitMultiplyInfoDict = { # rightarg * leftarg
                             'name':'*',
                             'position':-1, # no real position in equation
@@ -1584,8 +1645,8 @@ class Latexparser(Parser):
                     #elif prevDing['right__startBracketType'] is not None and prevDing['right__endBracketType'] is not None and ding['left__startBracketType'] is not None: 
                     elif prevDing['right__type'] == 'leftRight' and ding['left__type'] == 'enclosing': #???+(...)*(...+???)
                         #could be ding['right__type'] == 'enclosing' too
-                        implicitMultiplyNode = ('*', (implicitMultiplyId, -1))
-                        implicitMultiplyId += 1
+                        # implicitMultiplyNode = ('*', (self.addedSymbolId, -1))
+                        self.addedSymbolId += 1
                         implicitMultiplyInfoDict = {# rightarg * ganz
                             'name':'*',
                             'position':-1, # no real position in equation
@@ -1625,8 +1686,8 @@ class Latexparser(Parser):
                     #elif prevDing['right__endBracketType'] is not None and ding['left__startBracketType'] is not None and ding['left__endBracketType'] is not None: 
                     elif prevDing['right__type'] == 'enclosing' and ding['left__type'] == 'leftRight': #(???+...)*(...)+???
                         # could be prevDing['left__type'] == 'enclosing'
-                        implicitMultiplyNode = ('*', (implicitMultiplyId, -1))
-                        implicitMultiplyId += 1
+                        # implicitMultiplyNode = ('*', (self.addedSymbolId, -1))
+                        self.addedSymbolId += 1
                         implicitMultiplyInfoDict = {# ganz * leftarg
                             'name':'*',
                             'position':-1, # no real position in equation
@@ -1665,8 +1726,8 @@ class Latexparser(Parser):
                         ###################
                     #elif prevDing['right__endBracketType'] is not None and ding['left__startBracketType'] is not None: 
                     elif prevDing['right__type'] == 'enclosing' and ding['left__type'] == 'enclosing': #(???+...)*(...+???)
-                        implicitMultiplyNode = ('*', (implicitMultiplyId, -1))
-                        implicitMultiplyId += 1
+                        # implicitMultiplyNode = ('*', (self.addedSymbolId, -1))
+                        self.addedSymbolId += 1
                         implicitMultiplyInfoDict = { # ganz * ganz
                             'name':'*',
                             'position':-1, # no real position in equation
@@ -1713,8 +1774,8 @@ class Latexparser(Parser):
                         #nearest infix with leftBracket, right of Ding
                         infixRightOfDing = findRightestInfixFrom(ding) # that has leftCloseBracket
                         #infixRightOfDing might not be infix, since there might not have infix right of Ding
-                        implicitMultiplyNode = ('*', (implicitMultiplyId, -1))
-                        implicitMultiplyId += 1
+                        # implicitMultiplyNode = ('*', (self.addedSymbolId, -1))
+                        self.addedSymbolId += 1
                         import pdb;pdb.set_trace()
                         implicitMultiplyInfoDict = {# rightarg * ganz
                             'name':'*',
@@ -1755,8 +1816,8 @@ class Latexparser(Parser):
                     #elif prevDing['right__endBracketType'] is not None:
                     elif prevDing['right__type'] == 'enclosing': #(???+...)*Ding
                         infixRightOfDing = findRightestInfixFrom(ding) # that has leftCloseBracket
-                        implicitMultiplyNode = ('*', (implicitMultiplyId, -1))
-                        implicitMultiplyId += 1
+                        # implicitMultiplyNode = ('*', (self.addedSymbolId, -1))
+                        self.addedSymbolId += 1
                         import pdb;pdb.set_trace()
                         implicitMultiplyInfoDict = {# ganz * leftarg
                             'name':'*',
@@ -1798,8 +1859,8 @@ class Latexparser(Parser):
                     #if ding['left__startBracketType'] is not None and ding['left__endBracketType'] is not None:
                     if ding['left__type'] == 'leftRight': #Ding*(...)+???
                         infixLeftOfDing = findLeftestInfixFrom(prevDing) # that has rightCloseBracket
-                        implicitMultiplyNode = ('*', (implicitMultiplyId, -1))
-                        implicitMultiplyId += 1
+                        # implicitMultiplyNode = ('*', (self.addedSymbolId, -1))
+                        self.addedSymbolId += 1
                         implicitMultiplyInfoDict = {# ganz * leftarg
                             'name':'*',
                             'position':-1, # no real position in equation
@@ -1840,8 +1901,8 @@ class Latexparser(Parser):
                     elif ding['left__type'] == 'enclosing': #Ding*(...+???)
                         infixLeftOfDing = findLeftestInfixFrom(prevDing) # that has rightCloseBracket
                         import pdb;pdb.set_trace()
-                        implicitMultiplyNode = ('*', (implicitMultiplyId, -1))
-                        implicitMultiplyId += 1
+                        # implicitMultiplyNode = ('*', (self.addedSymbolId, -1))
+                        self.addedSymbolId += 1
                         implicitMultiplyInfoDict = {# rightarg * ganz
                             'name':'*',
                             'position':-1, # no real position in equation
@@ -1881,8 +1942,8 @@ class Latexparser(Parser):
                 else: #both prevDing & ding are not infixes.... 
                     #add implicit multiply to (prevDing and ding)
                     #-need to provide parent of () for update child [name, startPos, endPos, ganzStartPos, ganzEndPos]
-                    implicitMultiplyNode = ('*', (implicitMultiplyId, -1))
-                    implicitMultiplyId += 1
+                    # implicitMultiplyNode = ('*', (self.addedSymbolId, -1))
+                    self.addedSymbolId += 1
                     implicitMultiplyInfoDict = {
                         'name':'*',
                         'position':-1, # means its implicit multiply
@@ -1919,11 +1980,18 @@ class Latexparser(Parser):
                         print('*******************************adding implicit-multiply')
                     ###################
                 newDings.append(ding) # add old ding back
+        if self.showError():
+            print('~~~~~~~~~~~~~~~~~~~~implicitMultiply~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+            print('oldDings:')
+            print(list(map(lambda d: (d['name'], d['startPos'], d['endPos']), dings)))
+            print('newDings:')
+            print(list(map(lambda d: (d['name'], d['startPos'], d['endPos']), newDings)))
+            print('~~~~~~~~~~~~~~~~~~~~implicitMultiply~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+
         return newDings
 
 
-
-    def __intraGrenzeSubtreeUe(self, dings):
+    def __intraGrenzeSubtreeUe(self, newDings):
         def getMostLeftStartPos(ting, currentGanzStartPos):
             if ting['type'] == 'infix':
                 # ##########
@@ -1959,7 +2027,7 @@ class Latexparser(Parser):
         ############
         if self.showError():
             print('checking treeifiedDingsGanzStartPos/treeifiedDingsGanzEndPos')
-            print('dings', list(map(lambda d: (d['name'], d['startPos'], d['endPos']), dings)))
+            print('dings', list(map(lambda d: (d['name'], d['startPos'], d['endPos']), newDings)))
             print('ding', ((ding['name'], ding['startPos'], ding['endPos'])))
             print('treeifiedDingsGanzStartPos', treeifiedDingsGanzStartPos)
             print('treeifiedDingsGanzEndPos', treeifiedDingsGanzEndPos)
@@ -1971,7 +2039,7 @@ class Latexparser(Parser):
         ############
         if self.showError():
             print('checking treeifiedDingsGanzStartPos/treeifiedDingsGanzEndPos')
-            print('dings', list(map(lambda d: (d['name'], d['startPos'], d['endPos']), dings)))
+            print('dings', list(map(lambda d: (d['name'], d['startPos'], d['endPos']), newDings)))
             print('ding', ((ding['name'], ding['startPos'], ding['endPos'])))
             print('treeifiedDingsGanzStartPos', treeifiedDingsGanzStartPos)
             print('treeifiedDingsGanzEndPos', treeifiedDingsGanzEndPos)
@@ -1992,7 +2060,7 @@ class Latexparser(Parser):
                 ############
                 if self.showError():
                     print('checking treeifiedDingsGanzStartPos/treeifiedDingsGanzEndPos')
-                    print('dings', list(map(lambda d: (d['name'], d['startPos'], d['endPos']), dings)))
+                    print('dings', list(map(lambda d: (d['name'], d['startPos'], d['endPos']), newDings)))
                     print('ding', ((ding['name'], ding['startPos'], ding['endPos'])))
                     print('treeifiedDingsGanzStartPos', treeifiedDingsGanzStartPos)
                     print('treeifiedDingsGanzEndPos', treeifiedDingsGanzEndPos)
@@ -2004,7 +2072,7 @@ class Latexparser(Parser):
                 ############
                 if self.showError():
                     print('checking treeifiedDingsGanzStartPos/treeifiedDingsGanzEndPos')
-                    print('dings', list(map(lambda d: (d['name'], d['startPos'], d['endPos']), dings)))
+                    print('dings', list(map(lambda d: (d['name'], d['startPos'], d['endPos']), newDings)))
                     print('ding', ((ding['name'], ding['startPos'], ding['endPos'])))
                     print('treeifiedDingsGanzStartPos', treeifiedDingsGanzStartPos)
                     print('treeifiedDingsGanzEndPos', treeifiedDingsGanzEndPos)
@@ -2208,16 +2276,18 @@ class Latexparser(Parser):
         #the last ding from the last-for-loop is the root of dings
         # self.rootsAndGanzeWidth.append({'root':ding, 'ganzStartPos':treeifiedDingsGanzStartPos, 'ganzEndPos':treeifiedDingsGanzEndPos})
         #clear the treeifiedDingsGanzStartPos, treeifiedDingsGanzEndPos
-        treeifiedDingsGanzStartPos = len(self._eqs) + 1
-        treeifiedDingsGanzEndPos = -1
+        # treeifiedDingsGanzStartPos = len(self._eqs) + 1 # we only have 1 dings, do not need to clear tdgsp tdgep
+        # treeifiedDingsGanzEndPos = -1
         # self.newConsecutiveGroups[grenzeRange] = newDings
         ############
         if self.showError():
             print('checking treeifiedDingsGanzStartPos/treeifiedDingsGanzEndPos')
-            print('dings', list(map(lambda d: (d['name'], d['startPos'], d['endPos']), dings)))
+            print('dings', list(map(lambda d: (d['name'], d['startPos'], d['endPos']), newDings)))
             print('ding', ((ding['name'], ding['startPos'], ding['endPos'])))
             print('treeifiedDingsGanzStartPos', treeifiedDingsGanzStartPos)
             print('treeifiedDingsGanzEndPos', treeifiedDingsGanzEndPos)
+            print('we are returning (as root of subtree):')
+            print({'root':ding, 'ganzStartPos':treeifiedDingsGanzStartPos, 'ganzEndPos':treeifiedDingsGanzEndPos})
             print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!AT THE END!!!!!!!!!!!!!!!!!!!!!!!!!')
             # import pdb;pdb.set_trace()
         ############
@@ -2234,6 +2304,7 @@ class Latexparser(Parser):
         So, after this step, we should only have 2-subtrees with no parents
         Those 2 are the direct children of '='
         """
+        sammeltDings = []
         for ding in parentDings: # ding is with socket (empty child)
             if (ding['type'] == 'backslash_function' and (ding['child'][1] is None or ding['child'][2] is None)) or \
             (ding['type'] == 'backslash_variable' and ding['child'][1] is None): #only come here if there is some None child
@@ -2302,259 +2373,260 @@ class Latexparser(Parser):
                         theRoot2 = rootSubTree['root']
                         theGanzStartPos2 = rootSubTree['ganzStartPos']
                         theGanzEndPos2 = rootSubTree['ganzEndPos']
-            #There are trigo function with no power(arg1), if there is nothing fitting here for trigo function in arg1, then we take from argument1
-            #Put the child into the right place
-            ################
-            if self.showError():
-                print('**************************check what theRoot1 or theRoot2 we found... ding:', (ding['name'], ding['startPos'], ding['endPos']))
-                print('theRoot1', theRoot1)
-                print('theGanzStartPos1', theGanzStartPos1)
-                print('theGanzEndPos1', theGanzEndPos1)
-                print('theRoot2', theRoot2)
-                print('theGanzStartPos2', theGanzStartPos2)
-                print('theGanzEndPos2', theGanzEndPos2)
-                # import pdb;pdb.set_trace()
-                print('**************************check what theRoot1 or theRoot2 we found...')
-            ################
-            if ding['type'] == 'backslash_variable':
-                ding['child'][1] = {
-                    'name':theRoot1['name'],
-                    'startPos':theRoot1['startPos'],
-                    'endPos':theRoot1['endPos'],
-                    'type':theRoot1['type'],
-                    'ganzStartPos':theRoot1['startPos'],
-                    'ganzEndPos':theRoot1['endPos']
-                }
-                theRoot1['parent'] = {
-                    'name':ding['name'],
-                    'startPos':ding['startPos'],
-                    'endPos':ding['endPos'],
-                    'type':ding['type'],
-                    'childIdx':1,
-                    'ganzStartPos':ding['ganzStartPos'],
-                    'ganzEndPos':ding['ganzEndPos']
-                }
-            # if ding['type'] == 'backslash_function' and ding['child'][1] is None and ding['argument1StartPosition'] <= theGanzStartPos1 and  theGanzEndPos1 <= ding['argument1EndPosition']:
-            if theRoot1:
-                # if theRoot1 is None and ding['name'] in self.TRIGOFUNCTION and ding['child'][1] is None:
-                #     # ding['child'][1] = {
-                #     #     'name':1,
-                #     #     'startPos':None,
-                #     #     'endPos':None,
-                #     #     'type':'number',
-                #     #     'ganzStartPos':None,
-                #     #     'ganzEndPos':None
-                #     # }
-                #     ding['child'][1] = None # leave it as None, then it will not appear in AST...
-                # else:
-                ding['child'][1] = {
-                    'name':theRoot1['name'],
-                    'startPos':theRoot1['startPos'],
-                    'endPos':theRoot1['endPos'],
-                    'type':theRoot1['type'],
-                    'ganzStartPos':theRoot1['startPos'],
-                    'ganzEndPos':theRoot1['endPos']
-                }
-                theRoot1['parent'] = {
-                    'name':ding['name'],
-                    'startPos':ding['startPos'],
-                    'endPos':ding['endPos'],
-                    'type':ding['type'],
-                    'childIdx':1,
-                    'ganzStartPos':ding['ganzStartPos'],
-                    'ganzEndPos':ding['ganzEndPos']
-                }
-
-
-            # if ding['type'] == 'backslash_function' and ding['child'][2] is None and ding['argument2StartPosition'] <= theGanzStartPos2 and  theGanzEndPos2 <= ding['argument2EndPosition']:
-            if theRoot2:
-                ding['child'][2] = {
-                    'name':theRoot2['name'],
-                    'startPos':theRoot2['startPos'],
-                    'endPos':theRoot2['endPos'],
-                    'type':theRoot2['type'],
-                    'ganzStartPos':theRoot2['startPos'],
-                    'ganzEndPos':theRoot2['endPos']
-                }
-                theRoot2['parent'] = {
-                    'name':ding['name'],
-                    'startPos':ding['startPos'],
-                    'endPos':ding['endPos'],
-                    'type':ding['type'],
-                    'childIdx':2,
-                    'ganzStartPos':ding['ganzStartPos'],
-                    'ganzEndPos':ding['ganzEndPos']
-                }
-            #we have to do this no matter if children of trig is None or not. but, after we got children of trig (if trig was None in the first place)
-            if self.showError():
-                print('checked ding: ', (ding['name'], ding['startPos'], ding['endPos']), 'parentchildrBuildAcrossLevel***************************')
-                if theRoot1: # ding has theRoot1 as child1
-                    print('ding child1 is: ', (theRoot1['name'], theRoot1['startPos'], theRoot1['endPos']))
-                elif theRoot2: # ding has theRoot2 as child2
-                    print('ding child2 is: ', (theRoot2['name'], theRoot2['startPos'], theRoot2['endPos']))
-                else:
-                    print('ding has no child!!!!!!!!')
-                print('parentchildrBuildAcrossLevel**************************************************************************************')
-                # import pdb;pdb.set_trace()
-        #already built parent-child-relationship across levels, heran, we handle special cases because of LATEX language quirks
-
-        if ding['name'] == 'sqrt' and ding['child'][1] is None: # arg1 is empty so, by default, arg1=2 (SQUARE root)
-            ding['child'][1] = {
-                'name':2,
-                'startPos':exponentialId,
-                'endPos':exponentialId,
-                'type':'number',
-                'ganzStartPos':exponentialId,
-                'ganzEndPos':exponentialId
-            }
-            self.alleDing.append({
-                'name':2,
-                'startPos':exponentialId,
-                'endPos':exponentialId,
-                'type':'number',
-                'ganzStartPos':exponentialId,
-                'ganzEndPos':exponentialId,
-                'parent':{
-                    'name':ding['name'],
-                    'startPos':ding['startPos'],
-                    'endPos':ding['endPos'],
-                    'type':ding['type'],
-                    'childIdx':1,
-                    'ganzStartPos':ding['ganzStartPos'],
-                    'ganzEndPos':ding['ganzEndPos']
-                }
-            })
-            exponentialId += 1 #TODO rename exponentialId to general AlleDing
-
-        if ding['name'] == 'log' and ding['child'][1] is None:
-            ding['child'][1] = {
-                'name':10, # natural logarithms...
-                'startPos':exponentialId,
-                'endPos':exponentialId,
-                'type':'number',
-                'ganzStartPos':exponentialId,
-                'ganzEndPos':exponentialId
-            }
-            self.alleDing.append({
-                'name':10,
-                'startPos':exponentialId,
-                'endPos':exponentialId,
-                'type':'number',
-                'ganzStartPos':exponentialId,
-                'ganzEndPos':exponentialId,
-                'parent':{
-                    'name':ding['name'],
-                    'startPos':ding['startPos'],
-                    'endPos':ding['endPos'],
-                    'type':ding['type'],
-                    'childIdx':1,
-                    'ganzStartPos':ding['ganzStartPos'],
-                    'ganzEndPos':ding['ganzEndPos']
-                }
-            })
-            exponentialId += 1 #TODO rename exponentialId to general AlleDing
-
-
-        if ding['name'] == 'ln':
-            ding['name'] = 'log'
-            ding['child'][1] = {
-                'name':'e', # natural logarithms...
-                'startPos':exponentialId,
-                'endPos':exponentialId,
-                'type':'number',
-                'ganzStartPos':exponentialId,
-                'ganzEndPos':exponentialId
-            }
-            self.alleDing.append({
-                'name':'e',
-                'startPos':exponentialId,
-                'endPos':exponentialId,
-                'type':'number',
-                'ganzStartPos':exponentialId,
-                'ganzEndPos':exponentialId,
-                'parent':{
-                    'name':ding['name'],
-                    'startPos':ding['startPos'],
-                    'endPos':ding['endPos'],
-                    'type':ding['type'],
-                    'childIdx':1,
-                    'ganzStartPos':ding['ganzStartPos'],
-                    'ganzEndPos':ding['ganzEndPos']
-                }
-            })
-            exponentialId += 1 #TODO rename exponentialId to general AlleDing
-
-
-        # import pdb;pdb.set_trace()#TODO debug, it seems that below code block is repeated too many times
-        #special case for TRIG, but we still want to process the second child, after process the first child of trig (since power of trig may not be a number)
-        if ding['name'] in self.TRIGOFUNCTION and ding['child'][1] is not None:
-            #NO widest-arg1-on-ding and arg1(child)=None
-            # if theRoot1 is None and ding['child'][1] is None: #no exponential on ding trig
-            #     ding['child'][1] = None # leave it as None, then it will not appear in AST...
-            #what about theRoot1 is not None ding['child'][1] is None,THEN hopefully, theRoot1==ding['child'][1]
-            # else: #trig has power   ding['child'][1] is not None
-                #add exponent, set as parent of [trig, power]
-            expoDing = {
-                'name':'^',
-                'startPos':exponentialId, # not real, 
-                'endPos':exponentialId,
-                'ganzStartPos':exponentialId,
-                'ganzEndPos':exponentialId,
-                'type':'infix',
-                'child':{
-                    1:{
-                    'name':ding['name'],
-                    'startPos':ding['startPos'],
-                    'endPos':ding['endPos'],
-                    'type':ding['type'],
-                    'ganzStartPos':ding['ganzStartPos'],
-                    'ganzEndPos':ding['ganzEndPos']
-                    },
-                    2:{#power is the arg1 of ding
-                    'name':ding['child'][1]['name'],
-                    'startPos':ding['child'][1]['startPos'],
-                    'endPos':ding['child'][1]['endPos'],
-                    'type':ding['child'][1]['type'],
-                    'ganzStartPos':ding['child'][1]['ganzStartPos'],
-                    'ganzEndPos':ding['child'][1]['ganzEndPos']
+                #There are trigo function with no power(arg1), if there is nothing fitting here for trigo function in arg1, then we take from argument1
+                #Put the child into the right place
+                ################
+                if self.showError():
+                    print('**************************check what theRoot1 or theRoot2 we found... ding:', (ding['name'], ding['startPos'], ding['endPos']))
+                    print('theRoot1', theRoot1)
+                    print('theGanzStartPos1', theGanzStartPos1)
+                    print('theGanzEndPos1', theGanzEndPos1)
+                    print('theRoot2', theRoot2)
+                    print('theGanzStartPos2', theGanzStartPos2)
+                    print('theGanzEndPos2', theGanzEndPos2)
+                    # import pdb;pdb.set_trace()
+                    print('**************************check what theRoot1 or theRoot2 we found...')
+                ################
+                if ding['type'] == 'backslash_variable':
+                    ding['child'][1] = {
+                        'name':theRoot1['name'],
+                        'startPos':theRoot1['startPos'],
+                        'endPos':theRoot1['endPos'],
+                        'type':theRoot1['type'],
+                        'ganzStartPos':theRoot1['startPos'],
+                        'ganzEndPos':theRoot1['endPos']
                     }
-                },
-                'parent':ding['parent']
-            }
-            #need actual ding's parent and update its child to expoDing
-            actualParent = None
-            for grenzeRange0, dings0 in self.newConsecutiveGroups.items():
-                for ding0 in dings0:
-                    if ding0['name'] == ding['parent']['name'] and ding0['startPos'] == ding['parent']['startPos'] and ding0['endPos'] == ding['parent']['endPos']:
-                        actualParent = ding0
-            actualParent['child'][ding['parent']['childIdx']] = {
-                'name':expoDing['name'],
-                'startPos':expoDing['startPos'],
-                'endPos':expoDing['endPos'],
-                'type':expoDing['type'],
-                'ganzStartPos':expoDing['ganzStartPos'],
-                'ganzEndPos':expoDing['ganzEndPos']
+                    theRoot1['parent'] = {
+                        'name':ding['name'],
+                        'startPos':ding['startPos'],
+                        'endPos':ding['endPos'],
+                        'type':ding['type'],
+                        'childIdx':1,
+                        'ganzStartPos':ding['ganzStartPos'],
+                        'ganzEndPos':ding['ganzEndPos']
+                    }
+                # if ding['type'] == 'backslash_function' and ding['child'][1] is None and ding['argument1StartPosition'] <= theGanzStartPos1 and  theGanzEndPos1 <= ding['argument1EndPosition']:
+                if theRoot1:
+                    # if theRoot1 is None and ding['name'] in self.TRIGOFUNCTION and ding['child'][1] is None:
+                    #     # ding['child'][1] = {
+                    #     #     'name':1,
+                    #     #     'startPos':None,
+                    #     #     'endPos':None,
+                    #     #     'type':'number',
+                    #     #     'ganzStartPos':None,
+                    #     #     'ganzEndPos':None
+                    #     # }
+                    #     ding['child'][1] = None # leave it as None, then it will not appear in AST...
+                    # else:
+                    ding['child'][1] = {
+                        'name':theRoot1['name'],
+                        'startPos':theRoot1['startPos'],
+                        'endPos':theRoot1['endPos'],
+                        'type':theRoot1['type'],
+                        'ganzStartPos':theRoot1['startPos'],
+                        'ganzEndPos':theRoot1['endPos']
+                    }
+                    theRoot1['parent'] = {
+                        'name':ding['name'],
+                        'startPos':ding['startPos'],
+                        'endPos':ding['endPos'],
+                        'type':ding['type'],
+                        'childIdx':1,
+                        'ganzStartPos':ding['ganzStartPos'],
+                        'ganzEndPos':ding['ganzEndPos']
+                    }
 
-            }
-            exponentialId += 1
-            self.alleDing.append(expoDing)
-            #set ding parent as expoDing's child1
-            ding['parent'] = {
-                'name':expoDing['name'],
-                'startPos':expoDing['startPos'],
-                'endPos':expoDing['endPos'],
-                'type':expoDing['type'],
-                'childIdx':1,
-                'ganzStartPos':expoDing['ganzStartPos'],
-                'ganzEndPos':expoDing['ganzEndPos']
-            }
-            #remove ding arg1 (power)
-            ding['child'][1] = None
-            #############
-            # import pdb;pdb.set_trace()
-            #############
 
-        self.alleDing.append(ding)# just dump everything together
+                # if ding['type'] == 'backslash_function' and ding['child'][2] is None and ding['argument2StartPosition'] <= theGanzStartPos2 and  theGanzEndPos2 <= ding['argument2EndPosition']:
+                if theRoot2:
+                    ding['child'][2] = {
+                        'name':theRoot2['name'],
+                        'startPos':theRoot2['startPos'],
+                        'endPos':theRoot2['endPos'],
+                        'type':theRoot2['type'],
+                        'ganzStartPos':theRoot2['startPos'],
+                        'ganzEndPos':theRoot2['endPos']
+                    }
+                    theRoot2['parent'] = {
+                        'name':ding['name'],
+                        'startPos':ding['startPos'],
+                        'endPos':ding['endPos'],
+                        'type':ding['type'],
+                        'childIdx':2,
+                        'ganzStartPos':ding['ganzStartPos'],
+                        'ganzEndPos':ding['ganzEndPos']
+                    }
+                #we have to do this no matter if children of trig is None or not. but, after we got children of trig (if trig was None in the first place)
+                if self.showError():
+                    print('checked ding: ', (ding['name'], ding['startPos'], ding['endPos']), 'parentchildrBuildAcrossLevel***************************')
+                    if theRoot1: # ding has theRoot1 as child1
+                        print('ding child1 is: ', (theRoot1['name'], theRoot1['startPos'], theRoot1['endPos']))
+                    elif theRoot2: # ding has theRoot2 as child2
+                        print('ding child2 is: ', (theRoot2['name'], theRoot2['startPos'], theRoot2['endPos']))
+                    else:
+                        print('ding has no child!!!!!!!!')
+                    print('parentchildrBuildAcrossLevel**************************************************************************************')
+                    # import pdb;pdb.set_trace()
+            #already built parent-child-relationship across levels, heran, we handle special cases because of LATEX language quirks
+
+            if ding['name'] == 'sqrt' and ding['child'][1] is None: # arg1 is empty so, by default, arg1=2 (SQUARE root)
+                ding['child'][1] = {
+                    'name':2,
+                    'startPos':self.addedSymbolId,
+                    'endPos':self.addedSymbolId,
+                    'type':'number',
+                    'ganzStartPos':self.addedSymbolId,
+                    'ganzEndPos':self.addedSymbolId
+                }
+                sammeltDings.append({
+                    'name':2,
+                    'startPos':self.addedSymbolId,
+                    'endPos':self.addedSymbolId,
+                    'type':'number',
+                    'ganzStartPos':self.addedSymbolId,
+                    'ganzEndPos':self.addedSymbolId,
+                    'parent':{
+                        'name':ding['name'],
+                        'startPos':ding['startPos'],
+                        'endPos':ding['endPos'],
+                        'type':ding['type'],
+                        'childIdx':1,
+                        'ganzStartPos':ding['ganzStartPos'],
+                        'ganzEndPos':ding['ganzEndPos']
+                    }
+                })
+                self.addedSymbolId += 1 #TODO rename self.addedSymbolId to general AlleDing
+
+            if ding['name'] == 'log' and ding['child'][1] is None:
+                ding['child'][1] = {
+                    'name':10, # natural logarithms...
+                    'startPos':self.addedSymbolId,
+                    'endPos':self.addedSymbolId,
+                    'type':'number',
+                    'ganzStartPos':self.addedSymbolId,
+                    'ganzEndPos':self.addedSymbolId
+                }
+                sammeltDings.append({
+                    'name':10,
+                    'startPos':self.addedSymbolId,
+                    'endPos':self.addedSymbolId,
+                    'type':'number',
+                    'ganzStartPos':self.addedSymbolId,
+                    'ganzEndPos':self.addedSymbolId,
+                    'parent':{
+                        'name':ding['name'],
+                        'startPos':ding['startPos'],
+                        'endPos':ding['endPos'],
+                        'type':ding['type'],
+                        'childIdx':1,
+                        'ganzStartPos':ding['ganzStartPos'],
+                        'ganzEndPos':ding['ganzEndPos']
+                    }
+                })
+                self.addedSymbolId += 1 #TODO rename self.addedSymbolId to general AlleDing
+
+
+            if ding['name'] == 'ln':
+                ding['name'] = 'log'
+                ding['child'][1] = {
+                    'name':'e', # natural logarithms...
+                    'startPos':self.addedSymbolId,
+                    'endPos':self.addedSymbolId,
+                    'type':'number',
+                    'ganzStartPos':self.addedSymbolId,
+                    'ganzEndPos':self.addedSymbolId
+                }
+                sammeltDings.append({
+                    'name':'e',
+                    'startPos':self.addedSymbolId,
+                    'endPos':self.addedSymbolId,
+                    'type':'number',
+                    'ganzStartPos':self.addedSymbolId,
+                    'ganzEndPos':self.addedSymbolId,
+                    'parent':{
+                        'name':ding['name'],
+                        'startPos':ding['startPos'],
+                        'endPos':ding['endPos'],
+                        'type':ding['type'],
+                        'childIdx':1,
+                        'ganzStartPos':ding['ganzStartPos'],
+                        'ganzEndPos':ding['ganzEndPos']
+                    }
+                })
+                self.addedSymbolId += 1 #TODO rename self.addedSymbolId to general AlleDing
+
+
+            # import pdb;pdb.set_trace()#TODO debug, it seems that below code block is repeated too many times
+            #special case for TRIG, but we still want to process the second child, after process the first child of trig (since power of trig may not be a number)
+            if ding['name'] in self.TRIGOFUNCTION and ding['child'][1] is not None:
+                #NO widest-arg1-on-ding and arg1(child)=None
+                # if theRoot1 is None and ding['child'][1] is None: #no exponential on ding trig
+                #     ding['child'][1] = None # leave it as None, then it will not appear in AST...
+                #what about theRoot1 is not None ding['child'][1] is None,THEN hopefully, theRoot1==ding['child'][1]
+                # else: #trig has power   ding['child'][1] is not None
+                    #add exponent, set as parent of [trig, power]
+                expoDing = {
+                    'name':'^',
+                    'startPos':self.addedSymbolId, # not real, 
+                    'endPos':self.addedSymbolId,
+                    'ganzStartPos':self.addedSymbolId,
+                    'ganzEndPos':self.addedSymbolId,
+                    'type':'infix',
+                    'child':{
+                        1:{
+                        'name':ding['name'],
+                        'startPos':ding['startPos'],
+                        'endPos':ding['endPos'],
+                        'type':ding['type'],
+                        'ganzStartPos':ding['ganzStartPos'],
+                        'ganzEndPos':ding['ganzEndPos']
+                        },
+                        2:{#power is the arg1 of ding
+                        'name':ding['child'][1]['name'],
+                        'startPos':ding['child'][1]['startPos'],
+                        'endPos':ding['child'][1]['endPos'],
+                        'type':ding['child'][1]['type'],
+                        'ganzStartPos':ding['child'][1]['ganzStartPos'],
+                        'ganzEndPos':ding['child'][1]['ganzEndPos']
+                        }
+                    },
+                    'parent':ding['parent']
+                }
+                #need actual ding's parent and update its child to expoDing
+                actualParent = None
+                for grenzeRange0, dings0 in self.consecutiveGroups.items():
+                    for ding0 in dings0:
+                        if ding0['name'] == ding['parent']['name'] and ding0['startPos'] == ding['parent']['startPos'] and ding0['endPos'] == ding['parent']['endPos']:
+                            actualParent = ding0
+                actualParent['child'][ding['parent']['childIdx']] = {
+                    'name':expoDing['name'],
+                    'startPos':expoDing['startPos'],
+                    'endPos':expoDing['endPos'],
+                    'type':expoDing['type'],
+                    'ganzStartPos':expoDing['ganzStartPos'],
+                    'ganzEndPos':expoDing['ganzEndPos']
+
+                }
+                self.addedSymbolId += 1
+                sammeltDings.append(expoDing)
+                #set ding parent as expoDing's child1
+                ding['parent'] = {
+                    'name':expoDing['name'],
+                    'startPos':expoDing['startPos'],
+                    'endPos':expoDing['endPos'],
+                    'type':expoDing['type'],
+                    'childIdx':1,
+                    'ganzStartPos':expoDing['ganzStartPos'],
+                    'ganzEndPos':expoDing['ganzEndPos']
+                }
+                #remove ding arg1 (power)
+                ding['child'][1] = None
+                #############
+                # import pdb;pdb.set_trace()
+                #############
+
+            sammeltDings.append(ding)# just dump everything together
+        return sammeltDings
 
 
 
@@ -2693,7 +2765,7 @@ class Latexparser(Parser):
     #     if self.parallelise:
     #         self.event__collateBackslashInfixLeftOversToContiguous.wait()
 
-    #     implicitMultiplyId = 0
+    #     self.addedSymbolId = 0
     #     self.newConsecutiveGroups = {}
     #     for grenzeRange, dings in self.consecutiveGroups.items():
     #         ding = dings[0] # this will be the root of treeified-dings (or be replaced)
@@ -2736,8 +2808,8 @@ class Latexparser(Parser):
     #                 if prevDing['type'] == 'infix' and ding['type'] == 'infix':
     #                     #if prevDing['right__startBracketType'] is not None and prevDing['right__endBracketType'] is not None and ding['left__startBracketType'] is not None and ding['left__endBracketType']: 
     #                     if prevDing['right__type'] == 'leftRight' and ding['left__type'] == 'leftRight':# ???+(...)*(...)+???
-    #                         implicitMultiplyNode = ('*', (implicitMultiplyId, -1))
-    #                         implicitMultiplyId += 1
+    #                         implicitMultiplyNode = ('*', (self.addedSymbolId, -1))
+    #                         self.addedSymbolId += 1
     #                         implicitMultiplyInfoDict = { # rightarg * leftarg
     #                             'name':'*',
     #                             'position':-1, # no real position in equation
@@ -2777,8 +2849,8 @@ class Latexparser(Parser):
     #                     #elif prevDing['right__startBracketType'] is not None and prevDing['right__endBracketType'] is not None and ding['left__startBracketType'] is not None: 
     #                     elif prevDing['right__type'] == 'leftRight' and ding['left__type'] == 'enclosing': #???+(...)*(...+???)
     #                         #could be ding['right__type'] == 'enclosing' too
-    #                         implicitMultiplyNode = ('*', (implicitMultiplyId, -1))
-    #                         implicitMultiplyId += 1
+    #                         implicitMultiplyNode = ('*', (self.addedSymbolId, -1))
+    #                         self.addedSymbolId += 1
     #                         implicitMultiplyInfoDict = {# rightarg * ganz
     #                             'name':'*',
     #                             'position':-1, # no real position in equation
@@ -2818,8 +2890,8 @@ class Latexparser(Parser):
     #                     #elif prevDing['right__endBracketType'] is not None and ding['left__startBracketType'] is not None and ding['left__endBracketType'] is not None: 
     #                     elif prevDing['right__type'] == 'enclosing' and ding['left__type'] == 'leftRight': #(???+...)*(...)+???
     #                         # could be prevDing['left__type'] == 'enclosing'
-    #                         implicitMultiplyNode = ('*', (implicitMultiplyId, -1))
-    #                         implicitMultiplyId += 1
+    #                         implicitMultiplyNode = ('*', (self.addedSymbolId, -1))
+    #                         self.addedSymbolId += 1
     #                         implicitMultiplyInfoDict = {# ganz * leftarg
     #                             'name':'*',
     #                             'position':-1, # no real position in equation
@@ -2858,8 +2930,8 @@ class Latexparser(Parser):
     #                         ###################
     #                     #elif prevDing['right__endBracketType'] is not None and ding['left__startBracketType'] is not None: 
     #                     elif prevDing['right__type'] == 'enclosing' and ding['left__type'] == 'enclosing': #(???+...)*(...+???)
-    #                         implicitMultiplyNode = ('*', (implicitMultiplyId, -1))
-    #                         implicitMultiplyId += 1
+    #                         implicitMultiplyNode = ('*', (self.addedSymbolId, -1))
+    #                         self.addedSymbolId += 1
     #                         implicitMultiplyInfoDict = { # ganz * ganz
     #                             'name':'*',
     #                             'position':-1, # no real position in equation
@@ -2906,8 +2978,8 @@ class Latexparser(Parser):
     #                         #nearest infix with leftBracket, right of Ding
     #                         infixRightOfDing = findRightestInfixFrom(ding) # that has leftCloseBracket
     #                         #infixRightOfDing might not be infix, since there might not have infix right of Ding
-    #                         implicitMultiplyNode = ('*', (implicitMultiplyId, -1))
-    #                         implicitMultiplyId += 1
+    #                         implicitMultiplyNode = ('*', (self.addedSymbolId, -1))
+    #                         self.addedSymbolId += 1
     #                         import pdb;pdb.set_trace()
     #                         implicitMultiplyInfoDict = {# rightarg * ganz
     #                             'name':'*',
@@ -2948,8 +3020,8 @@ class Latexparser(Parser):
     #                     #elif prevDing['right__endBracketType'] is not None:
     #                     elif prevDing['right__type'] == 'enclosing': #(???+...)*Ding
     #                         infixRightOfDing = findRightestInfixFrom(ding) # that has leftCloseBracket
-    #                         implicitMultiplyNode = ('*', (implicitMultiplyId, -1))
-    #                         implicitMultiplyId += 1
+    #                         implicitMultiplyNode = ('*', (self.addedSymbolId, -1))
+    #                         self.addedSymbolId += 1
     #                         import pdb;pdb.set_trace()
     #                         implicitMultiplyInfoDict = {# ganz * leftarg
     #                             'name':'*',
@@ -2991,8 +3063,8 @@ class Latexparser(Parser):
     #                     #if ding['left__startBracketType'] is not None and ding['left__endBracketType'] is not None:
     #                     if ding['left__type'] == 'leftRight': #Ding*(...)+???
     #                         infixLeftOfDing = findLeftestInfixFrom(prevDing) # that has rightCloseBracket
-    #                         implicitMultiplyNode = ('*', (implicitMultiplyId, -1))
-    #                         implicitMultiplyId += 1
+    #                         implicitMultiplyNode = ('*', (self.addedSymbolId, -1))
+    #                         self.addedSymbolId += 1
     #                         implicitMultiplyInfoDict = {# ganz * leftarg
     #                             'name':'*',
     #                             'position':-1, # no real position in equation
@@ -3033,8 +3105,8 @@ class Latexparser(Parser):
     #                     elif ding['left__type'] == 'enclosing': #Ding*(...+???)
     #                         infixLeftOfDing = findLeftestInfixFrom(prevDing) # that has rightCloseBracket
     #                         import pdb;pdb.set_trace()
-    #                         implicitMultiplyNode = ('*', (implicitMultiplyId, -1))
-    #                         implicitMultiplyId += 1
+    #                         implicitMultiplyNode = ('*', (self.addedSymbolId, -1))
+    #                         self.addedSymbolId += 1
     #                         implicitMultiplyInfoDict = {# rightarg * ganz
     #                             'name':'*',
     #                             'position':-1, # no real position in equation
@@ -3074,8 +3146,8 @@ class Latexparser(Parser):
     #                 else: #both prevDing & ding are not infixes.... 
     #                     #add implicit multiply to (prevDing and ding)
     #                     #-need to provide parent of () for update child [name, startPos, endPos, ganzStartPos, ganzEndPos]
-    #                     implicitMultiplyNode = ('*', (implicitMultiplyId, -1))
-    #                     implicitMultiplyId += 1
+    #                     implicitMultiplyNode = ('*', (self.addedSymbolId, -1))
+    #                     self.addedSymbolId += 1
     #                     implicitMultiplyInfoDict = {
     #                         'name':'*',
     #                         'position':-1, # means its implicit multiply
@@ -3460,7 +3532,7 @@ class Latexparser(Parser):
     #     #we have to deal with the backslash_function/backslash_variable, whom have no children... since their children might be infixs, for example: \sin(2*x_0), the child2 of \sin is *
     #     #but child/ren of backslash_function/variable, will not be on the same dings as the backslash_function/variable.... and we can only do this after we build parent/child relationship with all the infixes...
     #     #preferably we can identify some parent/relationship-leveling between dings, if not, all i can think of is all-dings-each-dings-compare-each-argumentPos-v-ganzDingStartEnd
-    #     exponentialId = 0 # for id-ing new exponentials TODO all the implicitly added, should have 1 big id to draw from... TODO but if multiprocess--> livedeadlock
+    #     self.addedSymbolId = 0 # for id-ing new exponentials TODO all the implicitly added, should have 1 big id to draw from... TODO but if multiprocess--> livedeadlock
     #     self.alleDing = []
     #     #################
     #     if self.showError():
@@ -3654,19 +3726,19 @@ class Latexparser(Parser):
     #             if ding['name'] == 'sqrt' and ding['child'][1] is None: # arg1 is empty so, by default, arg1=2 (SQUARE root)
     #                 ding['child'][1] = {
     #                     'name':2,
-    #                     'startPos':exponentialId,
-    #                     'endPos':exponentialId,
+    #                     'startPos':self.addedSymbolId,
+    #                     'endPos':self.addedSymbolId,
     #                     'type':'number',
-    #                     'ganzStartPos':exponentialId,
-    #                     'ganzEndPos':exponentialId
+    #                     'ganzStartPos':self.addedSymbolId,
+    #                     'ganzEndPos':self.addedSymbolId
     #                 }
     #                 self.alleDing.append({
     #                     'name':2,
-    #                     'startPos':exponentialId,
-    #                     'endPos':exponentialId,
+    #                     'startPos':self.addedSymbolId,
+    #                     'endPos':self.addedSymbolId,
     #                     'type':'number',
-    #                     'ganzStartPos':exponentialId,
-    #                     'ganzEndPos':exponentialId,
+    #                     'ganzStartPos':self.addedSymbolId,
+    #                     'ganzEndPos':self.addedSymbolId,
     #                     'parent':{
     #                         'name':ding['name'],
     #                         'startPos':ding['startPos'],
@@ -3677,24 +3749,24 @@ class Latexparser(Parser):
     #                         'ganzEndPos':ding['ganzEndPos']
     #                     }
     #                 })
-    #                 exponentialId += 1 #TODO rename exponentialId to general AlleDing
+    #                 self.addedSymbolId += 1 #TODO rename self.addedSymbolId to general AlleDing
 
     #             if ding['name'] == 'log' and ding['child'][1] is None:
     #                 ding['child'][1] = {
     #                     'name':10, # natural logarithms...
-    #                     'startPos':exponentialId,
-    #                     'endPos':exponentialId,
+    #                     'startPos':self.addedSymbolId,
+    #                     'endPos':self.addedSymbolId,
     #                     'type':'number',
-    #                     'ganzStartPos':exponentialId,
-    #                     'ganzEndPos':exponentialId
+    #                     'ganzStartPos':self.addedSymbolId,
+    #                     'ganzEndPos':self.addedSymbolId
     #                 }
     #                 self.alleDing.append({
     #                     'name':10,
-    #                     'startPos':exponentialId,
-    #                     'endPos':exponentialId,
+    #                     'startPos':self.addedSymbolId,
+    #                     'endPos':self.addedSymbolId,
     #                     'type':'number',
-    #                     'ganzStartPos':exponentialId,
-    #                     'ganzEndPos':exponentialId,
+    #                     'ganzStartPos':self.addedSymbolId,
+    #                     'ganzEndPos':self.addedSymbolId,
     #                     'parent':{
     #                         'name':ding['name'],
     #                         'startPos':ding['startPos'],
@@ -3705,26 +3777,26 @@ class Latexparser(Parser):
     #                         'ganzEndPos':ding['ganzEndPos']
     #                     }
     #                 })
-    #                 exponentialId += 1 #TODO rename exponentialId to general AlleDing
+    #                 self.addedSymbolId += 1 #TODO rename self.addedSymbolId to general AlleDing
 
 
     #             if ding['name'] == 'ln':
     #                 ding['name'] = 'log'
     #                 ding['child'][1] = {
     #                     'name':'e', # natural logarithms...
-    #                     'startPos':exponentialId,
-    #                     'endPos':exponentialId,
+    #                     'startPos':self.addedSymbolId,
+    #                     'endPos':self.addedSymbolId,
     #                     'type':'number',
-    #                     'ganzStartPos':exponentialId,
-    #                     'ganzEndPos':exponentialId
+    #                     'ganzStartPos':self.addedSymbolId,
+    #                     'ganzEndPos':self.addedSymbolId
     #                 }
     #                 self.alleDing.append({
     #                     'name':'e',
-    #                     'startPos':exponentialId,
-    #                     'endPos':exponentialId,
+    #                     'startPos':self.addedSymbolId,
+    #                     'endPos':self.addedSymbolId,
     #                     'type':'number',
-    #                     'ganzStartPos':exponentialId,
-    #                     'ganzEndPos':exponentialId,
+    #                     'ganzStartPos':self.addedSymbolId,
+    #                     'ganzEndPos':self.addedSymbolId,
     #                     'parent':{
     #                         'name':ding['name'],
     #                         'startPos':ding['startPos'],
@@ -3735,7 +3807,7 @@ class Latexparser(Parser):
     #                         'ganzEndPos':ding['ganzEndPos']
     #                     }
     #                 })
-    #                 exponentialId += 1 #TODO rename exponentialId to general AlleDing
+    #                 self.addedSymbolId += 1 #TODO rename self.addedSymbolId to general AlleDing
 
 
     #             # import pdb;pdb.set_trace()#TODO debug, it seems that below code block is repeated too many times
@@ -3749,10 +3821,10 @@ class Latexparser(Parser):
     #                     #add exponent, set as parent of [trig, power]
     #                 expoDing = {
     #                     'name':'^',
-    #                     'startPos':exponentialId, # not real, 
-    #                     'endPos':exponentialId,
-    #                     'ganzStartPos':exponentialId,
-    #                     'ganzEndPos':exponentialId,
+    #                     'startPos':self.addedSymbolId, # not real, 
+    #                     'endPos':self.addedSymbolId,
+    #                     'ganzStartPos':self.addedSymbolId,
+    #                     'ganzEndPos':self.addedSymbolId,
     #                     'type':'infix',
     #                     'child':{
     #                         1:{
@@ -3789,7 +3861,7 @@ class Latexparser(Parser):
     #                     'ganzEndPos':expoDing['ganzEndPos']
 
     #                 }
-    #                 exponentialId += 1
+    #                 self.addedSymbolId += 1
     #                 self.alleDing.append(expoDing)
     #                 #set ding parent as expoDing's child1
     #                 ding['parent'] = {
@@ -4139,6 +4211,7 @@ $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$incomplete code to check variable_depende
         self._findLeftOverPosition()
         self._contiguousLeftOvers()
         self._collateBackslashInfixLeftOversToContiguous()
+        self._graftGrenzeRangesIntoContainmentTree()
         # self._addImplicitZero()
         # self._addImplicitMultipy()
         # self._intraGrenzeSubtreeUe()
