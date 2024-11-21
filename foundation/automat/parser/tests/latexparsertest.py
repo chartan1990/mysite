@@ -218,6 +218,138 @@ def test__fracWithLogNoBase__changeLogBaseFormula(verbose=False):
     if verbose:
         pp.pprint(parser.ast)
 
+
+def test__hassliche__highPowersAndRandomCoefficientsPITEST(verbose=False):
+    pp = pprint.PrettyPrinter(indent=4)
+
+    equationStr = 'P(x) = 7x^{13} - 3x^{9} + 5x^{8} - \\sqrt{2}x^{4} + \\pi x^{2} - 42'
+    parser = Latexparser(equationStr, verbose=verbose)
+    parser._parse()
+    expected_ast = None # to be filled in
+    print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
+    if verbose:
+        pp.pprint(parser.ast)
+
+
+def test__hassliche__nestedPolynomial(verbose=False):
+    pp = pprint.PrettyPrinter(indent=4)
+
+    equationStr = 'Q(x) = (x^3 - 2x^2 + 5x - 7)^2 - (x - 1)^3 + 3x'
+    parser = Latexparser(equationStr, verbose=verbose)
+    parser._parse()
+    expected_ast = None # to be filled in
+    print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
+    if verbose:
+        pp.pprint(parser.ast)
+
+
+def test__hassliche__nonIntegerAndNegativeCoefficientsDECIMALPOINTTEST(verbose=False):
+    pp = pprint.PrettyPrinter(indent=4)
+
+    equationStr = 'R(x) = -0.5x^{10} + 3.14x^{8} - \frac{2}{3}x^{5} + 1.618x^{3} - \frac{1}{x}'
+    parser = Latexparser(equationStr, verbose=verbose)
+    parser._parse()
+    expected_ast = None # to be filled in
+    print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
+    if verbose:
+        pp.pprint(parser.ast)
+
+
+def test__hassliche__mixedVariablesAndPowersPOWERCOTEVARIABLEDOUBLEVARIABLETEST(verbose=False):
+    pp = pprint.PrettyPrinter(indent=4)
+
+    equationStr = 'S(x, y) = x^5y^4 - 7x^3y^2 + 2x^2 - y^3 + x^2y - 4'
+    parser = Latexparser(equationStr, verbose=verbose)
+    parser._parse()
+    expected_ast = None # to be filled in
+    print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
+    if verbose:
+        pp.pprint(parser.ast)
+
+
+def test__hassliche__irrationalAndTranscendentalNumbersPOWERCOTEBACKSLASH(verbose=False):
+    pp = pprint.PrettyPrinter(indent=4)
+
+    equationStr = 'T(x) = e^{x} - \\cos(x)x^4 + x^3\\sin(x) - \\ln(x^2+1)'
+    parser = Latexparser(equationStr, verbose=verbose)
+    parser._parse()
+    expected_ast = None # to be filled in
+    print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
+    if verbose:
+        pp.pprint(parser.ast)
+
+
+def test__hassliche__degree5(verbose=False):
+    pp = pprint.PrettyPrinter(indent=4)
+
+    equationStr = '(x - 1)(x + 2)(x - 3)(x + 4)(x - 5) = x^5 - 3x^4 - 32x^3 + 94x^2 + 31x - 120'
+    parser = Latexparser(equationStr, verbose=verbose)
+    parser._parse()
+    expected_ast = None # to be filled in
+    print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
+    if verbose:
+        pp.pprint(parser.ast)
+
+
+def test__hassliche__degree6(verbose=False):
+    pp = pprint.PrettyPrinter(indent=4)
+
+    equationStr = '(x - 1)(x - 2)(x + 3)(x + 4)(x - 5)(x + 6) = x^6 + 5x^5 - 35x^4 - 75x^3 + 368x^2 + 246x - 720'
+    parser = Latexparser(equationStr, verbose=verbose)
+    parser._parse()
+    expected_ast = None # to be filled in
+    print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
+    if verbose:
+        pp.pprint(parser.ast)
+
+
+def test__hassliche__degree7(verbose=False):
+    pp = pprint.PrettyPrinter(indent=4)
+
+    equationStr = '(x - 1)(x + 2)(x - 3)(x + 4)(x - 5)(x + 6)(x - 7) = x^7 + 4x^6 - 37x^5 - 58x^4 + 520x^3 + 201x^2 - 2156x + 5040'
+    parser = Latexparser(equationStr, verbose=verbose)
+    parser._parse()
+    expected_ast = None # to be filled in
+    print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
+    if verbose:
+        pp.pprint(parser.ast)
+
+
+def test__hassliche__moreThanOneAdditiveTermInEachMultiplicativeTerm(verbose=False):
+    pp = pprint.PrettyPrinter(indent=4)
+
+    equationStr = '((x + 2x^2 - 3)^2)((x^2 - x + 1)^3)((x^3 + 2x - 5)) = x^{10} + 4x^9 - 2x^8 - 41x^7 - 69x^6 + 142x^5 + 420x^4 - 567x^3 - 174x^2 + 185x - 75'
+    parser = Latexparser(equationStr, verbose=verbose)
+    parser._parse()
+    expected_ast = None # to be filled in
+    print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
+    if verbose:
+        pp.pprint(parser.ast)
+
+
+def test__hassliche__moreThanOneAdditiveTermInEachMultiplicativeTerm0(verbose=False):
+    pp = pprint.PrettyPrinter(indent=4)
+
+    equationStr = '((x^2 + x - 1)^2)((x^3 - 2x + 4)^2)((x^2 + 3x - 7)) = x^{10} - 3x^9 - 20x^8 + 60x^7 + 161x^6 - 260x^5 - 385x^4 + 494x^3 + 509x^2 - 378x + 196'
+    parser = Latexparser(equationStr, verbose=verbose)
+    parser._parse()
+    expected_ast = None # to be filled in
+    print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
+    if verbose:
+        pp.pprint(parser.ast)
+
+
+def test__hassliche__moreThanOneAdditiveTermInEachMultiplicativeTerm1(verbose=False):
+    pp = pprint.PrettyPrinter(indent=4)
+
+    equationStr = '((x^2 + 2x^3 - 4)^3)((x^2 - x + 2)^2)((x^3 + 3x - 5)) = x^{15} + 8x^{14} - 14x^{13} - 191x^{12} + 48x^{11} + 1218x^{10} - 60x^9 - 2700x^8 - 1452x^7 + 4375x^6 + 3476x^5 - 2922x^4 - 1685x^3 + 655x^2 + 103x - 400'
+    parser = Latexparser(equationStr, verbose=verbose)
+    parser._parse()
+    expected_ast = None # to be filled in
+    print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
+    if verbose:
+        pp.pprint(parser.ast)
+
 #
 def test__paveWayForDifferentiation__productRule(verbose=False):
     pp = pprint.PrettyPrinter(indent=4)
@@ -283,6 +415,17 @@ if __name__=='__main__':
     # test__sqrtWithPowerCaretRightOtherInfix__hill()
     test__manyFracCaretEnclosingBrac__partialFrac(True) # not tested yet
     # test__fracWithLogNoBase__changeLogBaseFormula() # not tested yet
+    # test__hassliche__highPowersAndRandomCoefficientsPITEST()  # not tested yet
+    # test__hassliche__nestedPolynomial() # not tested yet
+    # test__hassliche__nonIntegerAndNegativeCoefficientsDECIMALPOINTTEST() # not tested yet
+    # test__hassliche__mixedVariablesAndPowersPOWERCOTEVARIABLEDOUBLEVARIABLETEST() # not tested yet
+    # test__hassliche__irrationalAndTranscendentalNumbersPOWERCOTEBACKSLASH() # not tested yet
+    # test__hassliche__degree5() # not tested yet
+    # test__hassliche__degree6() # not tested yet
+    # test__hassliche__degree7() # not tested yet
+    # test__hassliche__moreThanOneAdditiveTermInEachMultiplicativeTerm() # not tested yet
+    # test__hassliche__moreThanOneAdditiveTermInEachMultiplicativeTerm0() # not tested yet
+    # test__hassliche__moreThanOneAdditiveTermInEachMultiplicativeTerm1() # not tested yet
     # test__paveWayForDifferentiation__productRule() # not tested yet
     # test__paveWayForDifferentiation__sumRule() # not tested yet
     # test__paveWayForIntegration__enclosingBracketNonBackslash() # not tested yet

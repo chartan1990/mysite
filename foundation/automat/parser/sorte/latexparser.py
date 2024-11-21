@@ -63,7 +63,7 @@ class Latexparser(Parser):
             '_collateBackslashInfixLeftOversToContiguous':False,
             '_graftGrenzeRangesIntoContainmentTree':True,
             '__addImplicitZero':False,
-            '__addImplicitMultiply':False,
+            '__addImplicitMultiply':True,
             '__intraGrenzeSubtreeUe':False,
             '__interLevelSubtreeGrafting':False,
             '_reformatToAST':False,
@@ -1642,7 +1642,7 @@ class Latexparser(Parser):
         #but allDing = [A, C, B]
         #then
         #B will not be groupped together with A and C, only with either B and C, unless we re-check those existing in self.consecutiveGroups...
-        #SO PLEASE NARABEKAENASAI! (startPos nishitagatte ne)
+        #SO PLEASE NARABEKAENASAI! (startPos ni shitagatte ne)
         #have to do all-pairs consecutiveness checking.
         self.addedSymbolId = 0
         ding = dings[0] # this will be the root of treeified-dings (or be replaced)
@@ -1940,6 +1940,9 @@ class Latexparser(Parser):
                     #if ding['left__startBracketType'] is not None and ding['left__endBracketType'] is not None:
                     if ding['left__type'] == 'leftRight': #Ding*(...)+???
                         infixLeftOfDing = findLeftestInfixFrom(prevDing) # that has rightCloseBracket
+                        if self.showError():
+                            print('*******************infixLeftOfDing')
+                            print(infixLeftOfDing)
                         # implicitMultiplyNode = ('*', (self.addedSymbolId, -1))
                         self.addedSymbolId += 1
                         implicitMultiplyInfoDict = {# ganz * leftarg
@@ -1948,7 +1951,7 @@ class Latexparser(Parser):
                             'type':'implicit',
                             'startPos':infixLeftOfDing['startPos'],
                             'endPos':ding['left__endBracketPos'],
-                            'ganzStartPos':infixLeftOfDing['ganzStart'],
+                            'ganzStartPos':infixLeftOfDing['ganzStartPos'],
                             'ganzEndPos':ding['left__endBracketPos'],
                             #Ding
                             'left__startBracketPos':infixLeftOfDing['left__startBracketPos'], #TODO to test leaves with brackets..
