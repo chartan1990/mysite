@@ -57,14 +57,14 @@ class Latexparser(Parser):
             '_findBackSlashPositions':False,
             '_findInfixAndEnclosingBrackets':False,
             '_updateInfixNearestBracketInfix':False,
-            '__updateInfixNearestBracketInfix':True,
+            '__updateInfixNearestBracketInfix':False,
             '_removeCaretThatIsNotExponent':False,
-            '_findLeftOverPosition':False,
-            '_contiguousLeftOvers':False,
+            '_findLeftOverPosition':True,
+            '_contiguousLeftOvers':True,
             '_collateBackslashInfixLeftOversToContiguous':False,
             '_graftGrenzeRangesIntoContainmentTree':False,
             '__addImplicitZero':False,
-            '__addImplicitMultiply':True,
+            '__addImplicitMultiply':False,
             '__intraGrenzeSubtreeUe':False,
             '__interLevelSubtreeGrafting':False,
             '_reformatToAST':False,
@@ -1048,24 +1048,32 @@ class Latexparser(Parser):
             # import pdb;pdb.set_trace()
             if infixInfoDict['left__type'] != 'infix' and infixInfoDict['left__startBracketType'] is not None:
                 listOfOccupiedRanges.add((infixInfoDict['left__startBracketPos'], infixInfoDict['left__startBracketPos']+len(infixInfoDict['left__startBracketType'])))
-                if infixInfoDict['name'] == '^':##############TODO does it work for other polynomial like things?
+                if infixInfoDict['left__type'] in ['enclosing', 'leftRight']:##############TODO does it work for other polynomial like things?
                     for pos in range(infixInfoDict['left__startBracketPos'], infixInfoDict['left__startBracketPos']+len(infixInfoDict['left__startBracketType'])):
                         self.occupiedBrackets.append(pos)
+                        if self.showError():
+                            print('>>>>adding :', self._eqs[pos], ' >>>> to self.occupiedBrackets')
             if infixInfoDict['left__type'] != 'infix' and infixInfoDict['left__endBracketType'] is not None: # left__startBracketType is not None =/=> left__endBracketType is not None, since we may have enclosing brackets
                 listOfOccupiedRanges.add((infixInfoDict['left__endBracketPos'], infixInfoDict['left__endBracketPos']+len(infixInfoDict['left__endBracketType'])))
-                if infixInfoDict['name'] == '^':##############TODO does it work for other polynomial like things?
+                if infixInfoDict['left__type'] in ['enclosing', 'leftRight']:##############TODO does it work for other polynomial like things?
                     for pos in range(infixInfoDict['left__endBracketPos'], infixInfoDict['left__endBracketPos']+len(infixInfoDict['left__endBracketType'])):
                         self.occupiedBrackets.append(pos)
+                        if self.showError():
+                            print('>>>>adding :', self._eqs[pos], ' >>>> to self.occupiedBrackets')
             if infixInfoDict['right__type'] != 'infix' and infixInfoDict['right__startBracketType'] is not None:
                 listOfOccupiedRanges.add((infixInfoDict['right__startBracketPos'], infixInfoDict['right__startBracketPos']+len(infixInfoDict['right__startBracketType'])))
-                if infixInfoDict['name'] == '^':##############TODO does it work for other polynomial like things?
+                if infixInfoDict['right__type'] in ['enclosing', 'leftRight']:##############TODO does it work for other polynomial like things?
                     for pos in range(infixInfoDict['right__startBracketPos'], infixInfoDict['right__startBracketPos']+len(infixInfoDict['right__startBracketType'])):
                         self.occupiedBrackets.append(pos)
+                        if self.showError():
+                            print('>>>>adding :', self._eqs[pos], ' >>>> to self.occupiedBrackets')
             if infixInfoDict['right__type'] != 'infix' and infixInfoDict['right__endBracketType'] is not None: # right__startBracketType is not None =/=> right__endBracketType is not None, since we may have enclosing brackets
                 listOfOccupiedRanges.add((infixInfoDict['right__endBracketPos'], infixInfoDict['right__endBracketPos']+len(infixInfoDict['right__endBracketType'])))
-                if infixInfoDict['name'] == '^':##############TODO does it work for other polynomial like things?
+                if infixInfoDict['right__type'] in ['enclosing', 'leftRight']:##############TODO does it work for other polynomial like things?
                     for pos in range(infixInfoDict['right__endBracketPos'], infixInfoDict['right__endBracketPos']+len(infixInfoDict['right__endBracketType'])):
                         self.occupiedBrackets.append(pos)
+                        if self.showError():
+                            print('>>>>adding :', self._eqs[pos], ' >>>> to self.occupiedBrackets')
 
         """
         after putting all the backslash_function, backslash_variable, infix, we still have brackets like these that are not removed:

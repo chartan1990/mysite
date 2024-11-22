@@ -154,7 +154,7 @@ def test__findingBackSlashAndInfixOperations__SchrodingerWaveEquation(verbose=Fa
     parser._parse()
     expected_ast = {   ('*', 4): [('widehat', 3), ('Psi', 5)],
     ('*', 7): [('widehat', 6), ('Psi', 8)],
-    ('=', 0): [('*', 7), ('*', 4)],
+    ('=', 0): [('*', 4), ('*', 7)],
     ('widehat', 3): [('H', 1)],
     ('widehat', 6): [('E', 2)]}
     print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
@@ -201,7 +201,24 @@ def test__manyFracCaretEnclosingBrac__partialFrac(verbose=False):
     equationStr = '\\frac{x^2}{(x-2)(x-3)^2}=\\frac{4}{x-2}+\\frac{-3}{x-3}+\\frac{9}{(x-3)^2}'
     parser = Latexparser(equationStr, verbose=verbose)
     parser._parse()
-    expected_ast = None # to be filled in
+    expected_ast = {   
+    ('*', 9): [('2', 8), ('x', 10)],
+    ('+', 30): [('frac', 29), ('frac', 31)],
+    ('+', 32): [('+', 30), ('frac', 33)],
+    ('-', 7): [('x', 6), ('*', 9)],
+    ('-', 11): [('-', 7), ('^', 13)],
+    ('-', 16): [('x', 15), ('2', 17)],
+    ('-', 19): [('0', 18), ('3', 20)],
+    ('-', 22): [('x', 21), ('3', 23)],
+    ('-', 25): [('x', 24), ('^', 27)],
+    ('=', 0): [('frac', 34), ('+', 32)],
+    ('^', 4): [('x', 3), ('2', 5)],
+    ('^', 13): [('3', 12), ('2', 14)],
+    ('^', 27): [('3', 26), ('2', 28)],
+    ('frac', 29): [('4', 1), ('-', 16)],
+    ('frac', 31): [('-', 19), ('-', 22)],
+    ('frac', 33): [('9', 2), ('-', 25)],
+    ('frac', 34): [('^', 4), ('-', 11)]}
     print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
     if verbose:
         pp.pprint(parser.ast)
@@ -400,7 +417,7 @@ def test__paveWayForIntegrtion__exponentOnEnclosingNonBackslash(verbose=False):
 
 
 if __name__=='__main__':
-    test__findingBackSlashAndInfixOperations__Trig0()
+    # test__findingBackSlashAndInfixOperations__Trig0()
     # test__findingBackSlashAndInfixOperations__Trig1()
     # test__findingBackSlashAndInfixOperations__Trig2()
     # test__findingBackSlashAndInfixOperations__Sqrt0()
@@ -413,7 +430,7 @@ if __name__=='__main__':
     # test__findingBackSlashAndInfixOperations__SchrodingerWaveEquation()
     # test__infixInBackslash__paraboloid()
     # test__sqrtWithPowerCaretRightOtherInfix__hill()
-    # test__manyFracCaretEnclosingBrac__partialFrac(True) # not tested yet
+    test__manyFracCaretEnclosingBrac__partialFrac(True) # not tested yet
     # test__fracWithLogNoBase__changeLogBaseFormula() # not tested yet
     # test__hassliche__highPowersAndRandomCoefficientsPITEST()  # not tested yet
     # test__hassliche__nestedPolynomial() # not tested yet
