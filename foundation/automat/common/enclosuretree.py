@@ -203,8 +203,13 @@ class EnclosureTree: # can be used to schedule processes by level too... TODO
 
 
     @classmethod
-    def makeEnclosureTreeWithRoot(cls, listOfPoss, firstContainsSecond, getId):
+    def makeEnclosureTreeWithRoots(cls, listOfPoss, firstContainsSecond, getId):
         """
+        1. Get all the leavesA.
+        2. get to ROME1 from a leave in leavesA, record ROME1
+        3. DFS from ROME1 to leaves1=(all the leaves from this DFS)
+        4. leavesA = leavesA - leaves1
+        5. if len(leavesA) >0, then go to Step2, else TERMINATE
         
         :param listOfPoss: list of objects
         :type: list[Any]
@@ -221,27 +226,41 @@ class EnclosureTree: # can be used to schedule processes by level too... TODO
             dict[]
         ]
         """
-        enclosureTree = cls.makeEnclosureTree(listOfPoss, firstContainsSecond, getId)
-        #all roads lead to rome (find root of tree) TODO might need to add cycle detection
-        rootId = getId(listOfPoss[0])
-        checkAgain = True
-        while checkAgain: # keep going up
-            checkAgain = False
-            for pos, childenPos in enclosureTree.items():
-                if rootId in childenPos:
-                    rootId = pos #pos is parent of rootId
-                    checkAgain = True # might still have parent, so we check again.
-        return rootId, enclosureTree
+        enclosureTree, leaves = cls.makeEnclosureTreeWithLeaves(listOfPoss, firstContainsSecond, getId)
+        tLeaves = set(leaves)
+        roots = []
+        while len(tLeaves) > 0:
+            #all roads lead to rome (find root of tree) TODO might need to add cycle detection
+            rootId = getId(list(tLeaves)[0])
+            checkAgain = True
+            while checkAgain: # keep going up
+                checkAgain = False
+                for pos, childenPos in enclosureTree.items():
+                    if rootId in childenPos:
+                        rootId = pos #pos is parent of rootId
+                        checkAgain = True # might still have parent, so we check again.
+            roots.append(rootId)
+            #find all the leaves attached to this rootId
+            leavesOfSubTree = set()
+            stack = [rootId]
+            while len(stack) > 0:
+                currentNode = stack.pop()
+                children = enclosureTree[currentNode]
+                if len(children) == 0: # currentNode is a leaf
+                    leavesOfSubTree.add(currentNode)
+                else:
+                    stack += children # push all the children to the stack
+            tLeaves = set(tLeaves) - leavesOfSubTree
+            #########
+            # print(rootId, leavesOfSubTree)
+            # print(tLeaves)
+            # import pdb;pdb.set_trace()
+            #########
+        return roots, leaves, enclosureTree
 
     @classmethod
-    def makeEnclosureTreeWithLevelAndRoot(cls, listOfPoss, firstContainsSecond, getId):
+    def makeEnclosureTreeWithLevelRootLeaves(cls, listOfPoss, firstContainsSecond, getId):
         """
-        #TODO only works with "TREE" with 1 root, for multitree
-        1. Get all the leavesA.
-        2. get to ROME1 from a leave in leavesA, record ROME1
-        3. DFS from ROME1 to leaves1=(all the leaves from this DFS)
-        4. leavesA = leavesA - leaves1
-        5. if len(leavesA) >0, then go to Step2, else TERMINATE
         :param listOfPoss: list of objects
         :type: list[Any]
         :param firstContainsSecond: a method that takes obj0 from listOfPoss (as first object), and obj1 from listOfPoss (as second object)
@@ -259,13 +278,13 @@ class EnclosureTree: # can be used to schedule processes by level too... TODO
             dict[]
         ]
         """
-        rootId, enclosureTree = cls.makeEnclosureTreeWithRoot(listOfPoss, firstContainsSecond, getId)
+        roots, leaves, enclosureTree = cls.makeEnclosureTreeWithRoots(listOfPoss, firstContainsSecond, getId)
         levelToIDs = {}#{0:[rootId]}
         idToLevel = {}#{rootId:0}
-        queue = [{'id':rootId, 'level':0}]
+        queue = list(map(lambda root: {'id':root, 'level':0}, roots))#[{'id':rootId, 'level':0}]
         while len(queue) > 0:
             current = queue.pop()
-            print('current:', current)
+            # print('current:', current)
             #
             levelIDList = levelToIDs.get(current['level'], [])
             levelIDList.append(current['id'])
@@ -275,48 +294,4 @@ class EnclosureTree: # can be used to schedule processes by level too... TODO
             for neighbourId in enclosureTree[current['id']]:
                 neighbourLevel = current['level']+1
                 queue.append({'id':neighbourId, 'level':neighbourLevel})
-        return rootId, enclosureTree, levelToIDs, idToLevel
-
-    @classmethod
-    def makeEnclosureTreeWithLevelRootLeaves(cls, listOfPoss, firstContainsSecond, getId):
-        enclosureTree, leaves = cls.makeEnclosureTreeWithLeaves(listOfPoss, firstContainsSecond, getId)
-        idToLevel = dict(map(lambda leaf: (leaf, 0), leaves))#{self.rootId:0}
-        def getParent(leaf):
-            for parent, children in enclosureTree.items():
-                if leaf in children:
-                    return parent
-        queue = list(map(lambda leaf: (leaf, 0), leaves)) # leaf start at level 0
-        while len(queue) > 0:
-            childLevel = queue.pop(0)
-            #
-            parent = getParent(childLevel[0])
-            #find parent in queue (we need to update the parent level)
-            parentInQueue = None
-            for possibleParent in queue:
-                if possibleParent[0] == parent:
-                    parentInQueue = possibleParent
-                    break
-            if parentInQueue is None: # parent not in queue yet
-                needInsertion = parent is not None
-                newParentLevel = childLevel[1]+1
-                parentInQueue = (parent, newParentLevel)
-            else:
-                needInsertion = False
-                newParentLevel = max(childLevel[1]+1, parentInQueue[1])
-                parentInQueue = (parent, newParentLevel) # childLevel+1 or existingparentlevel
-            if parent is not None:
-                idToLevel[parent] = newParentLevel
-            #return parent to queue, has to be removed in the first place
-            if needInsertion:
-                queue.append(parentInQueue)
-            #############################
-            # print(queue, 'inserted: ', needInsertion, 'childLevel: ', childLevel)
-            # import pdb;pdb.set_trace()
-            #############################
-
-        levelToIDs = {}
-        for ID, level in idToLevel.items():
-            IDs = levelToIDs.get(level, [])
-            IDs.append(ID)
-            levelToIDs[level] = IDs
-        return enclosureTree, levelToIDs, idToLevel, leaves
+        return roots, leaves, enclosureTree, levelToIDs, idToLevel

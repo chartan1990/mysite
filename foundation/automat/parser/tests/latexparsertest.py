@@ -10,15 +10,15 @@ def test__findingBackSlashAndInfixOperations__Trig0(verbose=False):
     equationStr = '-\\sin( 2x_0 ) = -2\\sin(x_0)\\cos(x_0)'
     parser = Latexparser(equationStr, verbose=verbose)
     parser._parse()
-    expected_ast = {   ('*', 4): [('2', 3), ('x_0', 5)],
-    ('*', 9): [('2', 8), ('sin', 10)],
-    ('*', 11): [('*', 9), ('cos', 12)],
-    ('-', 7): [('0', 6), ('*', 11)],
-    ('-', 14): [('0', 13), ('sin', 15)],
-    ('=', 0): [('-', 14), ('-', 7)],
-    ('cos', 12): [('x_0', 2)],
-    ('sin', 10): [('x_0', 1)],
-    ('sin', 15): [('*', 4)]}
+    expected_ast = {   ('*', 4): [('2', 3), ('sin', 5)],
+    ('*', 6): [('*', 4), ('cos', 7)],
+    ('*', 14): [('2', 13), ('x_0', 15)],
+    ('-', 2): [('0', 1), ('*', 6)],
+    ('-', 9): [('0', 8), ('sin', 10)],
+    ('=', 0): [('-', 9), ('-', 2)],
+    ('cos', 7): [('x_0', 11)],
+    ('sin', 5): [('x_0', 12)],
+    ('sin', 10): [('*', 14)]}
     print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
     if verbose:
         pp.pprint(parser.ast) # rename ast to latex_ast 
@@ -30,12 +30,12 @@ def test__findingBackSlashAndInfixOperations__Trig1(verbose=False):
     equationStr = '\\sin^2(x) + \\cos^2(x)=1'
     parser = Latexparser(equationStr, verbose=verbose)
     parser._parse()
-    expected_ast = {   ('+', 8): [('^', 6), ('^', 9)],
-    ('=', 0): [('+', 8), ('1', 5)],
-    ('^', 6): [('sin', 7), ('2', 1)],
-    ('^', 9): [('cos', 10), ('2', 3)],
-    ('cos', 10): [('x', 4)],
-    ('sin', 7): [('x', 2)]}
+    expected_ast = {   ('+', 3): [('^', 10), ('^', 9)],
+    ('=', 0): [('+', 3), ('1', 1)],
+    ('^', 9): [(('cos', 4), ('2', 6))],
+    ('^', 10): [(('sin', 2), ('2', 8))],
+    ('cos', 4): [('x', 5)],
+    ('sin', 2): [('x', 7)]}
     print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
     if verbose:
         pp.pprint(parser.ast)
@@ -47,12 +47,12 @@ def test__findingBackSlashAndInfixOperations__Trig2(verbose=False):
     equationStr = '\\sin^{2}(x)+\\cos^{2}(x)=1'
     parser = Latexparser(equationStr, verbose=verbose)
     parser._parse()
-    expected_ast = {   ('+', 8): [('^', 6), ('^', 9)],
-    ('=', 0): [('+', 8), ('1', 5)],
-    ('^', 6): [('sin', 7), ('2', 1)],
-    ('^', 9): [('cos', 10), ('2', 3)],
-    ('cos', 10): [('x', 4)],
-    ('sin', 7): [('x', 2)]}
+    expected_ast = {   ('+', 3): [('^', 10), ('^', 9)],
+    ('=', 0): [('+', 3), ('1', 1)],
+    ('^', 9): [(('cos', 4), ('2', 6))],
+    ('^', 10): [(('sin', 2), ('2', 8))],
+    ('cos', 4): [('x', 5)],
+    ('sin', 2): [('x', 7)]}
     print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
     if verbose:
         pp.pprint(parser.ast)
@@ -426,19 +426,19 @@ if __name__=='__main__':
     # test__findingBackSlashAndInfixOperations__Trig0()
     # test__findingBackSlashAndInfixOperations__Trig1()
     # test__findingBackSlashAndInfixOperations__Trig2()
-    # test__findingBackSlashAndInfixOperations__Sqrt0()
-    # test__findingBackSlashAndInfixOperations__Sqrt1()
-    # test__findingBackSlashAndInfixOperations__Ln()
-    # test__findingBackSlashAndInfixOperations__Frac()
-    # test__findingBackSlashAndInfixOperations__Log0()
-    # test__findingBackSlashAndInfixOperations__Log1()
-    # test__findingBackSlashAndInfixOperations__tildeVariable()
-    # test__findingBackSlashAndInfixOperations__SchrodingerWaveEquation()
-    # test__infixInBackslash__paraboloid()
-    # test__sqrtWithPowerCaretRightOtherInfix__hill()
-    # test__manyFracCaretEnclosingBrac__partialFrac() # not tested yet
-    test__fracWithLogNoBase__changeLogBaseFormula(True) # not tested yet
-    # test__hassliche__highPowersAndRandomCoefficientsPITEST()  # not tested yet
+    test__findingBackSlashAndInfixOperations__Sqrt0(True)
+    # test__findingBackSlashAndInfixOperations__Sqrt1(True)
+    # test__findingBackSlashAndInfixOperations__Ln(True)
+    # test__findingBackSlashAndInfixOperations__Frac(True)
+    # test__findingBackSlashAndInfixOperations__Log0(True)
+    # test__findingBackSlashAndInfixOperations__Log1(True)
+    # test__findingBackSlashAndInfixOperations__tildeVariable(True)
+    # test__findingBackSlashAndInfixOperations__SchrodingerWaveEquation(True)
+    # test__infixInBackslash__paraboloid(True)
+    # test__sqrtWithPowerCaretRightOtherInfix__hill(True)
+    # test__manyFracCaretEnclosingBrac__partialFrac(True) # not tested yet
+    # test__fracWithLogNoBase__changeLogBaseFormula(True) # not tested yet
+    # test__hassliche__highPowersAndRandomCoefficientsPITEST(True)  # not tested yet
     # test__hassliche__nestedPolynomial() # not tested yet
     # test__hassliche__nonIntegerAndNegativeCoefficientsDECIMALPOINTTEST() # not tested yet
     # test__hassliche__mixedVariablesAndPowersPOWERCOTEVARIABLEDOUBLEVARIABLETEST() # not tested yet

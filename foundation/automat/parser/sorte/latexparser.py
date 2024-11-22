@@ -50,7 +50,6 @@ class Latexparser(Parser):
     def __init__(self, equationStr, verbose=False, parallelise=False):
         self._eqs = equationStr
         self.verbose = verbose
-        self.addedSymbolId = 0 # for adding new symbols when handling special cases of latex language
         self.alleDing = [] # collect all symbol after interlevelsubtreegrafting
         #method specfific verbosity
         self.methodVerbose = {
@@ -68,6 +67,7 @@ class Latexparser(Parser):
             '__intraGrenzeSubtreeUe':False,
             '__interLevelSubtreeGrafting':False,
             '_reformatToAST':False,
+            '_latexSpecialCases':False
         }
         def showError(): # TODO this call is very expensive..., maybe write everything to a log file?
             if self.verbose:
@@ -1405,7 +1405,7 @@ class Latexparser(Parser):
         def getId(p0):
             return p0
 
-        enclosureTree, levelToIDs, idToLevel, leaves = EnclosureTree.makeEnclosureTreeWithLevelRootLeaves(listPoss, firstContainsSecond, getId)
+        roots, leaves, enclosureTree, levelToIDs, idToLevel = EnclosureTree.makeEnclosureTreeWithLevelRootLeaves(listPoss, firstContainsSecond, getId)
         #################
         if self.showError():
             import pprint
@@ -1530,7 +1530,6 @@ class Latexparser(Parser):
                     #replace the rootOfSubtree in the getParent(grenzeRange)=grenzeRange in self.consecutiveGroups
                     #update the parent/child relationship
                     parentDings = self.__interLevelSubtreeGrafting(rootOfDingsWithGanzRange, parentDings)#<<<<<<<<<<<<<<<<<TODO rootDIngsWithGanzRange NOT UPDATED!!!!!
-                    parentDings = self.__latexSpecialCases(parentDings)
                     self.consecutiveGroups[grenzeRangeParent] = parentDings
 
                     ################
@@ -1550,7 +1549,7 @@ class Latexparser(Parser):
                     print(list(map(lambda ding: (ding['name'], ding['startPos'], ding['endPos']), self.alleDing)))
                     print('**********************alleDing:')
                 #####################
-
+        # self.__latexSpecialCases() #changes are made to the AST...
 
     def __addImplicitZero(self, dings):
         """
@@ -2641,198 +2640,6 @@ class Latexparser(Parser):
         return parentDings
 
 
-    def __latexSpecialCases(self, parentDings):
-        #already built parent-child-relationship across levels, heran, we handle special cases because of LATEX language quirks  <<<<<TODO refactor, damn confusing
-
-        if self.showError():
-            print('*********parentChildR Status after __latexSpecialCases********************************')
-            sadchild = {}
-            for d in parentDings:
-                idd = (d['name'], d['startPos'], d['endPos'])
-                c0 = None if 'child' not in d or d['child'][1] is None else (d['child'][1]['name'], d['child'][1]['startPos'], d['child'][1]['endPos'])
-                c1 = None if 'child' not in d or 2 not in d['child'] or d['child'][2] is None else (d['child'][2]['name'], d['child'][2]['startPos'], d['child'][2]['endPos'])
-                pard = None if d['parent'] is None else (d['parent']['name'], d['parent']['startPos'], d['parent']['endPos'])
-                sadchild[idd] = {'c1':c0, 'c2':c1, 'parent':pard}
-            import pprint
-            pp = pprint.PrettyPrinter(indent=4)
-            pp.pprint(sadchild)
-            print('*********parentChildR Status after __latexSpecialCases********************************')
-        sammeltDings = []
-        for ding in parentDings: # ding is with socket (empty child)
-            if ding['name'] == 'sqrt' and ding['child'][1] is None: # arg1 is empty so, by default, arg1=2 (SQUARE root)
-                ding['child'][1] = {
-                    'name':2,
-                    'startPos':self.addedSymbolId,
-                    'endPos':self.addedSymbolId,
-                    'type':'number',
-                    'ganzStartPos':self.addedSymbolId,
-                    'ganzEndPos':self.addedSymbolId
-                }
-                sammeltDings.append({
-                    'name':2,
-                    'startPos':self.addedSymbolId,
-                    'endPos':self.addedSymbolId,
-                    'type':'number',
-                    'ganzStartPos':self.addedSymbolId,
-                    'ganzEndPos':self.addedSymbolId,
-                    'parent':{
-                        'name':ding['name'],
-                        'startPos':ding['startPos'],
-                        'endPos':ding['endPos'],
-                        'type':ding['type'],
-                        'childIdx':1,
-                        'ganzStartPos':ding['ganzStartPos'],
-                        'ganzEndPos':ding['ganzEndPos']
-                    }
-                })
-                self.addedSymbolId += 1 #TODO rename self.addedSymbolId to general AlleDing
-
-            if ding['name'] == 'log' and ding['child'][1] is None:
-                ding['child'][1] = {
-                    'name':10, # natural logarithms...
-                    'startPos':self.addedSymbolId,
-                    'endPos':self.addedSymbolId,
-                    'type':'number',
-                    'ganzStartPos':self.addedSymbolId,
-                    'ganzEndPos':self.addedSymbolId
-                }
-                sammeltDings.append({
-                    'name':10,
-                    'startPos':self.addedSymbolId,
-                    'endPos':self.addedSymbolId,
-                    'type':'number',
-                    'ganzStartPos':self.addedSymbolId,
-                    'ganzEndPos':self.addedSymbolId,
-                    'parent':{
-                        'name':ding['name'],
-                        'startPos':ding['startPos'],
-                        'endPos':ding['endPos'],
-                        'type':ding['type'],
-                        'childIdx':1,
-                        'ganzStartPos':ding['ganzStartPos'],
-                        'ganzEndPos':ding['ganzEndPos']
-                    }
-                })
-                self.addedSymbolId += 1 #TODO rename self.addedSymbolId to general AlleDing
-
-
-            if ding['name'] == 'ln':
-                ding['name'] = 'log'
-                ding['child'][1] = {
-                    'name':'e', # natural logarithms...
-                    'startPos':self.addedSymbolId,
-                    'endPos':self.addedSymbolId,
-                    'type':'number',
-                    'ganzStartPos':self.addedSymbolId,
-                    'ganzEndPos':self.addedSymbolId
-                }
-                sammeltDings.append({
-                    'name':'e',
-                    'startPos':self.addedSymbolId,
-                    'endPos':self.addedSymbolId,
-                    'type':'number',
-                    'ganzStartPos':self.addedSymbolId,
-                    'ganzEndPos':self.addedSymbolId,
-                    'parent':{
-                        'name':ding['name'],
-                        'startPos':ding['startPos'],
-                        'endPos':ding['endPos'],
-                        'type':ding['type'],
-                        'childIdx':1,
-                        'ganzStartPos':ding['ganzStartPos'],
-                        'ganzEndPos':ding['ganzEndPos']
-                    }
-                })
-                self.addedSymbolId += 1 #TODO rename self.addedSymbolId to general AlleDing
-
-
-            # import pdb;pdb.set_trace()#TODO debug, it seems that below code block is repeated too many times
-            #special case for TRIG, but we still want to process the second child, after process the first child of trig (since power of trig may not be a number)
-            if ding['name'] in self.TRIGOFUNCTION and ding['child'][1] is not None:
-                #NO widest-arg1-on-ding and arg1(child)=None
-                # if theRoot1 is None and ding['child'][1] is None: #no exponential on ding trig
-                #     ding['child'][1] = None # leave it as None, then it will not appear in AST...
-                #what about theRoot1 is not None ding['child'][1] is None,THEN hopefully, theRoot1==ding['child'][1]
-                # else: #trig has power   ding['child'][1] is not None
-                    #add exponent, set as parent of [trig, power]
-                expoDing = {
-                    'name':'^',
-                    'startPos':self.addedSymbolId, # not real, 
-                    'endPos':self.addedSymbolId,
-                    'ganzStartPos':self.addedSymbolId,
-                    'ganzEndPos':self.addedSymbolId,
-                    'type':'infix',
-                    'child':{
-                        1:{
-                        'name':ding['name'],
-                        'startPos':ding['startPos'],
-                        'endPos':ding['endPos'],
-                        'type':ding['type'],
-                        'ganzStartPos':ding['ganzStartPos'],
-                        'ganzEndPos':ding['ganzEndPos']
-                        },
-                        2:{#power is the arg1 of ding
-                        'name':ding['child'][1]['name'],
-                        'startPos':ding['child'][1]['startPos'],
-                        'endPos':ding['child'][1]['endPos'],
-                        'type':ding['child'][1]['type'],
-                        'ganzStartPos':ding['child'][1]['ganzStartPos'],
-                        'ganzEndPos':ding['child'][1]['ganzEndPos']
-                        }
-                    },
-                    'parent':ding['parent']
-                }
-                #need actual ding's parent and update its child to expoDing
-                actualParent = None
-                for grenzeRange0, dings0 in self.consecutiveGroups.items():
-                    for ding0 in dings0:
-                        if ding0['name'] == ding['parent']['name'] and ding0['startPos'] == ding['parent']['startPos'] and ding0['endPos'] == ding['parent']['endPos']:
-                            actualParent = ding0
-                actualParent['child'][ding['parent']['childIdx']] = {
-                    'name':expoDing['name'],
-                    'startPos':expoDing['startPos'],
-                    'endPos':expoDing['endPos'],
-                    'type':expoDing['type'],
-                    'ganzStartPos':expoDing['ganzStartPos'],
-                    'ganzEndPos':expoDing['ganzEndPos']
-
-                }
-                self.addedSymbolId += 1
-                sammeltDings.append(expoDing)
-                #set ding parent as expoDing's child1
-                ding['parent'] = {
-                    'name':expoDing['name'],
-                    'startPos':expoDing['startPos'],
-                    'endPos':expoDing['endPos'],
-                    'type':expoDing['type'],
-                    'childIdx':1,
-                    'ganzStartPos':expoDing['ganzStartPos'],
-                    'ganzEndPos':expoDing['ganzEndPos']
-                }
-                #remove ding arg1 (power)
-                ding['child'][1] = None
-                #############
-                # import pdb;pdb.set_trace()
-                #############
-
-            sammeltDings.append(ding)# just dump everything together
-        if self.showError():
-
-            print('*********parentChildR Status after __interLevelSubtreeGrafting(2ndpart intralevel parentChildR building)********************************')
-            sadchild = {}
-            for d in sammeltDings:
-                idd = (d['name'], d['startPos'], d['endPos'])
-                c0 = None if 'child' not in d or d['child'][1] is None else (d['child'][1]['name'], d['child'][1]['startPos'], d['child'][1]['endPos'])
-                c1 = None if 'child' not in d or 2 not in d['child'] or d['child'][2] is None else (d['child'][2]['name'], d['child'][2]['startPos'], d['child'][2]['endPos'])
-                pard = None if d['parent'] is None else (d['parent']['name'], d['parent']['startPos'], d['parent']['endPos'])
-                sadchild[idd] = {'c1':c0, 'c2':c1, 'parent':pard}
-            import pprint
-            pp = pprint.PrettyPrinter(indent=4)
-            pp.pprint(sadchild)
-            print('*********parentChildR Status after __interLevelSubtreeGrafting(2ndpart intralevel parentChildR building)********************************')
-        return sammeltDings
-
-
     def _reformatToAST(self):
         if self.parallelise:
             self.event__subTreeGraftingUntilTwoTrees.wait()
@@ -2861,21 +2668,38 @@ class Latexparser(Parser):
             raise Exception('Equals only have 2 sides')
         #build the AST here...
         nameStartEndToNodeId = {}
-        nodeId = 1
+        self.nodeId = 1
         for s in self.alleDing:
-            nameStartEndToNodeId[(s['name'], s['startPos'], s['endPos'])] = nodeId
-            nodeId += 1
-        self.ast = {}
+            nameStartEndToNodeId[(s['name'], s['startPos'], s['endPos'])] = self.nodeId
+            self.nodeId += 1
+        self.latexAST = {}
         child0Id = nameStartEndToNodeId[(dingsNoParents[0]['name'], dingsNoParents[0]['startPos'], dingsNoParents[0]['endPos'])]
         child1Id = nameStartEndToNodeId[(dingsNoParents[1]['name'], dingsNoParents[1]['startPos'], dingsNoParents[1]['endPos'])]
         # import pdb;pdb.set_trace()
         self.equalTuple = ('=', 0)
         if dingsNoParents[0]['position'] < dingsNoParents[1]['position']:
-            self.ast[self.equalTuple] = [(dingsNoParents[0]['name'], child0Id), (dingsNoParents[1]['name'], child1Id)]
+            self.latexAST[self.equalTuple] = [(dingsNoParents[0]['name'], child0Id), (dingsNoParents[1]['name'], child1Id)]
         else:
-            self.ast[self.equalTuple] = [(dingsNoParents[1]['name'], child1Id), (dingsNoParents[0]['name'], child0Id)]
+            self.latexAST[self.equalTuple] = [(dingsNoParents[1]['name'], child1Id), (dingsNoParents[0]['name'], child0Id)]
 
         self.nodeIdToInfixArgsBrackets = {} # this is for unparse function, bracket information
+        #############
+        if self.showError():
+            print('parent/child relationship:')
+            sadchild = {}
+            for d in self.alleDing:
+                idd = (d['name'], d['startPos'], d['endPos'])
+                c0 = None if 'child' not in d or d['child'][1] is None else (d['child'][1]['name'], d['child'][1]['startPos'], d['child'][1]['endPos'])
+                c1 = None if 'child' not in d or d['child'][2] is None else (d['child'][2]['name'], d['child'][2]['startPos'], d['child'][2]['endPos'])
+                pard = None if d['parent'] is None else (d['parent']['name'], d['parent']['startPos'], d['parent']['endPos'])
+                sadchild[idd] = {'c1':c0, 'c2':c1, 'parent':pard}
+            import pprint
+            pp = pprint.PrettyPrinter(indent=4)
+            pp.pprint(sadchild)
+            print("dingsNoParents:")
+            print(list(map(lambda d: (d['name'], d['startPos'], d['endPos']), dingsNoParents)))
+
+        #############
         for parent in self.alleDing:
             parentId = nameStartEndToNodeId[(parent['name'], parent['startPos'], parent['endPos'])]
             ############ for unparse function
@@ -2905,23 +2729,65 @@ class Latexparser(Parser):
             if 'child' in parent:
                 if len(parent['child']) == 1:
                     childKey = nameStartEndToNodeId[(parent['child'][1]['name'], parent['child'][1]['startPos'], parent['child'][1]['endPos'])]
-                    self.ast[(parent['name'], parentId)] = [(parent['child'][1]['name'], childKey)]
+                    self.latexAST[(parent['name'], parentId)] = [(parent['child'][1]['name'], childKey)]
                 elif len(parent['child']) == 2: #current this is the only other possibility
                     if parent['child'][1] is not None:
                         child1Name = parent['child'][1]['name']
                         child1Key = nameStartEndToNodeId[(child1Name, parent['child'][1]['startPos'], parent['child'][1]['endPos'])]
-                        self.ast[(parent['name'], parentId)] = [(child1Name, child1Key)]
+                        self.latexAST[(parent['name'], parentId)] = [(child1Name, child1Key)]
 
                     if parent['child'][2] is not None:
                         child2Name = parent['child'][2]['name']
                         child2Key = nameStartEndToNodeId[(child2Name, parent['child'][2]['startPos'], parent['child'][2]['endPos'])]
-                        existingChildren = self.ast.get((parent['name'], parentId), [])
+                        existingChildren = self.latexAST.get((parent['name'], parentId), [])
                         existingChildren.append((child2Name, child2Key))
-                        self.ast[(parent['name'], parentId)] = existingChildren
+                        self.latexAST[(parent['name'], parentId)] = existingChildren
         if self.parallelise:
             self.event__reformatToAST.set()
 
 
+    def _latexSpecialCases(self):
+        import copy
+        latexASTCopy = copy.deepcopy(self.latexAST)
+        self.ast = {}
+        stack = [self.equalTuple]
+        while len(stack) > 0:
+            currentNode = stack.pop()
+            nodeName = currentNode[0]
+            nodeId = currentNode[1]
+            if nodeName == 'ln':
+                nodeName = 'log'
+                self.ast[(nodeName, nodeId)] = latexASTCopy[currentNode]
+                stack += latexASTCopy[currentNode]
+            elif nodeName == 'frac':
+                nodeName = '/'
+                self.ast[(nodeName, nodeId)] = latexASTCopy[currentNode]
+                stack += latexASTCopy[currentNode]
+            elif nodeName in self.TRIGOFUNCTION and len(latexASTCopy[currentNode]) == 2: # trig with power
+                powerNode, argNode = latexASTCopy[currentNode]
+                exponentialNode = ('^', self.nodeId)
+                #SOorrry currentNodee! you got replaceed with exponentialNode!
+                parentNode = None
+                parentChildIndex = None
+                for parent, children in latexASTCopy.items():
+                    for childIdx, child in enumerate(children):
+                        if child == currentNode:
+                            parentNode = parent
+                            parentChildIndex = childIdx
+                            break
+                    if parentNode is not None:
+                        break
+                if parentNode is not None and parentChildIndex is not None:
+                    children = latexASTCopy[parentNode]
+                    children[parentChildIndex] = exponentialNode
+                #finis replacement de currentNode avec exponentialNode
+                self.nodeId += 1
+                self.ast[exponentialNode] = [(currentNode, powerNode)]
+                self.ast[currentNode] = [argNode]
+                stack += latexASTCopy[currentNode]
+            elif currentNode in latexASTCopy: # latexAST do not contain leaves
+                self.ast[currentNode] = latexASTCopy[currentNode]
+                stack += latexASTCopy[currentNode]
         
 
     def _parse(self):
@@ -3161,12 +3027,9 @@ $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$incomplete code to check variable_depende
         self._contiguousLeftOvers()
         self._collateBackslashInfixLeftOversToContiguous()
         self._graftGrenzeRangesIntoContainmentTree()
-        # self._addImplicitZero()
-        # self._addImplicitMultipy()
-        # self._intraGrenzeSubtreeUe()
-        # self._subTreeGraftingUntilTwoTrees()
         self._reformatToAST()
-        #TODO Pool multiprocessing with method priorities (Chodai!)
+        self._latexSpecialCases()
+        #TODO Pool multiprocessing with method priorities (Chodai!) -- dependency ha chain desu yo, sou shitara, motto hayakunarimasu ka?
 
 
 
