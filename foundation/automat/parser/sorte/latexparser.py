@@ -54,13 +54,13 @@ class Latexparser(Parser):
         self.alleDing = [] # collect all symbol after interlevelsubtreegrafting
         #method specfific verbosity
         self.methodVerbose = {
-            '_findBackSlashPositions':False,
             '_findInfixAndEnclosingBrackets':False,
+            '_findBackSlashPositions':False,
             '_updateInfixNearestBracketInfix':False,
             '__updateInfixNearestBracketInfix':False,
             '_removeCaretThatIsNotExponent':False,
-            '_findLeftOverPosition':True,
-            '_contiguousLeftOvers':True,
+            '_findLeftOverPosition':False,
+            '_contiguousLeftOvers':False,
             '_collateBackslashInfixLeftOversToContiguous':False,
             '_graftGrenzeRangesIntoContainmentTree':False,
             '__addImplicitZero':False,
@@ -149,10 +149,55 @@ class Latexparser(Parser):
 
 
 
+    def _findInfixAndEnclosingBrackets(self):
+        #find all the positions of the infixes, and if there are round/square/curly brackets beside them...
+        openBracketsLocation = dict(map(lambda openBracket: (openBracket, []), Latexparser.OPEN_BRACKETS))
+        self.bracketStartToEndMap = {}
+        self.matchingBracketsLocation = []
+        self.infixList = []
+        for idx, c in enumerate(self._eqs):
+            if c in Latexparser.OPEN_BRACKETS:
+                openBracketsLocation[c].append(idx) # this acts as a stack
+            elif c in Latexparser.CLOSE_BRACKETS:
+                o = Latexparser.close__open[c]
+                matchingOpenBracketPos = openBracketsLocation[o].pop(len(openBracketsLocation[o])-1) # take out from the bottom like a stack
+                self.matchingBracketsLocation.append({
+                    'openBracketType':o, 
+                    'closeBracketType':self.open__close[o], 
+                    'openBracketPos':matchingOpenBracketPos, 
+                    'closeBracketPos':idx
+                })
+                self.bracketStartToEndMap[matchingOpenBracketPos+len(o)] = idx # this is for _findBackSlashPositions, which takes argstartpos, statt bracketstartpos.
+                # if self.showError():
+                #     print('popped', matchingOpenBracketPos, 'remaining bracket:', openBracketsLocation[o])
+            #Latexparser.PRIOIRITIZED_INFIX  has no =, which we should ignore for now
+            elif c in Latexparser.PRIOIRITIZED_INFIX: # TODO what if infix is MULTI-CHARACTER? (then i am fucked, and also i need a sliding window, where the windowLen = max(map(lambda infixSym: len(infixSym), Latexparser.INFIX)))
+                self.infixList.append({
+                    'name':c,
+                    'position':idx,
+                    'startPos':idx,
+                    'endPos':idx+len(c)
+                })
+        #check for error, if there are any left-over brackets in any of the stacks, then there is unbalanced brackets
+        mismatchedOpenBrackets = []
+        for openBracket, bracketPosStack in openBracketsLocation.items():
+            if len(bracketPosStack) > 0:
+                mismatchedOpenBrackets.append(openBracket)
+        if len(mismatchedOpenBrackets) > 0:
+            raise Exception(f'Mismatched brackets: {mismatchedOpenBrackets}')
+        # import pdb;pdb.set_trace()
+        if self.showError():
+            import pprint
+            pp = pprint.PrettyPrinter(indent=4)
+            pp.pprint(self.bracketStartToEndMap)
+        if self.parallelise:
+            self.event__findInfixAndEnclosingBrackets.set()
+
 
     def _findBackSlashPositions(self):
         """
         THE BACKSLASH FINDER! 
+        _findInfixAndEnclosingBrackets wo tanomu
 
         this is done with :
 
@@ -192,7 +237,7 @@ class Latexparser(Parser):
                 if self._eqs[positionTuple[1]] != '{':
                     raise Exception(f'after {labelName} should have {{')
                 argument1StartPosition = positionTuple[1]+1 # because of the {
-                closingCurlyBracketPos = self._eqs.index('}', argument1StartPosition)
+                closingCurlyBracketPos = self.bracketStartToEndMap[argument1StartPosition]#self._eqs.index('}', argument1StartPosition)
                 argument1 = self._eqs[argument1StartPosition:closingCurlyBracketPos]
                 argument1EndPosition = closingCurlyBracketPos
                 self.variablesPos.append({
@@ -249,7 +294,7 @@ class Latexparser(Parser):
                 if labelName == 'sqrt':
                     if self._eqs[positionTuple[1]] == '[':# then we need to capture the rootpower as an argument
                         argument1StartPosition = positionTuple[1]+1 # +1 is for the '['
-                        closingSquareBracketPos = self._eqs.index(']', argument1StartPosition)
+                        closingSquareBracketPos = self.bracketStartToEndMap[argument1StartPosition]#self._eqs.index(']', argument1StartPosition) # TODO i assume that there is not more [] between this and the other....
                         argument1 = self._eqs[argument1StartPosition:closingSquareBracketPos] # argument1 == rootpower
                         argument1EndPosition = closingSquareBracketPos
                         argument1BracketType = '['
@@ -262,7 +307,7 @@ class Latexparser(Parser):
                     if self._eqs[nextPos] != '(': #TODO this is not true
                         raise Exception('Sqrt functions must be succeded by (')
                     argument2StartPosition = nextPos+1
-                    closingRoundBracketPos = self._eqs.index(')', argument2StartPosition)
+                    closingRoundBracketPos = self.bracketStartToEndMap[argument2StartPosition]#self._eqs.index(')', argument2StartPosition)# TODO i assume that there is not more [] between this and the other....
                     argument2 = self._eqs[argument2StartPosition:closingRoundBracketPos] # argument2 == rootand
                     argument2EndPosition = closingRoundBracketPos
                     argument2BracketType = '('
@@ -273,7 +318,7 @@ class Latexparser(Parser):
                         argument1SubSuperPos = positionTuple[1]
                         if self._eqs[positionTuple[1]+1] == '{': # we need to find the close curly and take everything in between as arg1
                             argument1StartPosition = positionTuple[1]+2
-                            closingCurlyBracketPos = self._eqs.index('}', argument1StartPosition)
+                            closingCurlyBracketPos = self.bracketStartToEndMap[argument1StartPosition]#self._eqs.index('}', argument1StartPosition) # TODO i assume that there is not more [] between this and the other....
                             argument1 = self._eqs[argument1StartPosition:closingCurlyBracketPos]# argument1 == power
                             argument1EndPosition = closingCurlyBracketPos
                             nextPos = argument1EndPosition + 1 # because of curly bracket }
@@ -296,7 +341,7 @@ class Latexparser(Parser):
                     if self._eqs[nextPos] != '(':
                         raise Exception('Trignometric functions must be succeded by (')
                     argument2StartPosition = nextPos+1
-                    closingRoundBracketPos = self._eqs.index(')', argument2StartPosition)
+                    closingRoundBracketPos = self.bracketStartToEndMap[argument2StartPosition]#self._eqs.index(')', argument2StartPosition)# TODO i assume that there is not more [] between this and the other....
                     argument2 = self._eqs[argument2StartPosition:closingRoundBracketPos] # argument2 == angle
                     argument2EndPosition = closingRoundBracketPos
                     argument2BracketType = '('
@@ -312,7 +357,7 @@ class Latexparser(Parser):
                     if self._eqs[positionTuple[1]] != '(':
                         raise Exception('Natural Log must be succeded by (')
                     argument2StartPosition = positionTuple[1]+1
-                    closingRoundBracketPos = self._eqs.index(')', argument2StartPosition)
+                    closingRoundBracketPos = self.bracketStartToEndMap[argument2StartPosition]#self._eqs.index(')', argument2StartPosition)# TODO i assume that there is not more [] between this and the other....
                     argument2 = self._eqs[argument2StartPosition:closingRoundBracketPos] # argument1 == logged
                     argument2EndPosition = closingRoundBracketPos
                     argument2BracketType = '('
@@ -321,14 +366,14 @@ class Latexparser(Parser):
                     if self._eqs[positionTuple[1]] != '{':
                         raise Exception('Frac must be succeded by {') # complain if cannot find first curly bracket
                     argument1StartPosition = positionTuple[1]+1
-                    closingCurlyBracketPos = self._eqs.index('}', argument1StartPosition)
+                    closingCurlyBracketPos = self.bracketStartToEndMap[argument1StartPosition]#self._eqs.index('}', argument1StartPosition)# TODO i assume that there is not more [] between this and the other....
                     argument1 = self._eqs[argument1StartPosition:closingCurlyBracketPos] # argument1 == numerator
                     argument1EndPosition = closingCurlyBracketPos
                     argument1BracketType = '{'
                     if self._eqs[argument1EndPosition+1] != '{':
                         raise Exception('Frac numerator must be succeded by {') # complain if cannot find second curly bracket
                     argument2StartPosition = argument1EndPosition+2 # because of {
-                    closingCurlyBracketPos = self._eqs.index('}', argument2StartPosition)
+                    closingCurlyBracketPos = self.bracketStartToEndMap[argument2StartPosition]#self._eqs.index('}', argument2StartPosition)# TODO i assume that there is not more [] between this and the other....
                     argument2 = self._eqs[argument2StartPosition:closingCurlyBracketPos] # argument2 == denominator
                     argument2EndPosition = closingCurlyBracketPos
                     argument2BracketType = '{'
@@ -339,7 +384,7 @@ class Latexparser(Parser):
                         argument1SubSuperPos = positionTuple[1]
                         if self._eqs[positionTuple[1]+1] == '{':
                             argument1StartPosition = positionTuple[1]+2
-                            closingCurlyBracketPos = self._eqs.index('}', argument1StartPosition)
+                            closingCurlyBracketPos = self.bracketStartToEndMap[argument1StartPosition]#self._eqs.index('}', argument1StartPosition)# TODO i assume that there is not more [] between this and the other....
                             argument1 = self._eqs[argument1StartPosition:closingCurlyBracketPos] # argument1 == base
                             argument1EndPosition = closingCurlyBracketPos
                             argument1BracketType = '{'
@@ -359,7 +404,7 @@ class Latexparser(Parser):
                     if self._eqs[nextPos] != '(':
                         raise Exception('Log must be succeded by (')
                     argument2StartPosition = nextPos+1
-                    closingRoundBracketPos = self._eqs.index(')', argument2StartPosition)
+                    closingRoundBracketPos = self.bracketStartToEndMap[argument2StartPosition]#self._eqs.index(')', argument2StartPosition)# TODO i assume that there is not more [] between this and the other....
                     argument2 = self._eqs[argument2StartPosition:closingRoundBracketPos] # argument2 == logant
                     argument2EndPosition = closingRoundBracketPos
                     argument2BracketType = '('
@@ -431,44 +476,6 @@ class Latexparser(Parser):
         if self.parallelise:
             self.event__findBackSlashPositions.set() # Trigger the event to notify the waiting process
 
-
-    def _findInfixAndEnclosingBrackets(self):
-        #find all the positions of the infixes, and if there are round/square/curly brackets beside them...
-        openBracketsLocation = dict(map(lambda openBracket: (openBracket, []), Latexparser.OPEN_BRACKETS))
-        self.matchingBracketsLocation = []
-        self.infixList = []
-        for idx, c in enumerate(self._eqs):
-            if c in Latexparser.OPEN_BRACKETS:
-                openBracketsLocation[c].append(idx) # this acts as a stack
-            elif c in Latexparser.CLOSE_BRACKETS:
-                o = Latexparser.close__open[c]
-                matchingOpenBracketPos = openBracketsLocation[o].pop(len(openBracketsLocation[o])-1) # take out from the bottom like a stack
-                self.matchingBracketsLocation.append({
-                    'openBracketType':o, 
-                    'closeBracketType':self.open__close[o], 
-                    'openBracketPos':matchingOpenBracketPos, 
-                    'closeBracketPos':idx
-                })
-                if self.showError():
-                    print('popped', matchingOpenBracketPos, 'remaining bracket:', openBracketsLocation[o])
-            #Latexparser.PRIOIRITIZED_INFIX  has no =, which we should ignore for now
-            elif c in Latexparser.PRIOIRITIZED_INFIX: # TODO what if infix is MULTI-CHARACTER? (then i am fucked, and also i need a sliding window, where the windowLen = max(map(lambda infixSym: len(infixSym), Latexparser.INFIX)))
-                self.infixList.append({
-                    'name':c,
-                    'position':idx,
-                    'startPos':idx,
-                    'endPos':idx+len(c)
-                })
-        #check for error, if there are any left-over brackets in any of the stacks, then there is unbalanced brackets
-        mismatchedOpenBrackets = []
-        for openBracket, bracketPosStack in openBracketsLocation.items():
-            if len(bracketPosStack) > 0:
-                mismatchedOpenBrackets.append(openBracket)
-        if len(mismatchedOpenBrackets) > 0:
-            raise Exception(f'Mismatched brackets: {mismatchedOpenBrackets}')
-        # import pdb;pdb.set_trace()
-        if self.parallelise:
-            self.event__findInfixAndEnclosingBrackets.set()
 
 
     def __updateInfixNearestBracketInfix(self, tempInfixList0, tempInfixList1):
@@ -3146,8 +3153,8 @@ $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$incomplete code to check variable_depende
         10. convert backslash variables to internal variables mapping
         11. convert backslash function name to standard function name IN automat.arithmetic.function.py
         """
-        self._findBackSlashPositions()
         self._findInfixAndEnclosingBrackets()
+        self._findBackSlashPositions()
         self._updateInfixNearestBracketInfix()
         self._removeCaretThatIsNotExponent()
         self._findLeftOverPosition()

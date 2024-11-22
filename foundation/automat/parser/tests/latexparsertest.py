@@ -367,6 +367,12 @@ def test__hassliche__moreThanOneAdditiveTermInEachMultiplicativeTerm1(verbose=Fa
     if verbose:
         pp.pprint(parser.ast)
 
+
+#need test cases where there is sqrt in sqrt as arg, 
+#trig in trig as arg
+#log in log as arg
+#frac in frac as arg
+
 #
 def test__paveWayForDifferentiation__productRule(verbose=False):
     pp = pprint.PrettyPrinter(indent=4)
@@ -430,8 +436,8 @@ if __name__=='__main__':
     # test__findingBackSlashAndInfixOperations__SchrodingerWaveEquation()
     # test__infixInBackslash__paraboloid()
     # test__sqrtWithPowerCaretRightOtherInfix__hill()
-    test__manyFracCaretEnclosingBrac__partialFrac(True) # not tested yet
-    # test__fracWithLogNoBase__changeLogBaseFormula() # not tested yet
+    # test__manyFracCaretEnclosingBrac__partialFrac() # not tested yet
+    test__fracWithLogNoBase__changeLogBaseFormula(True) # not tested yet
     # test__hassliche__highPowersAndRandomCoefficientsPITEST()  # not tested yet
     # test__hassliche__nestedPolynomial() # not tested yet
     # test__hassliche__nonIntegerAndNegativeCoefficientsDECIMALPOINTTEST() # not tested yet
