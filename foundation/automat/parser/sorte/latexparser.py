@@ -2755,12 +2755,72 @@ class Latexparser(Parser):
             currentNode = stack.pop()
             nodeName = currentNode[0]
             nodeId = currentNode[1]
-            if nodeName == 'ln':
+            if nodeName == 'sqrt': # change to nroot
+                nodeName = 'nroot'
+                newNode = (nodeName, nodeId)
+                children = latexASTCopy[currentNode]
+                if len(children) == 1: # is root 2, and we only have the rootant
+                    children.insert(0, (2, self.nodeId))
+                    self.nodeId += 1
+                self.ast[newNode] = children
+                #replace parent's child too
+                parentNode = None
+                parentChildIndex = None
+                for parent, children in latexASTCopy.items():
+                    for childIdx, child in enumerate(children):
+                        if child == currentNode:
+                            parentNode = parent
+                            parentChildIndex = childIdx
+                            break
+                    if parentNode is not None:
+                        break
+                if parentNode is not None and parentChildIndex is not None:
+                    children[parentChildIndex] = newNode
+                    latexASTCopy[parentNode] = children
+                #
+                stack += latexASTCopy[currentNode]
+            elif nodeName == 'ln':
                 nodeName = 'log'
-                self.ast[(nodeName, nodeId)] = latexASTCopy[currentNode]
+                newNode = (nodeName, nodeId)
+                children = latexASTCopy[currentNode]
+                if len(children) == 1: # is root 2, and we only have the rootant
+                    children.insert(0, ('e', self.nodeId))
+                    self.nodeId += 1
+                self.ast[newNode] = children
+                #replace parent's child too
+                parentNode = None
+                parentChildIndex = None
+                for parent, children in latexASTCopy.items():
+                    for childIdx, child in enumerate(children):
+                        if child == currentNode:
+                            parentNode = parent
+                            parentChildIndex = childIdx
+                            break
+                    if parentNode is not None:
+                        break
+                if parentNode is not None and parentChildIndex is not None:
+                    children[parentChildIndex] = newNode
+                    latexASTCopy[parentNode] = children
+                #
                 stack += latexASTCopy[currentNode]
             elif nodeName == 'frac':
                 nodeName = '/'
+                newNode = (nodeName, nodeId)
+                #replace parent's child too
+                parentNode = None
+                parentChildIndex = None
+                for parent, children in latexASTCopy.items():
+                    for childIdx, child in enumerate(children):
+                        if child == currentNode:
+                            parentNode = parent
+                            parentChildIndex = childIdx
+                            break
+                    if parentNode is not None:
+                        break
+                if parentNode is not None and parentChildIndex is not None:
+                    children[parentChildIndex] = newNode
+                    latexASTCopy[parentNode] = children
+                #
                 self.ast[(nodeName, nodeId)] = latexASTCopy[currentNode]
                 stack += latexASTCopy[currentNode]
             elif nodeName in self.TRIGOFUNCTION and len(latexASTCopy[currentNode]) == 2: # trig with power

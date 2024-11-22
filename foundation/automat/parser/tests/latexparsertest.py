@@ -64,7 +64,7 @@ def test__findingBackSlashAndInfixOperations__Sqrt0(verbose=False):
     equationStr = '\\sqrt(4)=2'
     parser = Latexparser(equationStr, verbose=verbose)
     parser._parse()
-    expected_ast = {('=', 0): [('sqrt', 4), ('2', 2)], ('sqrt', 4): [(2, 3), ('4', 1)]}
+    expected_ast = {('=', 0): [('nroot', 1), ('2', 2)], ('nroot', 1): [(2, 4), ('4', 3)]}
     print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
     if verbose:
         pp.pprint(parser.ast)
@@ -76,7 +76,7 @@ def test__findingBackSlashAndInfixOperations__Sqrt1(verbose=False):
     equationStr = '\\sqrt[3](9)=2'
     parser = Latexparser(equationStr, verbose=verbose)
     parser._parse()
-    expected_ast = {('=', 0): [('sqrt', 4), ('2', 3)], ('sqrt', 4): [('3', 1), ('9', 2)]}
+    expected_ast = {('=', 0): [('nroot', 2), ('2', 1)], ('nroot', 2): [('3', 4), ('9', 3)]}
     print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
     if verbose:
         pp.pprint(parser.ast)
@@ -88,7 +88,7 @@ def test__findingBackSlashAndInfixOperations__Ln(verbose=False):
     equationStr = '\\ln(e)=1'
     parser = Latexparser(equationStr, verbose=verbose)
     parser._parse()
-    expected_ast = {('=', 0): [('log', 4), ('1', 2)], ('log', 4): [('e', 3), ('e', 1)]}
+    expected_ast = {('=', 0): [('log', 2), ('1', 1)], ('log', 2): [('e', 4), ('e', 3)]}
     print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
     if verbose:
         pp.pprint(parser.ast)
@@ -100,9 +100,9 @@ def test__findingBackSlashAndInfixOperations__Frac(verbose=False):
     equationStr = '\\frac{12}{24}=\\frac{1000}{2000}'
     parser = Latexparser(equationStr, verbose=verbose)
     parser._parse()
-    expected_ast = {   ('=', 0): [('frac', 5), ('frac', 6)],
-    ('frac', 5): [('12', 1), ('24', 2)],
-    ('frac', 6): [('1000', 3), ('2000', 4)]}
+    expected_ast = {   ('/', 1): [('1000', 4), ('2000', 3)],
+    ('/', 2): [('12', 6), ('24', 5)],
+    ('=', 0): [('/', 2), ('/', 1)]}
     print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
     if verbose:
         pp.pprint(parser.ast)
@@ -426,11 +426,11 @@ if __name__=='__main__':
     # test__findingBackSlashAndInfixOperations__Trig0()
     # test__findingBackSlashAndInfixOperations__Trig1()
     # test__findingBackSlashAndInfixOperations__Trig2()
-    test__findingBackSlashAndInfixOperations__Sqrt0(True)
-    # test__findingBackSlashAndInfixOperations__Sqrt1(True)
-    # test__findingBackSlashAndInfixOperations__Ln(True)
-    # test__findingBackSlashAndInfixOperations__Frac(True)
-    # test__findingBackSlashAndInfixOperations__Log0(True)
+    # test__findingBackSlashAndInfixOperations__Sqrt0()
+    # test__findingBackSlashAndInfixOperations__Sqrt1()
+    # test__findingBackSlashAndInfixOperations__Ln()
+    # test__findingBackSlashAndInfixOperations__Frac()
+    test__findingBackSlashAndInfixOperations__Log0(True)
     # test__findingBackSlashAndInfixOperations__Log1(True)
     # test__findingBackSlashAndInfixOperations__tildeVariable(True)
     # test__findingBackSlashAndInfixOperations__SchrodingerWaveEquation(True)
