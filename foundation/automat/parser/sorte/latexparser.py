@@ -57,11 +57,12 @@ class Latexparser(Parser):
             '_findBackSlashPositions':False,
             '_findInfixAndEnclosingBrackets':False,
             '_updateInfixNearestBracketInfix':False,
+            '__updateInfixNearestBracketInfix':True,
             '_removeCaretThatIsNotExponent':False,
             '_findLeftOverPosition':False,
             '_contiguousLeftOvers':False,
             '_collateBackslashInfixLeftOversToContiguous':False,
-            '_graftGrenzeRangesIntoContainmentTree':True,
+            '_graftGrenzeRangesIntoContainmentTree':False,
             '__addImplicitZero':False,
             '__addImplicitMultiply':True,
             '__intraGrenzeSubtreeUe':False,
@@ -470,7 +471,7 @@ class Latexparser(Parser):
             self.event__findInfixAndEnclosingBrackets.set()
 
 
-    def __updateInfixNearestBracketInfix(self):
+    def __updateInfixNearestBracketInfix(self, tempInfixList0, tempInfixList1):
         ###########helpers
         #check if the bracket belongs to fBackslash/vBackslash
         def collideWithNonEnclosingBackslashBrackets(startBracketPos):#, infixPosition):
@@ -549,13 +550,13 @@ class Latexparser(Parser):
                 return dic1['position'] > self.equalPos
 
         # self.tempInfixList = self.infixList # self.tempInfixList can be replaced with desired list
-        self.tempInfixList0 = self.infixList # self.tempInfixList0 can be replaced with desired list
-        self.tempInfixList1 = self.infixList # self.tempInfixList1 can be replaced with desired list
+        # self.tempInfixList0 = self.infixList # self.tempInfixList0 can be replaced with desired list
+        # self.tempInfixList1 = self.infixList # self.tempInfixList1 can be replaced with desired list
         # this allows this function to be re-used lorsque findFakeExponent, so for now it allows everything TODO override during find exponent
         def ali(a, b):
             return True
         self.allowedInfix = ali
-        for infixInfoDict0 in self.tempInfixList0:
+        for infixInfoDict0 in tempInfixList0:
             ############
             if self.showError():
                 print('infixBracMatch: ', (infixInfoDict0['name'], infixInfoDict0['startPos'], infixInfoDict0['endPos']), '^^^<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<')
@@ -566,7 +567,7 @@ class Latexparser(Parser):
             nearestLeftInfix = {'name':None, 'position':-1, 'startPos':-1, 'endPos':-1}
             nearestRightInfix = {'name':None, 'position':len(self._eqs), 'startPos':len(self._eqs), 'endPos':len(self._eqs)}
             #TODO binary search on self.infixList, why not build a datastructure here, so that is can be used later? (space for time)
-            for infixInfoDict1 in self.tempInfixList1:
+            for infixInfoDict1 in tempInfixList1:
                 #ignore if infixInfoDict1 === infixInfoDict0
                 if infixInfoDict0['name'] == infixInfoDict1['name'] and infixInfoDict0['startPos'] == infixInfoDict1['startPos'] and infixInfoDict0['endPos'] == infixInfoDict1['endPos']:
                     continue
@@ -596,19 +597,11 @@ class Latexparser(Parser):
 
             widestLeftEnclosingBracket = {#also called openBracket
                 'openBracketType':None,
-                #if infixInfoDict0 is on the left of =,
-                #enclosingOpenBrac is start of equation == 0
-                #else
-                #enclosingOpenBrac is sofort right of infixInfoDict0
-                'openBracketPos':-1 if infixInfoDict0['position'] < self.equalPos else infixInfoDict0['position']+len(infixInfoDict0['name']),
+                'openBracketPos':infixInfoDict0['position']+len(infixInfoDict0['name']), # most narrow
             }
             widestRightEnclosingBracket = {#also called closeBracket
                 'closeBracketType':None,
-                #if infixInfoDict0 is on the left of =,
-                #enclosingCloseBrac is sofort left of infixInfoDict0
-                #else
-                #enclosingClosebrac is end of equation == len(self._eqs)
-                'closeBracketPos':infixInfoDict0['position']-len(infixInfoDict0['name']) if self.equalPos else len(self._eqs)+1
+                'closeBracketPos':infixInfoDict0['position']-len(infixInfoDict0['name']) # most narrow
             }
             for bracketInfoDict in self.matchingBracketsLocation: 
                 ###################START leftRight Brackets
@@ -622,7 +615,11 @@ class Latexparser(Parser):
                 if bracketInfoDict['openBracketPos'] + len(bracketInfoDict['openBracketType']) <= infixInfoDict0['startPos'] and infixInfoDict0['endPos'] <= bracketInfoDict['closeBracketPos'] + len(bracketInfoDict['closeBracketType']):
                     ##########
                     if self.showError():
-                        print('ENCLOSING~~')
+                        print('ENCLOSING~~, belongToBackslash: ', isBackSlashBrackets)
+                        print('widestLeftOpen: ', widestLeftEnclosingBracket['openBracketPos'])
+                        print('newLeftOpen: ', bracketInfoDict['openBracketPos'])
+                        print('widestRightClose: ', widestRightEnclosingBracket['closeBracketPos'])
+                        print('newRightClose: ', bracketInfoDict['closeBracketPos'])
                     ##########
                     # #does it contain any other infixes
                     # hasOtherInfixes = False
@@ -643,10 +640,14 @@ class Latexparser(Parser):
                         widestLeftEnclosingBracket['openBracketPos'] = bracketInfoDict['openBracketPos']
                         widestLeftEnclosingBracket['openBracketType'] = bracketInfoDict['openBracketType']
                         widestLeftEnclosingBracket['belongToBackslash'] = isBackSlashBrackets
+                        if self.showError():
+                            print('updated widestLeftEnclosingBracket: ', widestLeftEnclosingBracket)
                     if widestRightEnclosingBracket['closeBracketPos'] <= bracketInfoDict['closeBracketPos']: # bracketInfoDict is wider than recorded
                         widestRightEnclosingBracket['closeBracketPos'] = bracketInfoDict['closeBracketPos']
                         widestRightEnclosingBracket['closeBracketType'] = bracketInfoDict['closeBracketType']
                         widestRightEnclosingBracket['belongToBackslash'] = isBackSlashBrackets
+                        if self.showError():
+                            print('updated widestRightEnclosingBracket: ', widestRightEnclosingBracket)
 
                 #direct left-side (of infixInfoDict0)
                 if bracketInfoDict['closeBracketPos'] + len(bracketInfoDict['closeBracketType']) == infixInfoDict0['startPos']:
@@ -658,6 +659,8 @@ class Latexparser(Parser):
                     if bracketInfoDict['openBracketPos'] <= widestLeftBracket['openBracketPos'] and widestLeftBracket['closeBracketPos'] <= bracketInfoDict['closeBracketPos']:
                         widestLeftBracket = bracketInfoDict
                         widestLeftBracket['belongToBackslash'] = isBackSlashBrackets
+                        if self.showError():
+                            print('updated widestLeftBracket: ', widestLeftBracket)
                 elif infixInfoDict0['endPos'] == bracketInfoDict['openBracketPos'] - len(bracketInfoDict['openBracketType']):
                     ############
                     if self.showError():
@@ -667,6 +670,8 @@ class Latexparser(Parser):
                     if bracketInfoDict['openBracketPos'] <= widestRightBracket['openBracketPos'] and widestRightBracket['closeBracketPos'] <= bracketInfoDict['closeBracketPos']:
                         widestRightBracket = bracketInfoDict
                         widestRightBracket['belongToBackslash'] = isBackSlashBrackets
+                        if self.showError():
+                            print('updated widestRightBracket: ', widestRightBracket)
 
             #choose (or store everything TODO for now, we assume that people don't write equations like: "((a+b)-(c+d))", instead, they write it like this: "(a+b)-(c+d)" ) between
             #1. enclosing
@@ -876,7 +881,7 @@ class Latexparser(Parser):
         if self.parallelise:
             self.event__findBackSlashPositions.wait()
             self.event__findInfixAndEnclosingBrackets.wait()
-        self.__updateInfixNearestBracketInfix()
+        self.__updateInfixNearestBracketInfix(self.infixList, self.infixList)
         # import pdb;pdb.set_trace()
         if self.parallelise:
             self.event__updateInfixNearestBracketInfix.set() ##########~~~
@@ -1689,7 +1694,7 @@ class Latexparser(Parser):
                         self.addedSymbolId += 1
                         implicitMultiplyInfoDict = { # rightarg * leftarg
                             'name':'*',
-                            'position':-1, # no real position in equation
+                            'position':prevDing['right__endBracketPos']+len(prevDing['right__endBracketType']),
                             'type':'implicit',
                             'startPos':prevDing['right__startBracketPos'],
                             'endPos':ding['left__endBracketPos'],
@@ -1730,7 +1735,7 @@ class Latexparser(Parser):
                         self.addedSymbolId += 1
                         implicitMultiplyInfoDict = {# rightarg * ganz
                             'name':'*',
-                            'position':-1, # no real position in equation
+                            'position':prevDing['right__endBracketPos']+len(prevDing['right__endBracketType']),
                             'type':'implicit',
                             'startPos':prevDing['right__startBracketPos'],
                             'endPos':ding['ganzEndPos'],
@@ -1771,7 +1776,7 @@ class Latexparser(Parser):
                         self.addedSymbolId += 1
                         implicitMultiplyInfoDict = {# ganz * leftarg
                             'name':'*',
-                            'position':-1, # no real position in equation
+                            'position':prevDing['right__endBracketPos']+len(prevDing['right__endBracketType']),
                             'type':'implicit',
                             'startPos':prevDing['ganzStartPos'],
                             'endPos':ding['left__endBracketPos'],
@@ -1811,7 +1816,7 @@ class Latexparser(Parser):
                         self.addedSymbolId += 1
                         implicitMultiplyInfoDict = { # ganz * ganz
                             'name':'*',
-                            'position':-1, # no real position in equation
+                            'position':prevDing['right__endBracketPos']+len(prevDing['right__endBracketType']),
                             'type':'implicit',
                             'startPos':prevDing['ganzStartPos'],
                             'endPos':ding['ganzEndPos'],
@@ -1853,14 +1858,14 @@ class Latexparser(Parser):
                     #if prevDing['right__startBracketType'] is not None and prevDing['right__endBracketType'] is not None: 
                     if prevDing['right__type'] == 'leftRight': #???+(...)*Ding
                         #nearest infix with leftBracket, right of Ding
-                        infixRightOfDing = findRightestInfixFrom(ding) # that has leftCloseBracket
+                        # infixRightOfDing = findRightestInfixFrom(ding) # that has leftCloseBracket
                         #infixRightOfDing might not be infix, since there might not have infix right of Ding
                         # implicitMultiplyNode = ('*', (self.addedSymbolId, -1))
                         self.addedSymbolId += 1
                         import pdb;pdb.set_trace()
                         implicitMultiplyInfoDict = {# rightarg * ganz
                             'name':'*',
-                            'position':-1, # no real position in equation
+                            'position':prevDing['right__endBracketPos']+len(prevDing['right__endBracketType']),
                             'type':'implicit',
                             'startPos':prevDing['right__startBracketPos'],
                             'endPos':infixRightOfDing['endPos'],
@@ -1884,6 +1889,8 @@ class Latexparser(Parser):
                             'child':{1:None, 2:None},
                             'parent':None # no setting parents here, since we need to check for presence of infix in all Dings first.
                         }
+                        self.tempBracketFinderList = [implicitMultiplyInfoDict]
+                        self.__updateInfixNearestBracketInfix(self.tempBracketFinderList, self.infixList)
                         self.infixList.append(implicitMultiplyInfoDict)
                         newDings.append(implicitMultiplyInfoDict)
                         ###################
@@ -1896,13 +1903,13 @@ class Latexparser(Parser):
                         ###################
                     #elif prevDing['right__endBracketType'] is not None:
                     elif prevDing['right__type'] == 'enclosing': #(???+...)*Ding
-                        infixRightOfDing = findRightestInfixFrom(ding) # that has leftCloseBracket
+                        # infixRightOfDing = findRightestInfixFrom(ding) # that has leftCloseBracket
                         # implicitMultiplyNode = ('*', (self.addedSymbolId, -1))
                         self.addedSymbolId += 1
-                        import pdb;pdb.set_trace()
+                        # import pdb;pdb.set_trace()
                         implicitMultiplyInfoDict = {# ganz * leftarg
                             'name':'*',
-                            'position':-1, # no real position in equation
+                            'position':prevDing['right__endBracketPos']+len(prevDing['right__endBracketType']),
                             'type':'implicit',
                             'startPos':prevDing['ganzStartPos'],
                             'endPos':infixRightOfDing['endPos'],
@@ -1926,6 +1933,8 @@ class Latexparser(Parser):
                             'child':{1:None, 2:None},
                             'parent':None # no setting parents here, since we need to check for presence of infix in all Dings first.
                         }
+                        self.tempBracketFinderList = [implicitMultiplyInfoDict]
+                        self.__updateInfixNearestBracketInfix(self.tempBracketFinderList, self.infixList)
                         self.infixList.append(implicitMultiplyInfoDict)
                         newDings.append(implicitMultiplyInfoDict)
                         ###################
@@ -1939,15 +1948,12 @@ class Latexparser(Parser):
                 elif ding['type'] == 'infix': # prevDing['type'] != 'infix'
                     #if ding['left__startBracketType'] is not None and ding['left__endBracketType'] is not None:
                     if ding['left__type'] == 'leftRight': #Ding*(...)+???
-                        infixLeftOfDing = findLeftestInfixFrom(prevDing) # that has rightCloseBracket
-                        if self.showError():
-                            print('*******************infixLeftOfDing')
-                            print(infixLeftOfDing)
+                        # infixLeftOfDing = findLeftestInfixFrom(prevDing) # that has rightCloseBracket
                         # implicitMultiplyNode = ('*', (self.addedSymbolId, -1))
                         self.addedSymbolId += 1
                         implicitMultiplyInfoDict = {# ganz * leftarg
                             'name':'*',
-                            'position':-1, # no real position in equation
+                            'position':ding['left__startBracketPos'],#-len('*')
                             'type':'implicit',
                             'startPos':infixLeftOfDing['startPos'],
                             'endPos':ding['left__endBracketPos'],
@@ -1971,6 +1977,8 @@ class Latexparser(Parser):
                             'child':{1:None, 2:None},
                             'parent':None # no setting parents here, since we need to check for presence of infix in all Dings first.
                         }
+                        self.tempBracketFinderList = [implicitMultiplyInfoDict]
+                        self.__updateInfixNearestBracketInfix(self.tempBracketFinderList, self.infixList)
                         self.infixList.append(implicitMultiplyInfoDict)
                         newDings.append(implicitMultiplyInfoDict)
                         ###################
@@ -1983,13 +1991,13 @@ class Latexparser(Parser):
                         ###################
                     #elif ding['left__startBracketType'] is not None:
                     elif ding['left__type'] == 'enclosing': #Ding*(...+???)
-                        infixLeftOfDing = findLeftestInfixFrom(prevDing) # that has rightCloseBracket
-                        import pdb;pdb.set_trace()
+                        # infixLeftOfDing = findLeftestInfixFrom(prevDing) # that has rightCloseBracket
+                        # import pdb;pdb.set_trace()
                         # implicitMultiplyNode = ('*', (self.addedSymbolId, -1))
                         self.addedSymbolId += 1
                         implicitMultiplyInfoDict = {# rightarg * ganz
                             'name':'*',
-                            'position':-1, # no real position in equation
+                            'position':ding['left__startBracketPos'],#-len('*')
                             'type':'implicit',
                             'startPos':infixLeftOfDing['startPos'],
                             'endPos':ding['ganzEndPos'],
@@ -2013,6 +2021,8 @@ class Latexparser(Parser):
                             'child':{1:None, 2:None},
                             'parent':None # no setting parents here, since we need to check for presence of infix in all Dings first.
                         }
+                        self.tempBracketFinderList = [implicitMultiplyInfoDict]
+                        self.__updateInfixNearestBracketInfix(self.tempBracketFinderList, self.infixList)
                         self.infixList.append(implicitMultiplyInfoDict)
                         newDings.append(implicitMultiplyInfoDict)
                         ###################
@@ -2025,12 +2035,13 @@ class Latexparser(Parser):
                         ###################
                 else: #both prevDing & ding are not infixes.... 
                     #add implicit multiply to (prevDing and ding)
+                    #prevDing/ding can be number/variable/backslash_variable/backslash_function
                     #-need to provide parent of () for update child [name, startPos, endPos, ganzStartPos, ganzEndPos]
                     # implicitMultiplyNode = ('*', (self.addedSymbolId, -1))
                     self.addedSymbolId += 1
                     implicitMultiplyInfoDict = {
                         'name':'*',
-                        'position':-1, # means its implicit multiply
+                        'position':prevDing['ganzEndPos'],
                         'type':'implicit',
                         'startPos':prevDing['startPos'],
                         'endPos':ding['endPos'],
@@ -2053,6 +2064,8 @@ class Latexparser(Parser):
                         'child':{1:None, 2:None},
                         'parent':None
                     }
+                    self.tempBracketFinderList = [implicitMultiplyInfoDict]
+                    self.__updateInfixNearestBracketInfix(self.tempBracketFinderList, self.infixList)
                     self.infixList.append(implicitMultiplyInfoDict)
                     newDings.append(implicitMultiplyInfoDict)
                     ###################
@@ -2828,7 +2841,7 @@ class Latexparser(Parser):
             pp = pprint.PrettyPrinter(indent=4)
             pp.pprint(sadchild)
             print("dingsNoParents:")
-            print(dingsNoParents)
+            print(list(map(lambda d: (d['name'], d['startPos'], d['endPos']), dingsNoParents)))
             import pdb;pdb.set_trace()
             raise Exception('Equals only have 2 sides')
         #build the AST here...
@@ -3200,3 +3213,10 @@ $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$incomplete code to check variable_depende
             """
             return f"\\{aux['leftOpenBracket']}{self._recursiveUnparse(arguments[0])}{aux['leftCloseBracket']}{name}{aux['rightOpenBracket']}{self._recursiveUnparse(arguments[1])}{aux['rightCloseBracket']}"#need to get the brackets....
         raise Exception(f'Unhandled {keyTuple}')
+
+    def latexToScheme(self):
+        """
+        #~ DRAFT ~#
+        backslash_variable to 1 node!
+        """
+        raise Exception('unImplemented')
