@@ -10,14 +10,14 @@ def test__findingBackSlashAndInfixOperations__Trig0(verbose=False):
     equationStr = '-\\sin( 2x_0 ) = -2\\sin(x_0)\\cos(x_0)'
     parser = Latexparser(equationStr, verbose=verbose)
     parser._parse()
-    expected_ast = {   ('*', 4): [('2', 3), ('sin', 5)],
+    expected_ast = {   ('*', 4): [('-', 2), ('sin', 5)],
     ('*', 6): [('*', 4), ('cos', 7)],
     ('*', 14): [('2', 13), ('x_0', 15)],
-    ('-', 2): [('0', 1), ('*', 6)],
+    ('-', 2): [('0', 1), ('2', 3)],
     ('-', 9): [('0', 8), ('sin', 10)],
-    ('=', 0): [('-', 9), ('-', 2)],
-    ('cos', 7): [('x_0', 11)],
-    ('sin', 5): [('x_0', 12)],
+    ('=', 0): [('-', 9), ('*', 6)],
+    ('cos', 7): [('x_0', 12)],
+    ('sin', 5): [('x_0', 11)],
     ('sin', 10): [('*', 14)]}
     print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
     if verbose:
@@ -32,10 +32,10 @@ def test__findingBackSlashAndInfixOperations__Trig1(verbose=False):
     parser._parse()
     expected_ast = {   ('+', 3): [('^', 10), ('^', 9)],
     ('=', 0): [('+', 3), ('1', 1)],
-    ('^', 9): [(('cos', 4), ('2', 6))],
-    ('^', 10): [(('sin', 2), ('2', 8))],
-    ('cos', 4): [('x', 5)],
-    ('sin', 2): [('x', 7)]}
+    ('^', 9): [(('cos', 4), ('2', 7))],
+    ('^', 10): [(('sin', 2), ('2', 6))],
+    ('cos', 4): [('x', 8)],
+    ('sin', 2): [('x', 5)]}
     print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
     if verbose:
         pp.pprint(parser.ast)
@@ -49,10 +49,10 @@ def test__findingBackSlashAndInfixOperations__Trig2(verbose=False):
     parser._parse()
     expected_ast = {   ('+', 3): [('^', 10), ('^', 9)],
     ('=', 0): [('+', 3), ('1', 1)],
-    ('^', 9): [(('cos', 4), ('2', 6))],
-    ('^', 10): [(('sin', 2), ('2', 8))],
-    ('cos', 4): [('x', 5)],
-    ('sin', 2): [('x', 7)]}
+    ('^', 9): [(('cos', 4), ('2', 5))],
+    ('^', 10): [(('sin', 2), ('2', 7))],
+    ('cos', 4): [('x', 6)],
+    ('sin', 2): [('x', 8)]}
     print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
     if verbose:
         pp.pprint(parser.ast)
@@ -76,7 +76,7 @@ def test__findingBackSlashAndInfixOperations__Sqrt1(verbose=False):
     equationStr = '\\sqrt[3](9)=2'
     parser = Latexparser(equationStr, verbose=verbose)
     parser._parse()
-    expected_ast = {('=', 0): [('nroot', 2), ('2', 1)], ('nroot', 2): [('3', 4), ('9', 3)]}
+    expected_ast = {('=', 0): [('nroot', 2), ('2', 1)], ('nroot', 2): [('3', 3), ('9', 4)]}
     print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
     if verbose:
         pp.pprint(parser.ast)
@@ -114,9 +114,8 @@ def test__findingBackSlashAndInfixOperations__Log0(verbose=False):
     equationStr = '\\log_{12}(8916100448256)=12'
     parser = Latexparser(equationStr, verbose=verbose)
     parser._parse()
-    expected_ast = {
-    ('=', 0): [('log', 4), ('12', 3)],
-    ('log', 4): [('12', 1), ('8916100448256', 2)]}
+    expected_ast = {   ('=', 0): [('log', 2), ('12', 1)],
+    ('log', 2): [('12', 4), ('8916100448256', 3)]}
     print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
     if verbose:
         pp.pprint(parser.ast)
@@ -128,7 +127,7 @@ def test__findingBackSlashAndInfixOperations__Log1(verbose=False):
     equationStr = '\\log(100)=2'
     parser = Latexparser(equationStr, verbose=verbose)
     parser._parse()
-    expected_ast = {('=', 0): [('log', 4), ('2', 2)], ('log', 4): [(10, 3), ('100', 1)]}
+    expected_ast = {('=', 0): [('log', 1), ('2', 2)], ('log', 1): [(10, 4), ('100', 3)]}
     print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
     if verbose:
         pp.pprint(parser.ast)
@@ -140,7 +139,7 @@ def test__findingBackSlashAndInfixOperations__tildeVariable(verbose=False):
     equationStr = '\\tilde{x}=2'
     parser = Latexparser(equationStr, verbose=verbose)
     parser._parse()
-    expected_ast = {('=', 0): [('tilde', 3), ('2', 2)], ('tilde', 3): [('x', 1)]}
+    expected_ast = {('=', 0): [('tilde', 1), ('2', 2)], ('tilde', 1): [('x', 3)]}
     print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
     if verbose:
         pp.pprint(parser.ast)
@@ -152,11 +151,11 @@ def test__findingBackSlashAndInfixOperations__SchrodingerWaveEquation(verbose=Fa
     equationStr = '\\widehat{H}\\Psi=\\widehat{E}\\Psi'
     parser = Latexparser(equationStr, verbose=verbose)
     parser._parse()
-    expected_ast = {   ('*', 4): [('widehat', 3), ('Psi', 5)],
-    ('*', 7): [('widehat', 6), ('Psi', 8)],
-    ('=', 0): [('*', 4), ('*', 7)],
-    ('widehat', 3): [('H', 1)],
-    ('widehat', 6): [('E', 2)]}
+    expected_ast = {   ('*', 2): [('widehat', 1), ('Psi', 3)],
+    ('*', 5): [('widehat', 4), ('Psi', 6)],
+    ('=', 0): [('*', 5), ('*', 2)],
+    ('widehat', 1): [('E', 7)],
+    ('widehat', 4): [('H', 8)]}
     print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
     if verbose:
         pp.pprint(parser.ast)
@@ -168,11 +167,11 @@ def test__infixInBackslash__paraboloid(verbose=False):
     equationStr = 'z=\\sqrt(x^2+y^2)'
     parser = Latexparser(equationStr, verbose=verbose)
     parser._parse()
-    expected_ast = {   ('+', 5): [('^', 3), ('^', 7)],
-    ('=', 0): [('z', 1), ('sqrt', 10)],
-    ('^', 3): [('x', 2), ('2', 4)],
-    ('^', 7): [('y', 6), ('2', 8)],
-    ('sqrt', 10): [(2, 9), ('+', 5)]}
+    expected_ast = {   ('+', 6): [('^', 4), ('^', 8)],
+    ('=', 0): [('z', 2), ('nroot', 1)],
+    ('^', 4): [('x', 3), ('2', 5)],
+    ('^', 8): [('y', 7), ('2', 9)],
+    ('nroot', 1): [(2, 10), ('+', 6)]}
     print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
     if verbose:
         pp.pprint(parser.ast)
@@ -184,12 +183,12 @@ def test__sqrtWithPowerCaretRightOtherInfix__hill(verbose=False):
     equationStr = 'z=-\\sqrt[2](x^2+y^2)'
     parser = Latexparser(equationStr, verbose=verbose)
     parser._parse()
-    expected_ast = {   ('+', 6): [('^', 4), ('^', 8)],
-    ('-', 11): [('0', 10), ('sqrt', 12)],
-    ('=', 0): [('z', 1), ('-', 11)],
-    ('^', 4): [('x', 3), ('2', 5)],
-    ('^', 8): [('y', 7), ('2', 9)],
-    ('sqrt', 12): [('2', 2), ('+', 6)]}
+    expected_ast = {   ('+', 8): [('^', 6), ('^', 10)],
+    ('-', 2): [('0', 1), ('nroot', 3)],
+    ('=', 0): [('z', 4), ('-', 2)],
+    ('^', 6): [('x', 5), ('2', 7)],
+    ('^', 10): [('y', 9), ('2', 11)],
+    ('nroot', 3): [('2', 12), ('+', 8)]}
     print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
     if verbose:
         pp.pprint(parser.ast)
@@ -202,23 +201,23 @@ def test__manyFracCaretEnclosingBrac__partialFrac(verbose=False):
     parser = Latexparser(equationStr, verbose=verbose)
     parser._parse()
     expected_ast = {   
-    ('*', 9): [('2', 8), ('x', 10)],
-    ('+', 30): [('frac', 29), ('frac', 31)],
-    ('+', 32): [('+', 30), ('frac', 33)],
-    ('-', 7): [('x', 6), ('*', 9)],
-    ('-', 11): [('-', 7), ('^', 13)],
-    ('-', 16): [('x', 15), ('2', 17)],
-    ('-', 19): [('0', 18), ('3', 20)],
-    ('-', 22): [('x', 21), ('3', 23)],
-    ('-', 25): [('x', 24), ('^', 27)],
-    ('=', 0): [('frac', 34), ('+', 32)],
-    ('^', 4): [('x', 3), ('2', 5)],
-    ('^', 13): [('3', 12), ('2', 14)],
-    ('^', 27): [('3', 26), ('2', 28)],
-    ('frac', 29): [('4', 1), ('-', 16)],
-    ('frac', 31): [('-', 19), ('-', 22)],
-    ('frac', 33): [('9', 2), ('-', 25)],
-    ('frac', 34): [('^', 4), ('-', 11)]}
+    ('*', 10): [('-', 8), ('^', 14)],
+    ('+', 3): [('/', 2), ('/', 4)],
+    ('+', 5): [('+', 3), ('/', 6)],
+    ('-', 8): [('x', 7), ('2', 9)],
+    ('-', 12): [('x', 11), ('3', 13)],
+    ('-', 20): [('x', 19), ('3', 21)],
+    ('-', 25): [('x', 24), ('3', 26)],
+    ('-', 28): [('0', 27), ('3', 29)],
+    ('-', 31): [('x', 30), ('2', 32)],
+    ('/', 1): [('^', 17), ('*', 10)],
+    ('/', 2): [('4', 34), ('-', 31)],
+    ('/', 4): [('-', 28), ('-', 25)],
+    ('/', 6): [('9', 33), ('^', 22)],
+    ('=', 0): [('/', 1), ('+', 5)],
+    ('^', 14): [('-', 12), ('2', 15)],
+    ('^', 17): [('x', 16), ('2', 18)],
+    ('^', 22): [('-', 20), ('2', 23)]}
     print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
     if verbose:
         pp.pprint(parser.ast)
@@ -230,7 +229,12 @@ def test__fracWithLogNoBase__changeLogBaseFormula(verbose=False):
     equationStr = '\\log_{b}(a)=\\frac{\\log_{c}(a)}{\\log_{c}(b)}'
     parser = Latexparser(equationStr, verbose=verbose)
     parser._parse()
-    expected_ast = None # to be filled in
+    expected_ast = {   
+    ('/', 1): [('log', 4), ('log', 3)],
+    ('=', 0): [('log', 2), ('/', 1)],
+    ('log', 2): [('b', 5), ('a', 6)],
+    ('log', 3): [('c', 8), ('b', 7)],
+    ('log', 4): [('c', 10), ('a', 9)]}
     print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
     if verbose:
         pp.pprint(parser.ast)
@@ -430,13 +434,13 @@ if __name__=='__main__':
     # test__findingBackSlashAndInfixOperations__Sqrt1()
     # test__findingBackSlashAndInfixOperations__Ln()
     # test__findingBackSlashAndInfixOperations__Frac()
-    test__findingBackSlashAndInfixOperations__Log0(True)
-    # test__findingBackSlashAndInfixOperations__Log1(True)
-    # test__findingBackSlashAndInfixOperations__tildeVariable(True)
-    # test__findingBackSlashAndInfixOperations__SchrodingerWaveEquation(True)
-    # test__infixInBackslash__paraboloid(True)
-    # test__sqrtWithPowerCaretRightOtherInfix__hill(True)
-    # test__manyFracCaretEnclosingBrac__partialFrac(True) # not tested yet
+    # test__findingBackSlashAndInfixOperations__Log0()
+    # test__findingBackSlashAndInfixOperations__Log1()
+    # test__findingBackSlashAndInfixOperations__tildeVariable()
+    # test__findingBackSlashAndInfixOperations__SchrodingerWaveEquation()
+    # test__infixInBackslash__paraboloid()
+    # test__sqrtWithPowerCaretRightOtherInfix__hill()
+    test__manyFracCaretEnclosingBrac__partialFrac(True)
     # test__fracWithLogNoBase__changeLogBaseFormula(True) # not tested yet
     # test__hassliche__highPowersAndRandomCoefficientsPITEST(True)  # not tested yet
     # test__hassliche__nestedPolynomial() # not tested yet

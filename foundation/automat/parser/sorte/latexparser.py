@@ -30,7 +30,7 @@ class Latexparser(Parser):
     But we will assume that there is no need for that now, and only when user execute toString, 
     will we return with enclosed \[\]
     """
-    PRIOIRITIZED_INFIX = ['^', '/', '*', '-', '+'] # the smaller the number the higher the priority
+    PRIOIRITIZED_INFIX = ['^', '+', '-', '*', '/']#['^', '/', '*', '-', '+'] # the smaller the number the higher the priority
     INFIX = PRIOIRITIZED_INFIX+['=']
     OPEN_BRACKETS = ['{', '[', '(']
     CLOSE_BRACKETS = ['}', ']', ')']
@@ -56,7 +56,7 @@ class Latexparser(Parser):
             '_findInfixAndEnclosingBrackets':False,
             '_findBackSlashPositions':False,
             '_updateInfixNearestBracketInfix':False,
-            '__updateInfixNearestBracketInfix':False,
+            '__updateInfixNearestBracketInfix':True,
             '_removeCaretThatIsNotExponent':False,
             '_findLeftOverPosition':False,
             '_contiguousLeftOvers':False,
@@ -1406,6 +1406,8 @@ class Latexparser(Parser):
             return p0
 
         roots, leaves, enclosureTree, levelToIDs, idToLevel = EnclosureTree.makeEnclosureTreeWithLevelRootLeaves(listPoss, firstContainsSecond, getId)
+        #sort enclosureTree's leaves to ensure consistent
+        enclosureTree = dict(map(lambda t: (t[0], sorted(t[1], key=lambda grenzeRange:grenzeRange[0])), enclosureTree.items()))
         #################
         if self.showError():
             import pprint
@@ -2210,7 +2212,20 @@ class Latexparser(Parser):
             prioritiesDingsPosItemList = sorted(prioritiesToDingsPos.items(), key=lambda item: item[0])
 
             if self.showError():
+                import pprint
+                pp = pprint.PrettyPrinter(indent=4)
                 print('build subtrees by INFIX PRIORITY')
+                print('infixBy Priorities*********************************START')
+                priorityToItem = {}
+                for priority, dingPoss in prioritiesDingsPosItemList: # for level -1, we should keep the child as is....
+                    tits = []
+                    for dingPos in dingPoss:
+                        ding = newDings[dingPos]
+                        tits.append((ding['name'], ding['startPos'], ding['endPos']))
+                    priorityToItem[priority] = tits
+                pp.pprint(priorityToItem)
+                print('infixBy Priorities*********************************END')
+
                 # import pdb;pdb.set_trace()
             #should include all the prioritiesDingsPosItemList that are infixes
             for priority, dingPoss in prioritiesDingsPosItemList: # for level -1, we should keep the child as is....
@@ -2783,9 +2798,8 @@ class Latexparser(Parser):
                 nodeName = 'log'
                 newNode = (nodeName, nodeId)
                 children = latexASTCopy[currentNode]
-                if len(children) == 1: # is root 2, and we only have the rootant
-                    children.insert(0, ('e', self.nodeId))
-                    self.nodeId += 1
+                children.insert(0, ('e', self.nodeId))
+                self.nodeId += 1
                 self.ast[newNode] = children
                 #replace parent's child too
                 parentNode = None
@@ -2802,6 +2816,13 @@ class Latexparser(Parser):
                     children[parentChildIndex] = newNode
                     latexASTCopy[parentNode] = children
                 #
+                stack += latexASTCopy[currentNode]
+            elif nodeName == 'log' and len(latexASTCopy[currentNode]) == 1: # add the default 10 as argument 1
+                children = latexASTCopy[currentNode]
+                children = latexASTCopy[currentNode]
+                children.insert(0, (10, self.nodeId))
+                self.nodeId += 1
+                self.ast[currentNode] = children
                 stack += latexASTCopy[currentNode]
             elif nodeName == 'frac':
                 nodeName = '/'

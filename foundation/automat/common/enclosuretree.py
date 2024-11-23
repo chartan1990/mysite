@@ -190,7 +190,19 @@ class EnclosureTree: # can be used to schedule processes by level too... TODO
                     if obj0ID not in existingChildren:
                         existingChildren.append(obj0ID)
                         enclosureTree[obj1ID] = existingChildren
-        return enclosureTree
+        #here, some parents may have their children's children, in their children list. TODO
+        import copy
+        cleanEnclosureTree = {}
+        for objID, children in enclosureTree.items():
+            addableChildren = set(copy.deepcopy(children))
+            childrenToBeRemovedFromObjID = set()
+            for child in children: 
+                childChildren = enclosureTree[child]
+                commonChildren = set(children).intersection(set(childChildren))#remove commonchildren
+                childrenToBeRemovedFromObjID = childrenToBeRemovedFromObjID.union(commonChildren)
+            leftOverChildren = addableChildren - childrenToBeRemovedFromObjID
+            cleanEnclosureTree[objID] = list(leftOverChildren)
+        return cleanEnclosureTree
 
     @classmethod
     def makeEnclosureTreeWithLeaves(cls, listOfPoss, firstContainsSecond, getId):

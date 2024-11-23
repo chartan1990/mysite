@@ -180,7 +180,65 @@ def test__latexParser__makeEnclosureTreeOfConsecutiveGroupGrenze0(verbose=False)
 
 
 
+def test__latexParser__parentHavingChildrenOfTheirChildren(verbose=False):
+    consecutiveGroups = {   (0, 11): [('log', 0, 11)],
+    (6, 7): [('b', 6, 7)],
+    (9, 10): [('a', 9, 10)],
+    (12, 43): [('frac', 12, 43)],
+    (18, 29): [('log', 18, 29)],
+    (24, 25): [('c', 24, 25)],
+    (27, 28): [('a', 27, 28)],
+    (31, 42): [('log', 31, 42)],
+    (37, 38): [('c', 37, 38)],
+    (40, 41): [('b', 40, 41)]}
+
+
+    listPoss = list(consecutiveGroups.keys())
+    def firstContainsSecond(p0, p1):
+        return p0[0] <= p1[0] and p1[1] <= p0[1]
+    def getId(p0):
+        return p0
+
+    roots, leaves, enclosureTree, levelToIDs, idToLevel = EnclosureTree.makeEnclosureTreeWithLevelRootLeaves(listPoss, firstContainsSecond, getId)
+    #need to change everything to instancemethod instead of class method
+    # rootId, enclosureTree, levelToIDs, idToLevel, leaves = EnclosureTreeLevel().growLevelTree(listPoss, firstContainsSecond, getId)
+    # leaves = EnclosureTreeLevel.leaves
+    if verbose:
+        print('**************enclosureTree:')
+        pp.pprint(enclosureTree)
+        print('**************leaves:')
+        pp.pprint(leaves)
+        print('**************levelToIDs:')
+        pp.pprint(levelToIDs) #<<<<<<<<<<<<<<WRONG
+        print('**************idToLevel:')
+        pp.pprint(idToLevel)
+    expected__enclosureTree = {   (0, 11): [(9, 10), (6, 7)],
+    (6, 7): [],
+    (9, 10): [],
+    (12, 43): [(18, 29), (31, 42)],
+    (18, 29): [(24, 25), (27, 28)],
+    (24, 25): [],
+    (27, 28): [],
+    (31, 42): [(37, 38), (40, 41)],
+    (37, 38): [],
+    (40, 41): []}
+    expected__leaves = [(6, 7), (9, 10), (24, 25), (27, 28), (37, 38), (40, 41)]
+    expected__levelToIDs = {   0: [(12, 43), (0, 11)],
+    1: [(31, 42), (18, 29), (6, 7), (9, 10)],
+    2: [(40, 41), (37, 38), (27, 28), (24, 25)]}
+    expected__idToLevel = {   (0, 11): 0,
+    (6, 7): 1,
+    (9, 10): 1,
+    (12, 43): 0,
+    (18, 29): 1,
+    (24, 25): 2,
+    (27, 28): 2,
+    (31, 42): 1,
+    (37, 38): 2,
+    (40, 41): 2}
+
 
 if __name__=='__main__':
-    test__latexParser__makeEnclosureTreeOfConsecutiveGroupGrenze()
+    # test__latexParser__makeEnclosureTreeOfConsecutiveGroupGrenze()
     # test__latexParser__makeEnclosureTreeOfConsecutiveGroupGrenze0()
+    test__latexParser__parentHavingChildrenOfTheirChildren()
