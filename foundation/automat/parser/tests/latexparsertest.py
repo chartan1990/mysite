@@ -194,6 +194,39 @@ def test__sqrtWithPowerCaretRightOtherInfix__hill(verbose=False):
         pp.pprint(parser.ast)
 
 
+def test__BODMAS__enclosingBracketInBackslashArg(verbose=False):
+    pp = pprint.PrettyPrinter(indent=4)
+
+    equationStr = '\\frac{2}{(x-1)(x+1)} = \\frac{1}{x-1} - \\frac{1}{x+1}'
+    parser = Latexparser(equationStr, verbose=verbose)
+    parser._parse()
+    expected_ast = {   ('*', 8): [('-', 6), ('+', 10)],
+    ('+', 10): [('x', 9), ('1', 11)],
+    ('+', 19): [('x', 18), ('1', 20)],
+    ('-', 3): [('/', 2), ('/', 4)],
+    ('-', 6): [('x', 5), ('1', 7)],
+    ('-', 15): [('x', 14), ('1', 16)],
+    ('/', 1): [('2', 12), ('*', 8)],
+    ('/', 2): [('1', 13), ('-', 15)],
+    ('/', 4): [('1', 17), ('+', 19)],
+    ('=', 0): [('/', 1), ('-', 3)]}
+    print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
+    if verbose:
+        pp.pprint(parser.ast)
+
+
+def test__BODMAS__enclosingBracketInBackslashArgImplicitZero(verbose=False):
+    pp = pprint.PrettyPrinter(indent=4)
+
+    equationStr = '\\frac{2}{(x-1)(x+1)} = \\frac{1}{x-1} + \\frac{-1}{x+1}'
+    parser = Latexparser(equationStr, verbose=verbose)
+    parser._parse()
+    expected_ast = None
+    print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
+    if verbose:
+        pp.pprint(parser.ast)
+
+
 def test__BODMAS__enclosingBracket(verbose=False):
     pp = pprint.PrettyPrinter(indent=4)
 
@@ -453,7 +486,9 @@ if __name__=='__main__':
     # test__findingBackSlashAndInfixOperations__SchrodingerWaveEquation()
     # test__infixInBackslash__paraboloid()
     # test__sqrtWithPowerCaretRightOtherInfix__hill()
-    test__BODMAS__enclosingBracket(True)
+    # test__BODMAS__enclosingBracketInBackslashArg()
+    test__BODMAS__enclosingBracketInBackslashArgImplicitZero(True)
+    # test__BODMAS__enclosingBracket()
     # test__manyFracCaretEnclosingBrac__partialFrac(True)
     # test__fracWithLogNoBase__changeLogBaseFormula(True) # not tested yet
     # test__hassliche__highPowersAndRandomCoefficientsPITEST(True)  # not tested yet

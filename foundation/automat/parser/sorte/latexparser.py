@@ -2006,183 +2006,190 @@ class Latexparser(Parser):
                 #     raise Exception('Should not have number|number; variable|number, something wrong with leftOver-finding-method')
                 elif prevDing['type'] == 'infix': # ding['type'] != 'infix'
                     #if prevDing['right__startBracketType'] is not None and prevDing['right__endBracketType'] is not None: 
-                    if prevDing['right__type'] == 'leftRight': #???+(...)*Ding
-                        #nearest infix with leftBracket, right of Ding
-                        # infixRightOfDing = findRightestInfixFrom(ding) # that has leftCloseBracket
-                        #infixRightOfDing might not be infix, since there might not have infix right of Ding
-                        # implicitMultiplyNode = ('*', (self.addedSymbolId, -1))
-                        self.addedSymbolId += 1
-                        import pdb;pdb.set_trace()
-                        implicitMultiplyInfoDict = {# rightarg * ganz
-                            'name':'*',
-                            'position':prevDing['right__endBracketPos']+lenOrZero(prevDing['right__endBracketType']),
-                            'type':'implicit',
-                            'startPos':prevDing['right__startBracketPos'],
-                            'endPos':ding.get('endPos'),
-                            'ganzStartPos':prevDing['right__startBracketPos'],
-                            'ganzEndPos':ding.get('ganzEndPos'),
-                            #rightarg
-                            'left__startBracketPos':prevDing['right__startBracketPos'], #TODO to test leaves with brackets..
-                            'left__startBracketType':prevDing['right__startBracketType'], #TODO to test leaves with brackets..
-                            'left__endBracketPos':prevDing['right__endBracketPos'], #TODO to test leaves with brackets..
-                            'left__endBracketType':prevDing['right__endBracketType'], #TODO to test leaves with brackets..
-                            'left__argStart':prevDing['right__startBracketPos'] + lenOrZero(prevDing['right__startBracketType']), # without the bracket
-                            'left__argEnd':prevDing['right__endBracketPos'] - lenOrZero(prevDing['right__endBracketType']), # without the bracket
-                            #Ding, infixRightOfDing might not be infix
-                            'right__startBracketPos':ding.get('right__startBracketPos'), #TODO to test leaves with brackets..
-                            'right__startBracketType':ding.get('right__startBracketType'), #TODO to test leaves with brackets..
-                            'right__endBracketPos':ding.get('right__endBracketPos'), #TODO to test leaves with brackets...
-                            'right__endBracketType':ding.get('right__endBracketType'), #TODO to test leaves with brackets...
-                            'right__argStart':ding.get('right__argStart'),
-                            'right__argEnd':ding.get('right__argEnd'),
+                    if prevDing['right__type'] == 'leftRight': #???+(...)*Ding, ???+(Ding)
+                        if not(prevDing['right__argStart'] <= ding['position'] and ding['position']+len(ding['name']) <= prevDing['right__argEnd']):
+                            #nearest infix with leftBracket, right of Ding
+                            # infixRightOfDing = findRightestInfixFrom(ding) # that has leftCloseBracket
+                            #infixRightOfDing might not be infix, since there might not have infix right of Ding
+                            # implicitMultiplyNode = ('*', (self.addedSymbolId, -1))
+                            self.addedSymbolId += 1
+                            import pdb;pdb.set_trace()
+                            implicitMultiplyInfoDict = {# rightarg * ganz
+                                'name':'*',
+                                'position':prevDing['right__endBracketPos']+lenOrZero(prevDing['right__endBracketType']),
+                                'type':'implicit',
+                                'startPos':prevDing['right__startBracketPos'],
+                                'endPos':ding.get('endPos'),
+                                'ganzStartPos':prevDing['right__startBracketPos'],
+                                'ganzEndPos':ding.get('ganzEndPos'),
+                                #rightarg
+                                'left__startBracketPos':prevDing['right__startBracketPos'], #TODO to test leaves with brackets..
+                                'left__startBracketType':prevDing['right__startBracketType'], #TODO to test leaves with brackets..
+                                'left__endBracketPos':prevDing['right__endBracketPos'], #TODO to test leaves with brackets..
+                                'left__endBracketType':prevDing['right__endBracketType'], #TODO to test leaves with brackets..
+                                'left__argStart':prevDing['right__startBracketPos'] + lenOrZero(prevDing['right__startBracketType']), # without the bracket
+                                'left__argEnd':prevDing['right__endBracketPos'] - lenOrZero(prevDing['right__endBracketType']), # without the bracket
+                                #Ding, infixRightOfDing might not be infix
+                                'right__startBracketPos':ding.get('right__startBracketPos'), #TODO to test leaves with brackets..
+                                'right__startBracketType':ding.get('right__startBracketType'), #TODO to test leaves with brackets..
+                                'right__endBracketPos':ding.get('right__endBracketPos'), #TODO to test leaves with brackets...
+                                'right__endBracketType':ding.get('right__endBracketType'), #TODO to test leaves with brackets...
+                                'right__argStart':ding.get('right__argStart'),
+                                'right__argEnd':ding.get('right__argEnd'),
 
-                            'child':{1:None, 2:None},
-                            'parent':None # no setting parents here, since we need to check for presence of infix in all Dings first.
-                        }
-                        self.tempBracketFinderList = [implicitMultiplyInfoDict]
-                        self.__updateInfixNearestBracketInfix(self.tempBracketFinderList, self.infixList)
-                        self.infixList.append(implicitMultiplyInfoDict)
-                        newDings.append(implicitMultiplyInfoDict)
-                        ###################
-                        if self.showError():
-                            print('(infix|leftRight)(ding)adding implicit-multiply between')
-                            print((prevDing['name'], prevDing['startPos'], prevDing['endPos']))
-                            print('vs')
-                            print((ding['name'], ding['startPos'], ding['endPos']))
-                            print('*******************************adding implicit-multiply')
-                        ###################
+                                'child':{1:None, 2:None},
+                                'parent':None # no setting parents here, since we need to check for presence of infix in all Dings first.
+                            }
+                            self.tempBracketFinderList = [implicitMultiplyInfoDict]
+                            self.__updateInfixNearestBracketInfix(self.tempBracketFinderList, self.infixList)
+                            self.infixList.append(implicitMultiplyInfoDict)
+                            newDings.append(implicitMultiplyInfoDict)
+                            ###################
+                            if self.showError():
+                                print('(infix|leftRight)(ding)adding implicit-multiply between')
+                                print((prevDing['name'], prevDing['startPos'], prevDing['endPos']))
+                                print('vs')
+                                print((ding['name'], ding['startPos'], ding['endPos']))
+                                print('*******************************adding implicit-multiply')
+                            ###################
                     #elif prevDing['right__endBracketType'] is not None:
-                    elif prevDing['right__type'] == 'enclosing': #(???+...)*Ding
-                        # infixRightOfDing = findRightestInfixFrom(ding) # that has leftCloseBracket
-                        # implicitMultiplyNode = ('*', (self.addedSymbolId, -1))
-                        self.addedSymbolId += 1
-                        # import pdb;pdb.set_trace()
-                        implicitMultiplyInfoDict = {# ganz * leftarg
-                            'name':'*',
-                            'position':prevDing['right__endBracketPos']+lenOrZero(prevDing['right__endBracketType']),
-                            'type':'implicit',
-                            'startPos':prevDing['ganzStartPos'],
-                            'endPos':ding.get('endPos'),
-                            'ganzStartPos':prevDing['ganzStartPos'],
-                            'ganzEndPos':ding.get('ganzEndPos'),
-                            #ganz
-                            'left__startBracketPos':prevDing['ganzStartPos'], #TODO to test leaves with brackets..
-                            'left__startBracketType':prevDing['left__startBracketType'], #TODO to test leaves with brackets..
-                            'left__endBracketPos':prevDing['ganzEndPos'], #TODO to test leaves with brackets..
-                            'left__endBracketType':prevDing['right__endBracketType'], #TODO to test leaves with brackets..
-                            'left__argStart':prevDing['ganzStartPos'] + lenOrZero(prevDing['left__startBracketType']), # without the bracket
-                            'left__argEnd':prevDing['ganzEndPos'] - lenOrZero(prevDing['right__endBracketType']), # without the bracket
-                            #Ding
-                            'right__startBracketPos':ding.get('right__startBracketPos'), #TODO to test leaves with brackets..
-                            'right__startBracketType':ding.get('right__startBracketType'), #TODO to test leaves with brackets..
-                            'right__endBracketPos':ding.get('right__endBracketPos'), #TODO to test leaves with brackets...
-                            'right__endBracketType':ding.get('right__endBracketType'), #TODO to test leaves with brackets...
-                            'right__argStart':ding.get('right__argStart'),
-                            'right__argEnd':ding.get('right__argEnd'),
+                    elif prevDing['right__type'] == 'enclosing': #(???+...)*Ding, (???+Ding)
+                        # TODO need to check for this case: (???+Ding)
+                        if not(prevDing['left__startBracketPos'] <= ding['position'] and ding['position'] + len(ding['name']) <= prevDing['right__endBracketPos']):
+                            #for the case test__BODMAS__enclosingBracketInBackslashArg
+                            # infixRightOfDing = findRightestInfixFrom(ding) # that has leftCloseBracket
+                            # implicitMultiplyNode = ('*', (self.addedSymbolId, -1))
+                            self.addedSymbolId += 1
+                            # import pdb;pdb.set_trace()
+                            implicitMultiplyInfoDict = {# ganz * leftarg
+                                'name':'*',
+                                'position':prevDing['right__endBracketPos']+lenOrZero(prevDing['right__endBracketType']),
+                                'type':'implicit',
+                                'startPos':prevDing['ganzStartPos'],
+                                'endPos':ding.get('endPos'),
+                                'ganzStartPos':prevDing['ganzStartPos'],
+                                'ganzEndPos':ding.get('ganzEndPos'),
+                                #ganz
+                                'left__startBracketPos':prevDing['ganzStartPos'], #TODO to test leaves with brackets..
+                                'left__startBracketType':prevDing['left__startBracketType'], #TODO to test leaves with brackets..
+                                'left__endBracketPos':prevDing['ganzEndPos'], #TODO to test leaves with brackets..
+                                'left__endBracketType':prevDing['right__endBracketType'], #TODO to test leaves with brackets..
+                                'left__argStart':prevDing['ganzStartPos'] + lenOrZero(prevDing['left__startBracketType']), # without the bracket
+                                'left__argEnd':prevDing['ganzEndPos'] - lenOrZero(prevDing['right__endBracketType']), # without the bracket
+                                #Ding
+                                'right__startBracketPos':ding.get('right__startBracketPos'), #TODO to test leaves with brackets..
+                                'right__startBracketType':ding.get('right__startBracketType'), #TODO to test leaves with brackets..
+                                'right__endBracketPos':ding.get('right__endBracketPos'), #TODO to test leaves with brackets...
+                                'right__endBracketType':ding.get('right__endBracketType'), #TODO to test leaves with brackets...
+                                'right__argStart':ding.get('right__argStart'),
+                                'right__argEnd':ding.get('right__argEnd'),
 
-                            'child':{1:None, 2:None},
-                            'parent':None # no setting parents here, since we need to check for presence of infix in all Dings first.
-                        }
-                        self.tempBracketFinderList = [implicitMultiplyInfoDict]
-                        self.__updateInfixNearestBracketInfix(self.tempBracketFinderList, self.infixList)
-                        self.infixList.append(implicitMultiplyInfoDict)
-                        newDings.append(implicitMultiplyInfoDict)
-                        ###################
-                        if self.showError():
-                            print('(prevDing)(infix|enclosing)adding implicit-multiply between')
-                            print((prevDing['name'], prevDing['startPos'], prevDing['endPos']))
-                            print('vs')
-                            print((ding['name'], ding['startPos'], ding['endPos']))
-                            print('*******************************adding implicit-multiply')
-                        ###################
+                                'child':{1:None, 2:None},
+                                'parent':None # no setting parents here, since we need to check for presence of infix in all Dings first.
+                            }
+                            self.tempBracketFinderList = [implicitMultiplyInfoDict]
+                            self.__updateInfixNearestBracketInfix(self.tempBracketFinderList, self.infixList)
+                            self.infixList.append(implicitMultiplyInfoDict)
+                            newDings.append(implicitMultiplyInfoDict)
+                            ###################
+                            if self.showError():
+                                print('(prevDing)(infix|enclosing)adding implicit-multiply between')
+                                print((prevDing['name'], prevDing['startPos'], prevDing['endPos']))
+                                print('vs')
+                                print((ding['name'], ding['startPos'], ding['endPos']))
+                                print('*******************************adding implicit-multiply')
+                            ###################
                 elif ding['type'] == 'infix': # prevDing['type'] != 'infix'
                     #if ding['left__startBracketType'] is not None and ding['left__endBracketType'] is not None:
-                    if ding['left__type'] == 'leftRight': #Ding*(...)+???
-                        # infixLeftOfDing = findLeftestInfixFrom(prevDing) # that has rightCloseBracket
-                        # implicitMultiplyNode = ('*', (self.addedSymbolId, -1))
-                        self.addedSymbolId += 1
-                        implicitMultiplyInfoDict = {# ganz * leftarg
-                            'name':'*',
-                            'position':ding['left__startBracketPos'],#-len('*')
-                            'type':'implicit',
-                            'startPos':prevDing.get('startPos'),
-                            'endPos':ding['left__endBracketPos'],
-                            'ganzStartPos':prevDing.get('ganzStartPos'),
-                            'ganzEndPos':ding['left__endBracketPos'],
-                            #Ding
-                            'left__startBracketPos':prevDing.get('left__startBracketPos'), #TODO to test leaves with brackets..
-                            'left__startBracketType':prevDing.get('left__startBracketType'), #TODO to test leaves with brackets..
-                            'left__endBracketPos':prevDing.get('left__endBracketPos'), #TODO to test leaves with brackets..
-                            'left__endBracketType':prevDing.get('left__endBracketType'), #TODO to test leaves with brackets..
-                            'left__argStart':prevDing.get('left__argStart'), # without the bracket
-                            'left__argEnd':prevDing.get('left__argEnd'), # without the bracket
-                            #leftarg
-                            'right__startBracketPos':ding['left__startBracketPos'], #TODO to test leaves with brackets..
-                            'right__startBracketType':ding['left__startBracketType'], #TODO to test leaves with brackets..
-                            'right__endBracketPos':ding['left__endBracketPos'], #TODO to test leaves with brackets...
-                            'right__endBracketType':ding['left__startBracketPos'], #TODO to test leaves with brackets...
-                            'right__argStart':ding['left__startBracketPos'] + lenOrZero(ding['left__startBracketType']), #without the bracket
-                            'right__argEnd':ding['left__endBracketPos'] - lenOrZero(ding['left__endBracketType']), #without the bracket
+                    if ding['left__type'] == 'leftRight': #prevDing*(...)+???, (prevDing)+???
+                        if not(ding['left__argStart'] <= prevDing['position'] and prevDing['position']+len(prevDing['name']) <= ding['left__argEnd']):
+                            # infixLeftOfDing = findLeftestInfixFrom(prevDing) # that has rightCloseBracket
+                            # implicitMultiplyNode = ('*', (self.addedSymbolId, -1))
+                            self.addedSymbolId += 1
+                            implicitMultiplyInfoDict = {# ganz * leftarg
+                                'name':'*',
+                                'position':ding['left__startBracketPos'],#-len('*')
+                                'type':'implicit',
+                                'startPos':prevDing.get('startPos'),
+                                'endPos':ding['left__endBracketPos'],
+                                'ganzStartPos':prevDing.get('ganzStartPos'),
+                                'ganzEndPos':ding['left__endBracketPos'],
+                                #Ding
+                                'left__startBracketPos':prevDing.get('left__startBracketPos'), #TODO to test leaves with brackets..
+                                'left__startBracketType':prevDing.get('left__startBracketType'), #TODO to test leaves with brackets..
+                                'left__endBracketPos':prevDing.get('left__endBracketPos'), #TODO to test leaves with brackets..
+                                'left__endBracketType':prevDing.get('left__endBracketType'), #TODO to test leaves with brackets..
+                                'left__argStart':prevDing.get('left__argStart'), # without the bracket
+                                'left__argEnd':prevDing.get('left__argEnd'), # without the bracket
+                                #leftarg
+                                'right__startBracketPos':ding['left__startBracketPos'], #TODO to test leaves with brackets..
+                                'right__startBracketType':ding['left__startBracketType'], #TODO to test leaves with brackets..
+                                'right__endBracketPos':ding['left__endBracketPos'], #TODO to test leaves with brackets...
+                                'right__endBracketType':ding['left__startBracketPos'], #TODO to test leaves with brackets...
+                                'right__argStart':ding['left__startBracketPos'] + lenOrZero(ding['left__startBracketType']), #without the bracket
+                                'right__argEnd':ding['left__endBracketPos'] - lenOrZero(ding['left__endBracketType']), #without the bracket
 
-                            'child':{1:None, 2:None},
-                            'parent':None # no setting parents here, since we need to check for presence of infix in all Dings first.
-                        }
-                        self.tempBracketFinderList = [implicitMultiplyInfoDict]
-                        self.__updateInfixNearestBracketInfix(self.tempBracketFinderList, self.infixList)
-                        self.infixList.append(implicitMultiplyInfoDict)
-                        newDings.append(implicitMultiplyInfoDict)
-                        ###################
-                        if self.showError():
-                            print('(prevDing)(infix|leftRight)adding implicit-multiply between')
-                            print((prevDing['name'], prevDing['startPos'], prevDing['endPos']))
-                            print('vs')
-                            print((ding['name'], ding['startPos'], ding['endPos']))
-                            print('*******************************adding implicit-multiply')
-                        ###################
+                                'child':{1:None, 2:None},
+                                'parent':None # no setting parents here, since we need to check for presence of infix in all Dings first.
+                            }
+                            self.tempBracketFinderList = [implicitMultiplyInfoDict]
+                            self.__updateInfixNearestBracketInfix(self.tempBracketFinderList, self.infixList)
+                            self.infixList.append(implicitMultiplyInfoDict)
+                            newDings.append(implicitMultiplyInfoDict)
+                            ###################
+                            if self.showError():
+                                print('(prevDing)(infix|leftRight)adding implicit-multiply between')
+                                print((prevDing['name'], prevDing['startPos'], prevDing['endPos']))
+                                print('vs')
+                                print((ding['name'], ding['startPos'], ding['endPos']))
+                                print('*******************************adding implicit-multiply')
+                            ###################
                     #elif ding['left__startBracketType'] is not None:
-                    elif ding['left__type'] == 'enclosing': #Ding*(...+???)
-                        # infixLeftOfDing = findLeftestInfixFrom(prevDing) # that has rightCloseBracket
-                        # import pdb;pdb.set_trace()
-                        # implicitMultiplyNode = ('*', (self.addedSymbolId, -1))
-                        self.addedSymbolId += 1
-                        implicitMultiplyInfoDict = {# rightarg * ganz
-                            'name':'*',
-                            'position':ding['left__startBracketPos'],#-len('*')
-                            'type':'implicit',
-                            'startPos':prevDing.get('startPos'),
-                            'endPos':ding['ganzEndPos'],
-                            'ganzStartPos':prevDing.get('ganzStartPos'),
-                            'ganzEndPos':ding['ganzEndPos'],
-                            #Ding
-                            'left__startBracketPos':prevDing.get('left__startBracketPos'), #somehow... infixLeftOfDing = {'name': 'x', 'startPos': 8, 'endPos': 9, 'parent': None, 'type': 'variable', 'ganzStartPos': 8, 'ganzEndPos': 9, 'position': 8}
-                            'left__startBracketType':prevDing.get('left__startBracketType'), #TODO to test leaves with brackets..
-                            'left__endBracketPos':prevDing.get('left__endBracketPos'), #TODO to test leaves with brackets..
-                            'left__endBracketType':prevDing.get('left__endBracketType'), #TODO to test leaves with brackets..
-                            'left__argStart':prevDing.get('left__argStart'), # without the bracket
-                            'left__argEnd':prevDing.get('left__argEnd'), # without the bracket
-                            #ganz
-                            'right__startBracketPos':ding['ganzStartPos'], #TODO to test leaves with brackets..
-                            'right__startBracketType':ding['left__startBracketType'], #TODO to test leaves with brackets..
-                            'right__endBracketPos':ding['ganzEndPos'], #TODO to test leaves with brackets...
-                            'right__endBracketType':ding['right__endBracketType'], #TODO to test leaves with brackets...
-                            'right__argStart':ding['ganzStartPos'] + lenOrZero(ding['left__startBracketType']), # without the bracket
-                            'right__argEnd':ding['ganzEndPos'] - lenOrZero(ding['right__endBracketType']), # without the bracket
+                    elif ding['left__type'] == 'enclosing': #Ding*(...+???), (Ding+???)
+                        if not(ding['left__startBracketPos'] <= prevDing['position'] and prevDing['position'] + len(prevDing['name']) <= ding['right__endBracketPos']):
+                            #for the case test__BODMAS__enclosingBracketInBackslashArg
+                            # infixLeftOfDing = findLeftestInfixFrom(prevDing) # that has rightCloseBracket
+                            # import pdb;pdb.set_trace()
+                            # implicitMultiplyNode = ('*', (self.addedSymbolId, -1))
+                            self.addedSymbolId += 1
+                            implicitMultiplyInfoDict = {# rightarg * ganz
+                                'name':'*',
+                                'position':ding['left__startBracketPos'],#-len('*')
+                                'type':'implicit',
+                                'startPos':prevDing.get('startPos'),
+                                'endPos':ding['ganzEndPos'],
+                                'ganzStartPos':prevDing.get('ganzStartPos'),
+                                'ganzEndPos':ding['ganzEndPos'],
+                                #Ding
+                                'left__startBracketPos':prevDing.get('left__startBracketPos'), #somehow... infixLeftOfDing = {'name': 'x', 'startPos': 8, 'endPos': 9, 'parent': None, 'type': 'variable', 'ganzStartPos': 8, 'ganzEndPos': 9, 'position': 8}
+                                'left__startBracketType':prevDing.get('left__startBracketType'), #TODO to test leaves with brackets..
+                                'left__endBracketPos':prevDing.get('left__endBracketPos'), #TODO to test leaves with brackets..
+                                'left__endBracketType':prevDing.get('left__endBracketType'), #TODO to test leaves with brackets..
+                                'left__argStart':prevDing.get('left__argStart'), # without the bracket
+                                'left__argEnd':prevDing.get('left__argEnd'), # without the bracket
+                                #ganz
+                                'right__startBracketPos':ding['ganzStartPos'], #TODO to test leaves with brackets..
+                                'right__startBracketType':ding['left__startBracketType'], #TODO to test leaves with brackets..
+                                'right__endBracketPos':ding['ganzEndPos'], #TODO to test leaves with brackets...
+                                'right__endBracketType':ding['right__endBracketType'], #TODO to test leaves with brackets...
+                                'right__argStart':ding['ganzStartPos'] + lenOrZero(ding['left__startBracketType']), # without the bracket
+                                'right__argEnd':ding['ganzEndPos'] - lenOrZero(ding['right__endBracketType']), # without the bracket
 
-                            'child':{1:None, 2:None},
-                            'parent':None # no setting parents here, since we need to check for presence of infix in all Dings first.
-                        }
-                        self.tempBracketFinderList = [implicitMultiplyInfoDict]
-                        self.__updateInfixNearestBracketInfix(self.tempBracketFinderList, self.infixList)
-                        self.infixList.append(implicitMultiplyInfoDict)
-                        newDings.append(implicitMultiplyInfoDict)
-                        ###################
-                        if self.showError():
-                            print('(prevDing)(infix|enclosing)adding implicit-multiply between')
-                            print((prevDing['name'], prevDing['startPos'], prevDing['endPos']))
-                            print('vs')
-                            print((ding['name'], ding['startPos'], ding['endPos']))
-                            print('*******************************adding implicit-multiply')
-                        ###################
+                                'child':{1:None, 2:None},
+                                'parent':None # no setting parents here, since we need to check for presence of infix in all Dings first.
+                            }
+                            self.tempBracketFinderList = [implicitMultiplyInfoDict]
+                            self.__updateInfixNearestBracketInfix(self.tempBracketFinderList, self.infixList)
+                            self.infixList.append(implicitMultiplyInfoDict)
+                            newDings.append(implicitMultiplyInfoDict)
+                            ###################
+                            if self.showError():
+                                print('(prevDing)(infix|enclosing)adding implicit-multiply between')
+                                print((prevDing['name'], prevDing['startPos'], prevDing['endPos']))
+                                print('vs')
+                                print((ding['name'], ding['startPos'], ding['endPos']))
+                                print('*******************************adding implicit-multiply')
+                            ###################
                 else: #both prevDing & ding are not infixes.... 
                     #add implicit multiply to (prevDing and ding)
                     #prevDing/ding can be number/variable/backslash_variable/backslash_function
