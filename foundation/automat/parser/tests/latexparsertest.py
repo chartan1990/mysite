@@ -194,6 +194,19 @@ def test__sqrtWithPowerCaretRightOtherInfix__hill(verbose=False):
         pp.pprint(parser.ast)
 
 
+def test__BODMAS__enclosingBracket(verbose=False):
+    pp = pprint.PrettyPrinter(indent=4)
+
+    equationStr = 'x^2-6x+9=(x-3)^2'
+    parser = Latexparser(equationStr, verbose=verbose)
+    parser._parse()
+    expected_ast = None
+    print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
+    if verbose:
+        pp.pprint(parser.ast)
+
+
+
 def test__manyFracCaretEnclosingBrac__partialFrac(verbose=False):
     pp = pprint.PrettyPrinter(indent=4)
 
@@ -440,7 +453,8 @@ if __name__=='__main__':
     # test__findingBackSlashAndInfixOperations__SchrodingerWaveEquation()
     # test__infixInBackslash__paraboloid()
     # test__sqrtWithPowerCaretRightOtherInfix__hill()
-    test__manyFracCaretEnclosingBrac__partialFrac(True)
+    test__BODMAS__enclosingBracket(True)
+    # test__manyFracCaretEnclosingBrac__partialFrac(True)
     # test__fracWithLogNoBase__changeLogBaseFormula(True) # not tested yet
     # test__hassliche__highPowersAndRandomCoefficientsPITEST(True)  # not tested yet
     # test__hassliche__nestedPolynomial() # not tested yet
