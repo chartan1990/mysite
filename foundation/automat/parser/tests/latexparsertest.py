@@ -4,18 +4,50 @@ import pprint
 from foundation.automat.parser.sorte import Latexparser
 
 
+def test__contiguousLeftOvers__decimalPlaces(verbose=False):
+    pp = pprint.PrettyPrinter(indent=4)
+
+    equationStr = ' -0.5 + 1.0 = 0.5'
+    parser = Latexparser(equationStr, verbose=verbose)
+    parser._parse()
+    expected_ast = {   ('+', 5): [('-', 3), ('1.0', 6)],
+    ('-', 3): [('0', 2), ('0.5', 4)],
+    ('=', 0): [('+', 5), ('0.5', 1)]}
+    print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
+    if verbose:
+        pp.pprint(parser.ast)
+
+
+def test__collateBackslashInfixLeftOversToContiguous__exponentialOverMultiply(verbose=False):
+    pp = pprint.PrettyPrinter(indent=4)
+
+    equationStr = ' 3x^{9} = 3x^{2}x^{7}'
+    parser = Latexparser(equationStr, verbose=verbose)
+    parser._parse()
+    expected_ast = {   ('*', 2): [('3', 1), ('^', 4)],
+    ('*', 6): [('*', 2), ('^', 8)],
+    ('*', 11): [('3', 10), ('^', 13)],
+    ('=', 0): [('*', 11), ('*', 6)],
+    ('^', 4): [('x', 3), ('2', 5)],
+    ('^', 8): [('x', 7), ('7', 9)],
+    ('^', 13): [('x', 12), ('9', 14)]}
+    print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
+    if verbose:
+        pp.pprint(parser.ast)
+
+
 def test__findingBackSlashAndInfixOperations__Trig0(verbose=False):
     pp = pprint.PrettyPrinter(indent=4)
 
     equationStr = '-\\sin( 2x_0 ) = -2\\sin(x_0)\\cos(x_0)'
     parser = Latexparser(equationStr, verbose=verbose)
     parser._parse()
-    expected_ast = {   ('*', 4): [('-', 2), ('sin', 5)],
-    ('*', 6): [('*', 4), ('cos', 7)],
+    expected_ast = {   ('*', 4): [('2', 3), ('*', 6)],
+    ('*', 6): [('sin', 5), ('cos', 7)],
     ('*', 14): [('2', 13), ('x_0', 15)],
-    ('-', 2): [('0', 1), ('2', 3)],
+    ('-', 2): [('0', 1), ('*', 4)],
     ('-', 9): [('0', 8), ('sin', 10)],
-    ('=', 0): [('-', 9), ('*', 6)],
+    ('=', 0): [('-', 9), ('-', 2)],
     ('cos', 7): [('x_0', 12)],
     ('sin', 5): [('x_0', 11)],
     ('sin', 10): [('*', 14)]}
@@ -164,7 +196,7 @@ def test__findingBackSlashAndInfixOperations__SchrodingerWaveEquation(verbose=Fa
 def test__infixInBackslash__paraboloid(verbose=False):
     pp = pprint.PrettyPrinter(indent=4)
 
-    equationStr = 'z=\\sqrt(x^2+y^2)'
+    equationStr = 'z=\\sqrt{x^2+y^2}'
     parser = Latexparser(equationStr, verbose=verbose)
     parser._parse()
     expected_ast = {   ('+', 6): [('^', 4), ('^', 8)],
@@ -180,7 +212,7 @@ def test__infixInBackslash__paraboloid(verbose=False):
 def test__sqrtWithPowerCaretRightOtherInfix__hill(verbose=False):
     pp = pprint.PrettyPrinter(indent=4)
 
-    equationStr = 'z=-\\sqrt[2](x^2+y^2)'
+    equationStr = 'z=-\\sqrt[2]{x^2+y^2}'
     parser = Latexparser(equationStr, verbose=verbose)
     parser._parse()
     expected_ast = {   ('+', 8): [('^', 6), ('^', 10)],
@@ -189,6 +221,54 @@ def test__sqrtWithPowerCaretRightOtherInfix__hill(verbose=False):
     ('^', 6): [('x', 5), ('2', 7)],
     ('^', 10): [('y', 9), ('2', 11)],
     ('nroot', 3): [('2', 12), ('+', 8)]}
+    print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
+    if verbose:
+        pp.pprint(parser.ast)
+
+
+def test__nonInfixBrackets__addImplicitMultiply(verbose=False):
+    pp = pprint.PrettyPrinter(indent=4)
+
+    equationStr = '(1+(1+(1+1)))(((1+1)+1)+1)=16'
+    parser = Latexparser(equationStr, verbose=verbose)
+    parser._parse()
+    expected_ast = None
+    print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
+    if verbose:
+        pp.pprint(parser.ast)
+
+
+def test__nonInfixBrackets__addImplicitMultiply0(verbose=False):
+    pp = pprint.PrettyPrinter(indent=4)
+
+    equationStr = '(1+(1+1)(1+1)+1)+1=6'
+    parser = Latexparser(equationStr, verbose=verbose)
+    parser._parse()
+    expected_ast = None
+    print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
+    if verbose:
+        pp.pprint(parser.ast)
+
+
+def test__nonInfixBrackets__addImplicitMultiply1(verbose=False):
+    pp = pprint.PrettyPrinter(indent=4)
+
+    equationStr = '((1+(1+(1+1)))(((1+1)+1)+1)+1)+1=18'
+    parser = Latexparser(equationStr, verbose=verbose)
+    parser._parse()
+    expected_ast = None
+    print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
+    if verbose:
+        pp.pprint(parser.ast)
+
+
+def test__BODMAS__priorityBetweenInfixForBrackets(verbose=False):
+    pp = pprint.PrettyPrinter(indent=4)
+
+    equationStr = '\\frac{2}{(x-1)(x+1)}=c'
+    parser = Latexparser(equationStr, verbose=verbose)
+    parser._parse()
+    expected_ast = None
     print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
     if verbose:
         pp.pprint(parser.ast)
@@ -270,31 +350,29 @@ def test__BODMAS__enclosingBracket(verbose=False):
         pp.pprint(parser.ast)
 
 
-
 def test__manyFracCaretEnclosingBrac__partialFrac(verbose=False):
     pp = pprint.PrettyPrinter(indent=4)
 
     equationStr = '\\frac{x^2}{(x-2)(x-3)^2}=\\frac{4}{x-2}+\\frac{-3}{x-3}+\\frac{9}{(x-3)^2}'
     parser = Latexparser(equationStr, verbose=verbose)
     parser._parse()
-    expected_ast = {   
-    ('*', 10): [('-', 8), ('^', 14)],
+    expected_ast = {   ('*', 13): [('-', 11), ('^', 17)],
     ('+', 3): [('/', 2), ('/', 4)],
     ('+', 5): [('+', 3), ('/', 6)],
-    ('-', 8): [('x', 7), ('2', 9)],
-    ('-', 12): [('x', 11), ('3', 13)],
-    ('-', 20): [('x', 19), ('3', 21)],
-    ('-', 25): [('x', 24), ('3', 26)],
-    ('-', 28): [('0', 27), ('3', 29)],
-    ('-', 31): [('x', 30), ('2', 32)],
-    ('/', 1): [('^', 17), ('*', 10)],
-    ('/', 2): [('4', 34), ('-', 31)],
-    ('/', 4): [('-', 28), ('-', 25)],
-    ('/', 6): [('9', 33), ('^', 22)],
+    ('-', 11): [('x', 10), ('2', 12)],
+    ('-', 15): [('x', 14), ('3', 16)],
+    ('-', 21): [('x', 20), ('2', 22)],
+    ('-', 24): [('x', 23), ('3', 25)],
+    ('-', 29): [('0', 28), ('3', 30)],
+    ('-', 33): [('x', 32), ('3', 34)],
+    ('/', 1): [('^', 8), ('*', 13)],
+    ('/', 2): [('4', 19), ('-', 21)],
+    ('/', 4): [('-', 29), ('-', 33)],
+    ('/', 6): [('9', 31), ('^', 26)],
     ('=', 0): [('/', 1), ('+', 5)],
-    ('^', 14): [('-', 12), ('2', 15)],
-    ('^', 17): [('x', 16), ('2', 18)],
-    ('^', 22): [('-', 20), ('2', 23)]}
+    ('^', 8): [('x', 7), ('2', 9)],
+    ('^', 17): [('-', 15), ('2', 18)],
+    ('^', 26): [('-', 24), ('2', 27)]}
     print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
     if verbose:
         pp.pprint(parser.ast)
@@ -320,7 +398,7 @@ def test__fracWithLogNoBase__changeLogBaseFormula(verbose=False):
 def test__hassliche__highPowersAndRandomCoefficientsPITEST(verbose=False):
     pp = pprint.PrettyPrinter(indent=4)
 
-    equationStr = 'P(x) = 7x^{13} - 3x^{9} + 5x^{8} - \\sqrt(2)x^{4} + \\pi x^{2} - 42'
+    equationStr = 'P(x) = 7x^{13} - 3x^{9} + 5x^{8} - \\sqrt{2}x^{4} + \\pi x^{2} - 42'
     parser = Latexparser(equationStr, verbose=verbose)
     parser._parse()
     expected_ast = None # to be filled in
@@ -332,7 +410,7 @@ def test__hassliche__highPowersAndRandomCoefficientsPITEST(verbose=False):
 def test__hassliche__nestedPolynomial(verbose=False):
     pp = pprint.PrettyPrinter(indent=4)
 
-    equationStr = 'Q(x) = (x^3 - 2x^2 + 5x - 7)^2 - (x - 1)^3 + 3x'
+    equationStr = 'Q(x) = (x^3 - 2x^2 + 5x - 7)^2 - (x - 1)^3 + 3x^{21}'
     parser = Latexparser(equationStr, verbose=verbose)
     parser._parse()
     expected_ast = None # to be filled in
@@ -344,7 +422,7 @@ def test__hassliche__nestedPolynomial(verbose=False):
 def test__hassliche__nonIntegerAndNegativeCoefficientsDECIMALPOINTTEST(verbose=False):
     pp = pprint.PrettyPrinter(indent=4)
 
-    equationStr = 'R(x) = -0.5x^{10} + 3.14x^{8} - \frac{2}{3}x^{5} + 1.618x^{3} - \frac{1}{x}'
+    equationStr = 'R(x) = -0.5x^{10} + 3.14x^{8} - \\frac{2}{3}x^{5} + 1.618x^{3} - \\frac{1}{x}'
     parser = Latexparser(equationStr, verbose=verbose)
     parser._parse()
     expected_ast = None # to be filled in
@@ -453,6 +531,7 @@ def test__hassliche__moreThanOneAdditiveTermInEachMultiplicativeTerm1(verbose=Fa
 #trig in trig as arg
 #log in log as arg
 #frac in frac as arg
+#infix in infix with leftRightBrackets
 
 #
 def test__paveWayForDifferentiation__productRule(verbose=False):
@@ -504,6 +583,8 @@ def test__paveWayForIntegrtion__exponentOnEnclosingNonBackslash(verbose=False):
 
 
 if __name__=='__main__':
+    # test__contiguousLeftOvers__decimalPlaces()
+    # test__collateBackslashInfixLeftOversToContiguous__exponentialOverMultiply()
     # test__findingBackSlashAndInfixOperations__Trig0()
     # test__findingBackSlashAndInfixOperations__Trig1()
     # test__findingBackSlashAndInfixOperations__Trig2()
@@ -517,12 +598,16 @@ if __name__=='__main__':
     # test__findingBackSlashAndInfixOperations__SchrodingerWaveEquation()
     # test__infixInBackslash__paraboloid()
     # test__sqrtWithPowerCaretRightOtherInfix__hill()
-    # test__BODMAS__enclosingBracketInBackslashArg()
-    # test__BODMAS__enclosingBracketInBackslashArgWithExponent()
-    # test__BODMAS__enclosingBracketInBackslashArgImplicitZero()
-    # test__BODMAS__enclosingBracket()
-    test__manyFracCaretEnclosingBrac__partialFrac(True) # not tested yet
-    # test__fracWithLogNoBase__changeLogBaseFormula()
+    test__nonInfixBrackets__addImplicitMultiply(True) # not tested yet
+    # test__nonInfixBrackets__addImplicitMultiply0(True) # not tested yet
+    # test__nonInfixBrackets__addImplicitMultiply1(True) # not tested yet
+    # test__BODMAS__priorityBetweenInfixForBrackets(True) # not tested yet
+    # test__BODMAS__enclosingBracketInBackslashArg(True) # not tested yet
+    # test__BODMAS__enclosingBracketInBackslashArgWithExponent(True) # not tested yet
+    # test__BODMAS__enclosingBracketInBackslashArgImplicitZero(True) # not tested yet
+    # test__BODMAS__enclosingBracket(True) # not tested yet
+    # test__manyFracCaretEnclosingBrac__partialFrac() # not tested yet
+    # test__fracWithLogNoBase__changeLogBaseFormula() # not tested yet
     # test__hassliche__highPowersAndRandomCoefficientsPITEST(True)  # not tested yet
     # test__hassliche__nestedPolynomial(True) # not tested yet
     # test__hassliche__nonIntegerAndNegativeCoefficientsDECIMALPOINTTEST(True) # not tested yet

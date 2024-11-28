@@ -61,6 +61,7 @@ class Latexparser(Parser):
             '_findLeftOverPosition':False,
             '_contiguousLeftOvers':False,
             '_collateBackslashInfixLeftOversToContiguous':False,
+            '_updateBackslashLeftOversBracketInfo':False,
             '_graftGrenzeRangesIntoContainmentTree':False,#
             '__addImplicitZero':False,
             '__addImplicitMultiply':False,
@@ -109,6 +110,30 @@ class Latexparser(Parser):
             pp.pprint(n)
 
         self.ppprint = ppprint
+
+
+        #################DEBUGGING TOOL FOR PARENT/CHILD RELATIONSHIP:
+        def printConsecutiveGroup(consecutiveGroups):
+            grenzeRangeToShortDings = {}
+            for grenzeRange, dings in consecutiveGroups.items():
+                # dings = consecutiveGroups[grenzeRange]
+                # import pdb;pdb.set_trace()
+
+                shortDings = {}
+                for d in dings:
+                    idd = (d['name'], d['startPos'], d['endPos'])
+                    c0 = None if 'child' not in d or d['child'][1] is None else (d['child'][1]['name'], d['child'][1]['startPos'], d['child'][1]['endPos'])
+                    c1 = None if 'child' not in d or 2 not in d['child'] or d['child'][2] is None else (d['child'][2]['name'], d['child'][2]['startPos'], d['child'][2]['endPos'])
+                    pard = None if d['parent'] is None else (d['parent']['name'], d['parent']['startPos'], d['parent']['endPos'])
+                    shortDings[idd] = {'c1':c0, 'c2':c1, 'parent':pard}
+                    # import pdb;pdb.set_trace()
+                grenzeRangeToShortDings[grenzeRange] = shortDings
+            # print('level: ', level, 'grenzeRanges: ', grenzeRanges, 'grenzeRangeToShortDings', )
+            import pprint
+            pp = pprint.PrettyPrinter(indent=4)
+            pp.pprint(grenzeRangeToShortDings)
+
+        self.printConsecutiveGroup = printConsecutiveGroup
 
         self.parallelise = parallelise
         """
@@ -189,7 +214,8 @@ class Latexparser(Parser):
         if self.showError():
             import pprint
             pp = pprint.PrettyPrinter(indent=4)
-            pp.pprint(self.bracketStartToEndMap)
+            print('infixList:')
+            pp.pprint(self.infixList)
         if self.parallelise:
             self.event__findInfixAndEnclosingBrackets.set()
 
@@ -453,6 +479,7 @@ class Latexparser(Parser):
                 # put this seperate from self.variablesPos, 
                 self.noBraBackslashPos.append({
                         'name':labelName,
+                        'position':positionTuple[0],
                         'startPos':positionTuple[0], # of the label not the whole ding
                         'endPos':positionTuple[1], # of the label not the whole ding
                         'type':'variable', # same type as contiguous, davor, during AST building, we don't have to check for 2 ding
@@ -478,9 +505,42 @@ class Latexparser(Parser):
 
 
     def __updateInfixNearestBracketInfix(self, tempInfixList0, tempInfixList1):
+        sortedMainInfixList = sorted(tempInfixList0, key=lambda tup: Latexparser.PRIOIRITIZED_INFIX.index(tup['name']))
+        sortedAgainstInfixList = sorted(tempInfixList1, key=lambda tup: Latexparser.PRIOIRITIZED_INFIX.index(tup['name']))
         ###########helpers
+        def priorityOfOtherInfixEnHaltBrack(startBracketPos, endBracketPos, startBracketLength, endBracketLength, selfName, selfStartPos):#This is for case : test__collateBackslashInfixLeftOversToContiguous__exponentialOverMultiply
+            """
+            test__collateBackslashInfixLeftOversToContiguous__exponentialOverMultiply
+            3x^{9} = 3x^{2}x^{7}
+            3x^{2}x^{7}
+            ==>
+            3 x ^ 2 * x ^ 7
+            """
+            if self.showError():
+                print('isArgOfOtherInfix???~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+            # import pdb;pdb.set_trace()
+            for infixInfoDict2 in sortedAgainstInfixList:
+                #skip infixInfoDict2 that we are checking now
+                if infixInfoDict2['name'] == selfName and infixInfoDict2['startPos'] == selfStartPos:
+                    continue
+                if self.showError():
+                    print('checking brack', (startBracketPos, endBracketPos),' against infix:', (infixInfoDict2['name'], infixInfoDict2['startPos'], infixInfoDict2['endPos']))
+                    # import pdb;pdb.set_trace()
+                #if 'tight__leftEndPos' in infixInfoDict2 and infixInfoDict2['tight__leftEndPos'] is not None and infixInfoDict2['tight__leftEndPos'] == endBracketPos:
+                if infixInfoDict2['startPos'] == (endBracketPos - endBracketLength): # - because endBracketPos includes the endBracketLength
+                    #this bracket is actually infixInfoDict2 leftArg
+                    if self.showError():
+                        print('bracketPos: ', (startBracketPos, endBracketPos), ' is leftArg Of infix: ', (infixInfoDict2['name'], infixInfoDict2['startPos']))
+                    return Latexparser.PRIOIRITIZED_INFIX.index(infixInfoDict2['name'])#True
+                #if 'tight__rightStartPos' in infixInfoDict2 and infixInfoDict2['tight__rightStartPos'] is not None and infixInfoDict2['tight__rightStartPos'] == startBracketPos:
+                if infixInfoDict2['startPos'] + len(infixInfoDict2['name']) == startBracketPos - startBracketLength:
+                    #this bracket is actually infixInfoDict2 rightArg
+                    if self.showError():
+                        print('bracketPos: ', (startBracketPos, endBracketPos), ' is rightArg Of infix: ', (infixInfoDict2['name'], infixInfoDict2['startPos']))
+                    return Latexparser.PRIOIRITIZED_INFIX.index(infixInfoDict2['name'])#True
+
         #check if the bracket belongs to fBackslash/vBackslash
-        def collideWithNonEnclosingBackslashBrackets(startBracketPos, endBracketPos):#, infixPosition):
+        def collideWithNonEnclosingBackslashBrackets(startBracketPos, endBracketPos, selfName, selfStartPos):#, infixPosition):
             #TODO 
             """
             'z=\\sqrt(x^2+y^2)'
@@ -490,6 +550,22 @@ class Latexparser(Parser):
             """
             if self.showError():
                 print('collideWithNonEnclosingBackslashBrackets~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~', startBracketPos, endBracketPos)
+
+            # for infixInfoDict2 in sortedMainInfixList:
+            #     #skip infixInfoDict2 that we are checking now
+            #     if infixInfoDict2['name'] == selfName and infixInfoDict2['startPos'] == selfStartPos:
+            #         continue
+            #     if 'tight__leftEndPos' in infixInfoDict2 and infixInfoDict2['tight__leftEndPos'] is not None and infixInfoDict2['tight__leftEndPos'] == endBracketPos:
+            #         #this bracket is actually infixInfoDict2 leftArg
+            #         if self.showError():
+            #             print('bracketPos: ', (startBracketPos, endBracketPos), ' is leftArg Of infix: ', (infixInfoDict2['name'], infixInfoDict2['startPos']))
+            #         return True
+            #     if 'tight__rightStartPos' in infixInfoDict2 and infixInfoDict2['tight__rightStartPos'] is not None and infixInfoDict2['tight__rightStartPos'] == startBracketPos:
+            #         #this bracket is actually infixInfoDict2 rightArg
+            #         if self.showError():
+            #             print('bracketPos: ', (startBracketPos, endBracketPos), ' is rightArg Of infix: ', (infixInfoDict2['name'], infixInfoDict2['startPos']))
+            #         return True
+
             #######
             # print('collideWithNonEnclosingBackslashBrackets self.variablesPos: ', self.variablesPos)
             # import pdb;pdb.set_trace()
@@ -518,6 +594,8 @@ class Latexparser(Parser):
                 #         # import pdb;pdb.set_trace()
                 #         ########
                 #         continue
+                    # if self.showError():
+                    #     print('bracketPos: ', (startBracketPos, endBracketPos), ' is arg Of backslashVariable: ', (vInfoDict['name'], vInfoDict['startPos']))
                     return True
             #######
             # print('collideWithNonEnclosingBackslashBrackets self.functionPos: ')
@@ -541,6 +619,8 @@ class Latexparser(Parser):
                 #         # import pdb;pdb.set_trace()
                 #         ##########################
                 #         continue
+                    # if self.showError():
+                    #     print('bracketPos: ', (startBracketPos, endBracketPos), ' is arg1 Of backslashFunction: ', (fInfoDict['name'], fInfoDict['startPos']))
                     return True
                 ##########################
                 # print("f2looking at: ", (fInfoDict['name'], fInfoDict['startPos'], fInfoDict['endPos']), "(arg2)'s ", fInfoDict['argument2StartPosition'] - lenOrZero(fInfoDict['argument2BracketType']), ' == ', startBracketPos)
@@ -558,6 +638,8 @@ class Latexparser(Parser):
                 #         # import pdb;pdb.set_trace()
                 #         ############
                 #         continue
+                    # if self.showError():
+                    #     print('bracketPos: ', (startBracketPos, endBracketPos), ' is arg2 Of backslashFunction: ', (fInfoDict['name'], fInfoDict['startPos']))
                     return True
             return False
         #are dic0 and dic1 on the same side?
@@ -574,7 +656,7 @@ class Latexparser(Parser):
         def ali(a, b):
             return True
         self.allowedInfix = ali
-        for infixInfoDict0 in tempInfixList0:
+        for infixInfoDict0 in sortedMainInfixList:
             ############
             if self.showError():
                 print('infixBracMatch: ', (infixInfoDict0['name'], infixInfoDict0['startPos'], infixInfoDict0['endPos']), '^^^<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<')
@@ -585,7 +667,7 @@ class Latexparser(Parser):
             nearestLeftInfix = {'name':None, 'position':-1, 'startPos':-1, 'endPos':-1}
             nearestRightInfix = {'name':None, 'position':len(self._eqs), 'startPos':len(self._eqs), 'endPos':len(self._eqs)}
             #TODO binary search on self.infixList, why not build a datastructure here, so that is can be used later? (space for time)
-            for infixInfoDict1 in tempInfixList1:
+            for infixInfoDict1 in sortedAgainstInfixList:
                 #ignore if infixInfoDict1 === infixInfoDict0
                 if infixInfoDict0['name'] == infixInfoDict1['name'] and infixInfoDict0['startPos'] == infixInfoDict1['startPos'] and infixInfoDict0['endPos'] == infixInfoDict1['endPos']:
                     continue
@@ -602,14 +684,16 @@ class Latexparser(Parser):
             #find tightest bracket that directly left/right of infixInfoDict0
             isBackSlashBrackets = collideWithNonEnclosingBackslashBrackets(
                 infixInfoDict0['ganzStartPos'], 
-                infixInfoDict0['ganzEndPos']
+                infixInfoDict0['ganzEndPos'],
+                infixInfoDict0['name'],
+                infixInfoDict0['startPos']
             ) if 'ganzStartPos' in infixInfoDict0 else False # default assume not a backslashbracket
             tightLeftBracket = {
                 'openBracketType':None, 
                 'closeBracketType':None, 
                 'openBracketPos':0 if infixInfoDict0['position'] < self.equalPos else self.equalPos + 1, #most narrow 
                 'closeBracketPos':infixInfoDict0['position']-len(infixInfoDict0['name']),
-                'belongToBackslash':isBackSlashBrackets
+                # 'belongToBackslash':isBackSlashBrackets
             }
             wideLeftBracket = {
                 'openBracketType':None,
@@ -623,7 +707,7 @@ class Latexparser(Parser):
                 'closeBracketType':None, 
                 'openBracketPos':infixInfoDict0['position']+len(infixInfoDict0['name']), #most narrow
                 'closeBracketPos':self.equalPos - 1 if infixInfoDict0['position'] < self.equalPos else len(self._eqs),
-                'belongToBackslash':isBackSlashBrackets
+                # 'belongToBackslash':isBackSlashBrackets
             }
             wideRightBracket = {
                 'openBracketType':None,
@@ -637,7 +721,7 @@ class Latexparser(Parser):
             tightLeftEnclosingBracket = {#also called openBracket
                 'openBracketType':None,
                 'openBracketPos':0 if infixInfoDict0['position'] < self.equalPos else self.equalPos + 1, # most narrow
-                'belongToBackslash':isBackSlashBrackets
+                # 'belongToBackslash':isBackSlashBrackets
             }
             wideLeftEnclosingBracket = {
                 'openBracketType':None,
@@ -648,36 +732,48 @@ class Latexparser(Parser):
             tightRightEnclosingBracket = {#also called closeBracket
                 'closeBracketType':None,
                 'closeBracketPos':self.equalPos - 1 if infixInfoDict0['position'] < self.equalPos else len(self._eqs), # most narrow
-                'belongToBackslash':isBackSlashBrackets
+                # 'belongToBackslash':isBackSlashBrackets
             }
             wideRightEnclosingBracket = {
                 'closeBracketType':None,
                 'closeBracketPos':infixInfoDict0['position']-len(infixInfoDict0['name']),
                 'belongToBackslash':isBackSlashBrackets
             }
+            selfPriority = Latexparser.PRIOIRITIZED_INFIX.index(infixInfoDict0['name'])
             for bracketInfoDict in self.matchingBracketsLocation: 
                 ###################START leftRight Brackets
                 ######
-                if self.showError():
-                    print((infixInfoDict0['name'], infixInfoDict0['startPos'], infixInfoDict0['endPos']), 'brack:', (bracketInfoDict['openBracketPos'], bracketInfoDict['closeBracketPos']), ' checking for collision with backslash arguments')
                 #TODO tag the brackets to backslashes
-                isBackSlashBrackets = collideWithNonEnclosingBackslashBrackets(bracketInfoDict['openBracketPos'], bracketInfoDict['closeBracketPos'])
+                isBackSlashBrackets = collideWithNonEnclosingBackslashBrackets(bracketInfoDict['openBracketPos'], bracketInfoDict['closeBracketPos'], infixInfoDict0['name'], infixInfoDict0['startPos'])
+                collidingInfixPriority = priorityOfOtherInfixEnHaltBrack(
+                    bracketInfoDict['openBracketPos'], 
+                    bracketInfoDict['closeBracketPos'],
+                    len(bracketInfoDict['openBracketType']),
+                    len(bracketInfoDict['closeBracketType']),
+                    infixInfoDict0['name'], 
+                    infixInfoDict0['startPos']
+                )
+                
+                if self.showError():
+                    print((infixInfoDict0['name'], infixInfoDict0['startPos'], infixInfoDict0['endPos']), 'brack:', (bracketInfoDict['openBracketPos'], bracketInfoDict['closeBracketPos']))
+                    print('found another infix competing for brackets, priority: ', collidingInfixPriority, ' < ', selfPriority)
 
                 #check if enclosing
                 if bracketInfoDict['openBracketPos'] + len(bracketInfoDict['openBracketType']) <= infixInfoDict0['startPos'] and infixInfoDict0['endPos'] <= bracketInfoDict['closeBracketPos'] + len(bracketInfoDict['closeBracketType']):
                     ##########
                     if self.showError():
                         print('ENCLOSING~~, belongToBackslash: ', isBackSlashBrackets)
-                        print('widestLeftOpen: ', wideLeftEnclosingBracket['openBracketPos'])
-                        print('tightestLeftOpen: ', tightLeftEnclosingBracket['openBracketPos'])
-                        print('newLeftOpen: ', bracketInfoDict['openBracketPos'])
-                        print('widestRightOpen: ', wideRightEnclosingBracket['closeBracketPos'])
-                        print('tightestRightClose: ', tightRightEnclosingBracket['closeBracketPos'])
-                        print('newRightClose: ', bracketInfoDict['closeBracketPos'])
-                    if tightLeftEnclosingBracket['openBracketPos'] <= bracketInfoDict['openBracketPos']: # bracketInfoDict is wider than recorded
+                        # print('widestLeftOpen: ', wideLeftEnclosingBracket['openBracketPos'])
+                        # print('tightestLeftOpen: ', tightLeftEnclosingBracket['openBracketPos'])
+                        # print('newLeftOpen: ', bracketInfoDict['openBracketPos'])
+                        # print('widestRightOpen: ', wideRightEnclosingBracket['closeBracketPos'])
+                        # print('tightestRightClose: ', tightRightEnclosingBracket['closeBracketPos'])
+                        # print('newRightClose: ', bracketInfoDict['closeBracketPos'])
+                    # we can only take bracket of lower priority then self, for tight cases. Or if no other infix is competing.
+                    if (collidingInfixPriority is None or selfPriority < collidingInfixPriority) and tightLeftEnclosingBracket['openBracketPos'] <= bracketInfoDict['openBracketPos']: # bracketInfoDict is wider than recorded
                         tightLeftEnclosingBracket['openBracketPos'] = bracketInfoDict['openBracketPos']
                         tightLeftEnclosingBracket['openBracketType'] = bracketInfoDict['openBracketType']
-                        tightLeftEnclosingBracket['belongToBackslash'] = isBackSlashBrackets
+                        # tightLeftEnclosingBracket['belongToBackslash'] = isBackSlashBrackets
                         if self.showError():
                             print('updated tightLeftEnclosingBracket: ', tightLeftEnclosingBracket)
                     if bracketInfoDict['openBracketPos'] <= wideLeftEnclosingBracket['openBracketPos']:
@@ -686,10 +782,11 @@ class Latexparser(Parser):
                         wideLeftEnclosingBracket['belongToBackslash'] = isBackSlashBrackets
                         if self.showError():
                             print('updated wideLeftEnclosingBracket: ', wideLeftEnclosingBracket)
-                    if bracketInfoDict['closeBracketPos'] <= tightRightEnclosingBracket['closeBracketPos']: # bracketInfoDict is wider than recorded
+                    # we can only take bracket of lower priority then self, for tight cases. Or if no other infix is competing.
+                    if (collidingInfixPriority is None or selfPriority < collidingInfixPriority) and bracketInfoDict['closeBracketPos'] <= tightRightEnclosingBracket['closeBracketPos']: # bracketInfoDict is wider than recorded
                         tightRightEnclosingBracket['closeBracketPos'] = bracketInfoDict['closeBracketPos']
                         tightRightEnclosingBracket['closeBracketType'] = bracketInfoDict['closeBracketType']
-                        tightRightEnclosingBracket['belongToBackslash'] = isBackSlashBrackets
+                        # tightRightEnclosingBracket['belongToBackslash'] = isBackSlashBrackets
                         if self.showError():
                             print('updated tightRightEnclosingBracket: ', tightRightEnclosingBracket)
                     if wideRightEnclosingBracket['closeBracketPos'] <= bracketInfoDict['closeBracketPos']:
@@ -706,9 +803,9 @@ class Latexparser(Parser):
                         print('LEFTBRACK~~~~, belongToBackslash: ', isBackSlashBrackets)
                     ############
                     #engste als recorded?
-                    if tightLeftBracket['openBracketPos'] <= bracketInfoDict['openBracketPos'] and bracketInfoDict['closeBracketPos'] <= tightLeftBracket['closeBracketPos']:
+                    if (collidingInfixPriority is None or selfPriority < collidingInfixPriority) and tightLeftBracket['openBracketPos'] <= bracketInfoDict['openBracketPos'] and bracketInfoDict['closeBracketPos'] <= tightLeftBracket['closeBracketPos']:
                         tightLeftBracket = bracketInfoDict
-                        tightLeftBracket['belongToBackslash'] = isBackSlashBrackets
+                        # tightLeftBracket['belongToBackslash'] = isBackSlashBrackets
                         if self.showError():
                             print('updated tightLeftBracket: ', tightLeftBracket)
                     #breiter als recorded?
@@ -723,9 +820,9 @@ class Latexparser(Parser):
                         print('RIGHTBRACK~~~~, belongToBackslash: ', isBackSlashBrackets)
                     ############
                     #wider than recorded?
-                    if tightRightBracket['openBracketPos'] <= bracketInfoDict['openBracketPos'] and bracketInfoDict['closeBracketPos'] <= tightRightBracket['closeBracketPos']:
+                    if (collidingInfixPriority is None or selfPriority < collidingInfixPriority) and tightRightBracket['openBracketPos'] <= bracketInfoDict['openBracketPos'] and bracketInfoDict['closeBracketPos'] <= tightRightBracket['closeBracketPos']:
                         tightRightBracket = bracketInfoDict
-                        tightRightBracket['belongToBackslash'] = isBackSlashBrackets
+                        # tightRightBracket['belongToBackslash'] = isBackSlashBrackets
                         if self.showError():
                             print('updated tightRightBracket: ', tightRightBracket)
                     #breiter als recorded?
@@ -737,27 +834,27 @@ class Latexparser(Parser):
 
                 ############
                 if self.showError():
-                    print('nearestLeftInfix:')
-                    print(nearestLeftInfix)
-                    print('nearestRightInfix:')
-                    print(nearestRightInfix)
-                    print('tightLeftBracket:')
-                    print(tightLeftBracket)
-                    print('tightRightBracket:')
-                    print(tightRightBracket)
-                    print('tightLeftEnclosingBracket:')
-                    print(tightLeftEnclosingBracket)
-                    print('tightRightEnclosingBracket')
-                    print(tightRightEnclosingBracket)
-                    print('wideLeftBracket:')
-                    print(wideLeftBracket)
-                    print('wideRightBracket:')
-                    print(wideRightBracket)
-                    print('wideLeftEnclosingBracket:')
-                    print(wideLeftEnclosingBracket)
-                    print('wideRightEnclosingBracket')
-                    print(wideRightEnclosingBracket)
-                    print('infixBracMatch: ', (infixInfoDict0['name'], infixInfoDict0['startPos'], infixInfoDict0['endPos']), '^^^<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<')
+                    # print('nearestLeftInfix:')
+                    # print(nearestLeftInfix)
+                    # print('nearestRightInfix:')
+                    # print(nearestRightInfix)
+                    # print('tightLeftBracket:')
+                    # print(tightLeftBracket)
+                    # print('tightRightBracket:')
+                    # print(tightRightBracket)
+                    # print('tightLeftEnclosingBracket:')
+                    # print(tightLeftEnclosingBracket)
+                    # print('tightRightEnclosingBracket')
+                    # print(tightRightEnclosingBracket)
+                    # print('wideLeftBracket:')
+                    # print(wideLeftBracket)
+                    # print('wideRightBracket:')
+                    # print(wideRightBracket)
+                    # print('wideLeftEnclosingBracket:')
+                    # print(wideLeftEnclosingBracket)
+                    # print('wideRightEnclosingBracket')
+                    # print(wideRightEnclosingBracket)
+                    print('infixBracMatch: ', (infixInfoDict0['name'], infixInfoDict0['startPos'], infixInfoDict0['endPos']), '^^^<<end<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<')
                 ############
 
             #choose (or store everything TODO for now, we assume that people don't write equations like: "((a+b)-(c+d))", instead, they write it like this: "(a+b)-(c+d)" ) between
@@ -816,37 +913,6 @@ class Latexparser(Parser):
                 print("right will take leftRight", tightRightBracket['closeBracketType'] is not None)
                 print("right will take infix", nearestRightInfix['name'] is not None)
             ############
-
-            #TIGHT-THINGS: for finding occupied brackets in _findLeftOverPosition
-            if tightLeftEnclosingBracket['openBracketType'] is not None:
-                infixInfoDict0.update({
-                    'tight__leftStartType':tightLeftEnclosingBracket['openBracketType'],
-                    'tight__leftStartPos':tightLeftEnclosingBracket['openBracketPos'],
-                    'tight__leftType':'backslashArg' if tightLeftEnclosingBracket['belongToBackslash'] else 'enclosing',
-                })
-            elif tightLeftBracket['openBracketType'] is not None:
-                infixInfoDict0.update({
-                    'tight__leftStartType':tightLeftBracket['openBracketType'],
-                    'tight__leftStartPos':tightLeftBracket['openBracketPos'],
-                    'tight__leftType':'backslashArg' if tightLeftBracket['belongToBackslash'] else 'leftRight',
-                    'tight__leftEndType':tightLeftBracket['closeBracketType'],
-                    'tight__leftEndPos':tightLeftBracket['closeBracketPos'],
-                })
-
-            if tightRightEnclosingBracket['closeBracketType'] is not None:
-                infixInfoDict0.update({
-                    'tight__rightEndType':tightRightEnclosingBracket['closeBracketType'],
-                    'tight__rightEndPos':tightRightEnclosingBracket['closeBracketPos'],
-                    'tight__rightType':'backslashArg' if tightRightEnclosingBracket['belongToBackslash'] else 'enclosing',
-                })
-            elif tightRightBracket['closeBracketType'] is not None:
-                infixInfoDict0.update({
-                    'tight__leftStartType':tightRightBracket['openBracketType'],
-                    'tight__leftStartPos':tightRightBracket['openBracketPos'],
-                    'tight__leftType':'backslashArg' if tightRightBracket['belongToBackslash'] else 'leftRight',
-                    'tight__leftEndType':tightRightBracket['closeBracketType'],
-                    'tight__leftEndPos':tightRightBracket['closeBracketPos'],
-                })
 
             #check left
             if wideLeftEnclosingBracket['openBracketType'] is not None:# or wideLeftEnclosingBracket['openBracketPos'] != defaultEnclosingOpenBracketPos: # it is possible, to have openBracketType=None but openBracketPos!=None, like a implicit-multiply between 2 non-infix dings
@@ -999,6 +1065,56 @@ class Latexparser(Parser):
                     'right__argEnd':self.equalPos - 1 if infixInfoDict0['position'] < self.equalPos else len(self._eqs),
                     'right__type':'arg'
                 })
+
+
+            #TIGHT-THINGS: for finding occupied brackets in _findLeftOverPosition, tight is never backSlash, because that will be recorded in wide, for (x-3)^2 case
+            if tightLeftEnclosingBracket['openBracketType'] is not None:
+                infixInfoDict0.update({
+                    'tight__leftStartType':tightLeftEnclosingBracket['openBracketType'],
+                    'tight__leftStartPos':tightLeftEnclosingBracket['openBracketPos'],
+                    'tight__leftType':'enclosing'#'backslashArg' if tightLeftEnclosingBracket['belongToBackslash'] else 'enclosing',
+                })
+            elif tightLeftBracket['openBracketType'] is not None:
+                infixInfoDict0.update({
+                    'tight__leftStartType':tightLeftBracket['openBracketType'],
+                    'tight__leftStartPos':tightLeftBracket['openBracketPos'],
+                    'tight__leftType':'leftRight',#'backslashArg' if tightLeftBracket['belongToBackslash'] else 'leftRight',
+                    'tight__leftEndType':tightLeftBracket['closeBracketType'],
+                    'tight__leftEndPos':tightLeftBracket['closeBracketPos'],
+                })
+            # else:#no tight at all
+            #     infixInfoDict0.update({
+            #         'tight__leftStartType':infixInfoDict0['left__startBracketType'],
+            #         'tight__leftStartPos':infixInfoDict0['left__startBracketPos'],
+            #         'tight__leftType':infixInfoDict0['left__type'],
+            #         'tight__leftEndType':infixInfoDict0['left__endBracketType'],
+            #         'tight__leftEndPos':infixInfoDict0['left__endBracketPos']
+            #     })
+
+            if tightRightEnclosingBracket['closeBracketType'] is not None:
+                infixInfoDict0.update({
+                    'tight__rightEndType':tightRightEnclosingBracket['closeBracketType'],
+                    'tight__rightEndPos':tightRightEnclosingBracket['closeBracketPos'],
+                    'tight__rightType':'enclosing',#'backslashArg' if tightRightEnclosingBracket['belongToBackslash'] else 'enclosing',
+                })
+            elif tightRightBracket['closeBracketType'] is not None:
+                infixInfoDict0.update({
+                    'tight__leftStartType':tightRightBracket['openBracketType'],
+                    'tight__leftStartPos':tightRightBracket['openBracketPos'],
+                    'tight__leftType':'leftRight',#'backslashArg' if tightRightBracket['belongToBackslash'] else 'leftRight',
+                    'tight__leftEndType':tightRightBracket['closeBracketType'],
+                    'tight__leftEndPos':tightRightBracket['closeBracketPos'],
+                })
+            # else:#no tight at all
+            #     infixInfoDict0.update({
+            #         'tight__rightStartType':infixInfoDict0['right__startBracketType'],
+            #         'tight__rightStartPos':infixInfoDict0['right__startBracketPos'],
+            #         'tight__rightType':infixInfoDict0['right__type'],
+            #         'tight__rightEndType':infixInfoDict0['right__endBracketType'],
+            #         'tight__rightEndPos':infixInfoDict0['right__endBracketPos']
+            #     })
+
+
 
             if self.showError():
                 print('^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^')
@@ -1302,7 +1418,7 @@ class Latexparser(Parser):
         ###############
         for unoccupiedPos in self.unoccupiedPoss: # start with left-most leftover
             leftOverC = self._eqs[unoccupiedPos]
-            isNume = isNum(leftOverC)
+            isNume = isNum(leftOverC) or leftOverC == '.'
             #############
             if self.showError():
                 print('leftOverC: ', leftOverC)
@@ -1398,7 +1514,7 @@ class Latexparser(Parser):
                 eKey = 'ganzEndPos'
                 self.consecutiveGroups[(ding[sKey], ding[eKey])] = [ding]
 
-        def rangesConsecutiveInEqsIgnoringSpace(grenzeRange0, grenzeRange1):
+        def rangesConsecutiveInEqsIgnoringSpace(grenzeRange0, grenzeRange1):#and unoccupiedBrackets found in _findLeftOverPosition
             start0 = grenzeRange0[0]
             end0 = grenzeRange0[1]
             start1 = grenzeRange1[0]#ding['ganzStartPos']
@@ -1521,6 +1637,90 @@ class Latexparser(Parser):
             self.event__collateBackslashInfixLeftOversToContiguous.set()
 
 
+    def _updateBackslashLeftOversBracketInfo(self):
+        """
+        backslash_function/backslash_variable/variable/numbers should only have enclosing...
+
+        This necessity was verdeckt because of errors from addImplicitMultiply, so this is a fix dedicated to addImplicitMultiply
+
+
+        if brackets belong to backslash, then cannot be used for implicit-multiply
+
+        (1+(1+(1+1)))(((1+1)+1)+1)
+                    ^
+        implicit-multiply needed here, and we need position of the widest-enclosing-bracket
+
+        (1+(1+1)(1+1)+1)+1
+               ^
+        implicit-multiply needed here, and we need position of the tightest-enclosing-bracket
+
+        ((1+(1+(1+1)))(((1+1)+1)+1)+1)+1
+                     ^
+        implicit-multiply needed here, and its not the tightest-enclosing-bracket, nor widest-enclosing-bracket
+
+        so if under the same widest brackets, then look to tightest brackets?
+        can it be under the same tightest bracket?
+        (x+y+z)
+
+
+        Keep all the enclosingbracket-notbackslashargument-information in the backslash_function/backslash_variable/variable/number
+        """
+        def bracketsBelongToBackSlash(startBracketPos):
+            if self.showError():
+                print('collideWithNonEnclosingBackslashBrackets~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~', startBracketPos, endBracketPos)
+            #######
+            # print('collideWithNonEnclosingBackslashBrackets self.variablesPos: ', self.variablesPos)
+            # import pdb;pdb.set_trace()
+            #######
+            for vInfoDict in self.variablesPos:
+                if vInfoDict['argument1StartPosition'] is not None and (vInfoDict['argument1StartPosition'] - lenOrZero(vInfoDict['argument1BracketType'])) == startBracketPos:
+                    return True
+            #######
+            # print('collideWithNonEnclosingBackslashBrackets self.functionPos: ')
+            # print(list(map(lambda f:(f['name'], f['startPos'], f['endPos']), self.functionPos)))
+            # import pdb;pdb.set_trace()
+            #######
+            for fInfoDict in self.functionPos:
+                ##########################
+                # print("f1looking at: ", (fInfoDict['name'], fInfoDict['startPos'], fInfoDict['endPos']), "(arg1)'s ", fInfoDict['argument1StartPosition'] - lenOrZero(fInfoDict['argument1BracketType']), ' == ', startBracketPos)
+                # import pdb;pdb.set_trace()
+                ##########################
+                if fInfoDict['argument1BracketType'] is not None and (fInfoDict['argument1StartPosition'] - lenOrZero(fInfoDict['argument1BracketType'])) == startBracketPos :
+                    return True
+                ##########################
+                # print("f2looking at: ", (fInfoDict['name'], fInfoDict['startPos'], fInfoDict['endPos']), "(arg2)'s ", fInfoDict['argument2StartPosition'] - lenOrZero(fInfoDict['argument2BracketType']), ' == ', startBracketPos)
+                # import pdb;pdb.set_trace()
+                ##########################
+                if fInfoDict['argument2BracketType'] is not None and (fInfoDict['argument2StartPosition'] - lenOrZero(fInfoDict['argument2BracketType'])) == startBracketPos:
+                    return True
+            return False
+
+
+        for infoDict in self.functionPos+self.variablesPos+self.noBraBackslashPos+self.contiguousInfoList:
+            infoDict.update({
+                'enclosingBracketsNonBackslashArg':[]
+            })
+            # infoDict.update({#we want the tightest
+            #     'enclosingStartPos': 0 if infoDict['position'] < self.equalPos else self.equalPos+1,
+            #     'enclosingEndPos': self.equalPos - 1 if infoDict['position'] < self.equalPos else len(self._eqs)-1,
+            #     'enclosingStartType':None,
+            #     'enclosingEndType':None,
+
+            # })
+            for bracketInfoDict in self.matchingBracketsLocation: 
+                if bracketsBelongToBackSlash(bracketInfoDict['openBracketPos']):
+                    continue # skip because it cannot be used in implicit-multiply
+                #is bracketInfoDict enclosing infoDict?
+                if bracketInfoDict['openBracketPos'] <= infoDict['ganzStartPos'] and infoDict['ganzEndPos'] <= bracketInfoDict['closeBracketPos']:
+                    infoDict['enclosingBracketsNonBackslashArg'].append({
+                        'enclosingStartPos':bracketInfoDict['openBracketPos'],
+                        'enclosingEndPos':bracketInfoDict['closeBracketPos'],
+                        'enclosingStartType':bracketInfoDict['openBracketType'],
+                        'enclosingEndType':bracketInfoDict['closeBracketType']
+                    })
+            #sort enclosingBracketsNonBackslashArg, peutetre sort according to enclosingStartPos and enclosingEndPos, and keep 2 list
+
+
     def _graftGrenzeRangesIntoContainmentTree(self):
         """
         Order the grenze(key) of self.consecutiveGroups into a tree.
@@ -1533,6 +1733,16 @@ class Latexparser(Parser):
             egalment: self.grenzeChildrenOf[A] = [B]
 
         #
+        Here we 
+        1. build self.consecutiveGroups into EnclosureTree
+        2. By the levels of EnclosureTree
+            a. __addImplicitZero
+            b. __addImplicitMultipy
+        3. By the levels of EnclosureTree
+            a. __intraGrenzeSubtreeUe
+        4. By the levels of EnclosureTree
+            a. __interLevelSubtreeGrafting
+            b. dump all nodes into self.alleDing for the next process to use
         """
 
         listPoss = list(self.consecutiveGroups.keys())
@@ -1596,9 +1806,12 @@ class Latexparser(Parser):
                 ################
                 if self.showError():
                     print('**************************')
-                    shortDings = list(map(lambda d: (d['name'], d['startPos'], d['endPos']), dings))
-                    print('level: ', level, 'grenzeRange: ', grenzeRange, 'shortDings: ', shortDings)
-                    print('BEGINT dings: ', list(map(lambda ding: (ding['name'], ding['startPos'], ding['endPos']), dings)))
+                    # shortDings = list(map(lambda d: (d['name'], d['startPos'], d['endPos']), dings))
+                    # print('level: ', level, 'grenzeRange: ', grenzeRange, 'shortDings: ', shortDings)
+                    # print('BEGINT dings: ', list(map(lambda ding: (ding['name'], ding['startPos'], ding['endPos']), dings)))
+                    print('************************************_graftGrenzeRangesIntoContainmentTree (NOTHING)**********************************************')
+                    self.printConsecutiveGroup(self.consecutiveGroups)
+                    print('***************************************_graftGrenzeRangesIntoContainmentTree (NOTHING)*******************************************')
                     print('**************************')
                 ################
                 #here, we need to 
@@ -1607,45 +1820,57 @@ class Latexparser(Parser):
                 ################
                 if self.showError():
                     print('**************************')
-                    shortDings = list(map(lambda d: (d['name'], d['startPos'], d['endPos']), dings))
-                    print('level: ', level, 'grenzeRange: ', grenzeRange, 'shortDings: ', shortDings)
-                    print('After implicitzero dings: ', list(map(lambda ding: (ding['name'], ding['startPos'], ding['endPos']), dings)))
+                    # shortDings = list(map(lambda d: (d['name'], d['startPos'], d['endPos']), dings))
+                    # print('level: ', level, 'grenzeRange: ', grenzeRange, 'shortDings: ', shortDings)
+                    # print('After implicitzero dings: ', list(map(lambda ding: (ding['name'], ding['startPos'], ding['endPos']), dings)))
                     print('**************************')
+                    print('************************************_graftGrenzeRangesIntoContainmentTree (__addImplicitZero)**********************************************')
+                    self.printConsecutiveGroup(self.consecutiveGroups)
+                    print('***************************************_graftGrenzeRangesIntoContainmentTree (__addImplicitZero)*******************************************')
                 ################
                 #__addImplicitMultiply
                 dings = self.__addImplicitMultiply(dings) 
                 ################
-                if self.showError():
-                    print('**************************')
-                    shortDings = list(map(lambda d: (d['name'], d['startPos'], d['endPos']), dings))
-                    print('level: ', level, 'grenzeRange: ', grenzeRange, 'shortDings: ', shortDings)
-                    print('After implicitmultiply dings: ', list(map(lambda ding: (ding['name'], ding['startPos'], ding['endPos']), dings)))
-                    print('**************************')
                 ################
                 self.consecutiveGroups[grenzeRange] = dings # replace with the new dings
-                #__intraGrenzeSubtreeUe
-                rootOfDingsWithGanzRange = self.__intraGrenzeSubtreeUe(dings) #{'root':ding, 'ganzStartPos':[of the whole tree], 'ganzEndPos':[of the whole tree]}
-                grenzeRangeToRoot[grenzeRange] = rootOfDingsWithGanzRange
-                ################
                 if self.showError():
-                    shortDings = list(map(lambda d: (d['name'], d['startPos'], d['endPos']), dings))
-                    print('level: ', level, 'grenzeRange: ', grenzeRange, 'shortDings: ', shortDings)
-                    print('After __intraGrenzeSubtreeUe dings: ', list(map(lambda ding: (ding['name'], ding['startPos'], ding['endPos']), dings)))
-                    print('root: ', (rootOfDingsWithGanzRange['root']['name'], rootOfDingsWithGanzRange['root']['startPos'], rootOfDingsWithGanzRange['root']['endPos']), ' ganzrange: ', (rootOfDingsWithGanzRange['ganzStartPos'], rootOfDingsWithGanzRange['ganzEndPos']))
                     print('**************************')
-                ################
+                    # shortDings = list(map(lambda d: (d['name'], d['startPos'], d['endPos']), dings))
+                    # print('level: ', level, 'grenzeRange: ', grenzeRange, 'shortDings: ', shortDings)
+                    # print('After implicitmultiply dings: ', list(map(lambda ding: (ding['name'], ding['startPos'], ding['endPos']), dings)))
+                    # print('**************************')
+                    print('************************************_graftGrenzeRangesIntoContainmentTree (__addImplicitMultiply)**********************************************')
+                    self.printConsecutiveGroup(self.consecutiveGroups)
+                    print('***************************************_graftGrenzeRangesIntoContainmentTree (__addImplicitMultiply)*******************************************')
             levelTo_grenzeRangeToRoot[level] = grenzeRangeToRoot
             ################
             if self.showError():
-                grenzeRangeToShortDings = {}
-                for grenzeRange in grenzeRanges:
-                    dings = self.consecutiveGroups[grenzeRange]
-                    shortDings = list(map(lambda d: (d['name'], d['startPos'], d['endPos']), dings))
-                    grenzeRangeToShortDings[grenzeRange] = shortDings
-                print('level: ', level, 'grenzeRanges: ', grenzeRanges, 'grenzeRangeToShortDings', )
-                pp.pprint(grenzeRangeToShortDings)
-                print('**************************')
+                print('*************self.consecutiveGroups*************')
+                self.printConsecutiveGroup(self.consecutiveGroups)
+                print('************self.consecutiveGroups**************')
             ################
+        # print('@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@DOING INTRALEVEL')
+        for level, grenzeRanges in sorted(list(levelToIDs.items()), key=lambda t: t[0]): # t[0] is the level
+            grenzeRangeToRoot = levelTo_grenzeRangeToRoot[level]
+            for grenzeRange in grenzeRanges:
+                dings = self.consecutiveGroups[grenzeRange]
+                #__intraGrenzeSubtreeUe
+                rootOfDingsWithGanzRange, dings = self.__intraGrenzeSubtreeUe(dings) #{'root':ding, 'ganzStartPos':[of the whole tree], 'ganzEndPos':[of the whole tree]}
+                grenzeRangeToRoot[grenzeRange] = rootOfDingsWithGanzRange
+                ################
+                if self.showError():
+                    # shortDings = list(map(lambda d: (d['name'], d['startPos'], d['endPos']), dings))
+                    # print('level: ', level, 'grenzeRange: ', grenzeRange, 'shortDings: ', shortDings)
+                    # print('After __intraGrenzeSubtreeUe dings: ', list(map(lambda ding: (ding['name'], ding['startPos'], ding['endPos']), dings)))
+                    # print('root: ', (rootOfDingsWithGanzRange['root']['name'], rootOfDingsWithGanzRange['root']['startPos'], rootOfDingsWithGanzRange['root']['endPos']), ' ganzrange: ', (rootOfDingsWithGanzRange['ganzStartPos'], rootOfDingsWithGanzRange['ganzEndPos']))
+                    # print('**************************')
+
+                    # print('**********************')
+                    print('*********_graftGrenzeRangesIntoContainmentTree (just after intralevel)********************************')
+                    self.printConsecutiveGroup(self.consecutiveGroups)
+                    print('*********_graftGrenzeRangesIntoContainmentTree********************************')
+                ################
+                self.consecutiveGroups[grenzeRange] = dings
         # print('@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@DOING INTERLEVEL')
         for level, grenzeRanges in sorted(list(levelToIDs.items()), key=lambda t: t[0]): # t[0] is the level
             grenzeRangeToRoot = levelTo_grenzeRangeToRoot[level]
@@ -1656,11 +1881,15 @@ class Latexparser(Parser):
                 ################
                 if self.showError():
                     print('*********__interLevelSubtreeGraftingVOR*****************')
-                    shortDings = list(map(lambda d: (d['name'], d['startPos'], d['endPos']), dings))
-                    print('level: ', level, 'grenzeRange: ', grenzeRange, 'shortDings: ', shortDings)
-                    print('After __interLevelSubtreeGrafting dings: ', list(map(lambda ding: (ding['name'], ding['startPos'], ding['endPos']), dings)))
-                    print('grenzeRangeParent: ', grenzeRangeParent, ' PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPParent')
-                    print('*************__interLevelSubtreeGraftingNACH*************')
+                    # shortDings = list(map(lambda d: (d['name'], d['startPos'], d['endPos']), dings))
+                    # print('level: ', level, 'grenzeRange: ', grenzeRange, 'shortDings: ', shortDings)
+                    # print('After __interLevelSubtreeGrafting dings: ', list(map(lambda ding: (ding['name'], ding['startPos'], ding['endPos']), dings)))
+                    # print('grenzeRangeParent: ', grenzeRangeParent, ' PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPParent')
+
+                    print('*********_graftGrenzeRangesIntoContainmentTree (before interLevel)********************************')
+                    self.printConsecutiveGroup(self.consecutiveGroups)
+                    print('*********_graftGrenzeRangesIntoContainmentTree********************************')
+                    print('*************__interLevelSubtreeGraftingVOR*************')
                 ################
                 if grenzeRangeParent is not None: # we reached =, not need to interlevelsubtreegrafting
                     parentDings = self.consecutiveGroups[grenzeRangeParent]
@@ -1673,10 +1902,14 @@ class Latexparser(Parser):
                     ################
                     if self.showError():
                         print('*********__interLevelSubtreeGraftingNACH***************** grenzeRangeParent: ', grenzeRangeParent)
-                        shortDings = list(map(lambda d: (d['name'], d['startPos'], d['endPos']), dings))
-                        print('level: ', level, 'grenzeRange: ', grenzeRange, 'shortDings: ', shortDings)
-                        print('After __interLevelSubtreeGrafting dings: ', list(map(lambda ding: (ding['name'], ding['startPos'], ding['endPos']), dings)))
-                        print('parentDings: ', list(map(lambda ding:(ding['name'], ding['startPos'], ding['endPos']), parentDings)))
+                        # shortDings = list(map(lambda d: (d['name'], d['startPos'], d['endPos']), dings))
+                        # print('level: ', level, 'grenzeRange: ', grenzeRange, 'shortDings: ', shortDings)
+                        # print('After __interLevelSubtreeGrafting dings: ', list(map(lambda ding: (ding['name'], ding['startPos'], ding['endPos']), dings)))
+                        # print('parentDings: ', list(map(lambda ding:(ding['name'], ding['startPos'], ding['endPos']), parentDings)))
+
+                        print('*********_graftGrenzeRangesIntoContainmentTree (after interlevel)********************************')
+                        self.printConsecutiveGroup(self.consecutiveGroups)
+                        print('*********_graftGrenzeRangesIntoContainmentTree********************************')
                         print('**************************')
                     ################
                 self.alleDing += dings # TODO something wrong with alleDing, its repeating dings that should not be
@@ -1685,6 +1918,9 @@ class Latexparser(Parser):
                 if self.showError():
                     print('**********************alleDing: <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<')
                     print(list(map(lambda ding: (ding['name'], ding['startPos'], ding['endPos']), self.alleDing)))
+                    print('*********_graftGrenzeRangesIntoContainmentTree (check alleDing)********************************')
+                    self.printConsecutiveGroup({(0, 0):self.alleDing})
+                    print('*********_graftGrenzeRangesIntoContainmentTree********************************')
                     print('**********************alleDing:')
                 #####################
         # self.__latexSpecialCases() #changes are made to the AST...
@@ -1786,6 +2022,9 @@ class Latexparser(Parser):
         #if number|variable, then add implicit multiply
         #if variable|number, then (if consecutive{touzen hazu desu...}) scream
         #if variable|variable, then add implicit multiply 
+
+
+        dings are consecutive, besides some unoccupied brackets found in _findLeftOverPosition
         """
 
         #there can be implicit multiply for infix, example "(1+1)(1+1)=4", only works for infix enclosed by brackets.
@@ -1815,10 +2054,15 @@ class Latexparser(Parser):
                 ding = dings[idx]
                 if (prevDing['type'] == 'number' and ding['type'] == 'number') or (prevDing['type'] == 'variable' and ding['type'] == 'number'):
                     if not((prevDing['startPos'] == prevDing['endPos']) or (ding['startPos'] == ding['endPos'])): #then its added zero to the hanging minus infix
-                        ###########
-                        import pdb;pdb.set_trace()
-                        ###########
-                        raise Exception('number&number, variable&number should have been catch earlier')
+                        #very rough but...
+                        if not(len(prevDing['enclosingBracketsNonBackslashArg']) > 0 and len(ding['enclosingBracketsNonBackslashArg']) > 0):
+                            ###########
+                            print(list(map(lambda d: (d['name'], d['startPos'], d['endPos']), dings)))
+
+                            print(list(map(lambda d: (d['name'], d['startPos'], d['endPos']), [prevDing, ding])))
+                            import pdb;pdb.set_trace()
+                            ###########
+                            raise Exception('number&number, variable&number should have been catch earlier')
 
                 ################### find nearest infix with rightCloseBracket, left of dding, then first Ding in dings
                 def findLeftestInfixFrom(dding):
@@ -1842,15 +2086,23 @@ class Latexparser(Parser):
 
                 if prevDing['type'] == 'infix' and ding['type'] == 'infix':
                     #if prevDing['right__startBracketType'] is not None and prevDing['right__endBracketType'] is not None and ding['left__startBracketType'] is not None and ding['left__endBracketType']: 
-                    if prevDing['right__type'] == 'leftRight' and ding['left__type'] == 'leftRight':# ???+(...)*(...)+???
+                    if prevDing['right__type'] == 'leftRight' and ding['left__type'] == 'leftRight':# ???+(...)*(...)+???  <widest>
+                        """
+                        ???+(...)   (...)+???
+              what can be in this ^
+
+                        it can only be (space) or (unOccupiedBracket), because of how dings was formed in _collateBackslashInfixLeftOversToContiguous
+                        1. if (space), then implicit-multiply is ok
+                        2. if (unOccupiedBracket), then this is a wider-bracket, which contradicts how right__type and left__type was formed in collideWithNonEnclosingBackslashBrackets
+                        """
                         # implicitMultiplyNode = ('*', (self.addedSymbolId, -1))
                         self.addedSymbolId += 1
                         implicitMultiplyInfoDict = { # rightarg * leftarg
                             'name':'*',
-                            'position':prevDing['right__endBracketPos']+lenOrZero(prevDing['right__endBracketType']),
+                            'position':prevDing['right__endBracketPos'],
                             'type':'implicit',
-                            'startPos':prevDing['right__startBracketPos'],
-                            'endPos':ding['left__endBracketPos'],
+                            'startPos':prevDing['right__endBracketPos'],
+                            'endPos':prevDing['right__endBracketPos'],
                             'ganzStartPos':prevDing['right__startBracketPos'],
                             'ganzEndPos':ding['left__endBracketPos'],
                             # rightarg
@@ -1872,8 +2124,8 @@ class Latexparser(Parser):
                             'parent':None # no setting parents here, since we need to check for presence of infix in all Dings first.
                         }
                         self.infixList.append(implicitMultiplyInfoDict)
+                        self.__updateInfixNearestBracketInfix(self.infixList, self.infixList)
                         newDings.append(implicitMultiplyInfoDict)
-                        ###################
                         if self.showError():
                             print('(infix|leftRight)(infix|leftRight)adding implicit-multiply between')
                             print((prevDing['name'], prevDing['startPos'], prevDing['endPos']))
@@ -1882,16 +2134,16 @@ class Latexparser(Parser):
                             print('*******************************adding implicit-multiply')
                         ###################
                     #elif prevDing['right__startBracketType'] is not None and prevDing['right__endBracketType'] is not None and ding['left__startBracketType'] is not None: 
-                    elif prevDing['right__type'] == 'leftRight' and ding['left__type'] == 'enclosing': #???+(...)*(...+???)
+                    elif prevDing['right__type'] == 'leftRight' and ding['left__type'] == 'enclosing': #???+(...)*(...+???)  <leftRight:widest>
                         #could be ding['right__type'] == 'enclosing' too
                         # implicitMultiplyNode = ('*', (self.addedSymbolId, -1))
                         self.addedSymbolId += 1
                         implicitMultiplyInfoDict = {# rightarg * ganz
                             'name':'*',
-                            'position':prevDing['right__endBracketPos']+lenOrZero(prevDing['right__endBracketType']),
+                            'position':prevDing['right__endBracketPos'],
                             'type':'implicit',
-                            'startPos':prevDing['right__startBracketPos'],
-                            'endPos':ding['ganzEndPos'],
+                            'startPos':prevDing['right__endBracketPos'],
+                            'endPos':prevDing['right__endBracketPos'],
                             'ganzStartPos':prevDing['right__startBracketPos'],
                             'ganzEndPos':ding['ganzEndPos'],
                             #rightarg
@@ -1913,6 +2165,7 @@ class Latexparser(Parser):
                             'parent':None # no setting parents here, since we need to check for presence of infix in all Dings first.
                         }
                         self.infixList.append(implicitMultiplyInfoDict)
+                        self.__updateInfixNearestBracketInfix(self.infixList, self.infixList)
                         newDings.append(implicitMultiplyInfoDict)
                         ###################
                         if self.showError():
@@ -1929,10 +2182,10 @@ class Latexparser(Parser):
                         self.addedSymbolId += 1
                         implicitMultiplyInfoDict = {# ganz * leftarg
                             'name':'*',
-                            'position':prevDing['right__endBracketPos']+lenOrZero(prevDing['right__endBracketType']),
+                            'position':prevDing['right__endBracketPos'],
                             'type':'implicit',
-                            'startPos':prevDing['ganzStartPos'],
-                            'endPos':ding['left__endBracketPos'],
+                            'startPos':prevDing['right__endBracketPos'],
+                            'endPos':prevDing['right__endBracketPos'],
                             'ganzStartPos':prevDing['ganzStartPos'],
                             'ganzEndPos':ding['left__endBracketPos'],
                             #ganz
@@ -1954,6 +2207,7 @@ class Latexparser(Parser):
                             'parent':None # no setting parents here, since we need to check for presence of infix in all Dings first.
                         }
                         self.infixList.append(implicitMultiplyInfoDict)
+                        self.__updateInfixNearestBracketInfix(self.infixList, self.infixList)
                         newDings.append(implicitMultiplyInfoDict)
                         ###################
                         if self.showError():
@@ -1969,10 +2223,10 @@ class Latexparser(Parser):
                         self.addedSymbolId += 1
                         implicitMultiplyInfoDict = { # ganz * ganz
                             'name':'*',
-                            'position':prevDing['right__endBracketPos']+lenOrZero(prevDing['right__endBracketType']),
+                            'position':prevDing['right__endBracketPos'],
                             'type':'implicit',
-                            'startPos':prevDing['ganzStartPos'],
-                            'endPos':ding['ganzEndPos'],
+                            'startPos':prevDing['right__endBracketPos'],
+                            'endPos':prevDing['right__endBracketPos'],
                             'ganzStartPos':prevDing['ganzStartPos'],
                             'ganzEndPos':ding['ganzEndPos'],
                             #ganz
@@ -1994,6 +2248,7 @@ class Latexparser(Parser):
                             'parent':None # no setting parents here, since we need to check for presence of infix in all Dings first.
                         }
                         self.infixList.append(implicitMultiplyInfoDict)
+                        self.__updateInfixNearestBracketInfix(self.infixList, self.infixList)
                         newDings.append(implicitMultiplyInfoDict)
                         ###################
                         if self.showError():
@@ -2008,21 +2263,23 @@ class Latexparser(Parser):
                 # elif (prevDing['type'] == 'number' and prevDing['type'] == 'number') or (prevDing['type'] == 'variable' and ding['type'] == 'number'):#there are no other possible infix types..., heran haben wir nur (number/variable/backslash_variable/backslash_function)
                 #     raise Exception('Should not have number|number; variable|number, something wrong with leftOver-finding-method')
                 elif prevDing['type'] == 'infix': # ding['type'] != 'infix'
-                    #if prevDing['right__startBracketType'] is not None and prevDing['right__endBracketType'] is not None: 
                     if prevDing['right__type'] == 'leftRight': #???+(...)*Ding, ???+(Ding)
+                        """
+                        depends on the bracketing information of Ding
+                        """
                         if not(prevDing['right__argStart'] <= ding['position'] and ding['position']+len(ding['name']) <= prevDing['right__argEnd']):
                             #nearest infix with leftBracket, right of Ding
                             # infixRightOfDing = findRightestInfixFrom(ding) # that has leftCloseBracket
                             #infixRightOfDing might not be infix, since there might not have infix right of Ding
                             # implicitMultiplyNode = ('*', (self.addedSymbolId, -1))
                             self.addedSymbolId += 1
-                            import pdb;pdb.set_trace()
+                            # import pdb;pdb.set_trace()
                             implicitMultiplyInfoDict = {# rightarg * ganz
                                 'name':'*',
-                                'position':prevDing['right__endBracketPos']+lenOrZero(prevDing['right__endBracketType']),
+                                'position':prevDing['right__endBracketPos'],
                                 'type':'implicit',
-                                'startPos':prevDing['right__startBracketPos'],
-                                'endPos':ding.get('endPos'),
+                                'startPos':prevDing['right__endBracketPos'],
+                                'endPos':prevDing['right__endBracketPos'],#ding.get('endPos'),
                                 'ganzStartPos':prevDing['right__startBracketPos'],
                                 'ganzEndPos':ding.get('ganzEndPos'),
                                 #rightarg
@@ -2043,9 +2300,8 @@ class Latexparser(Parser):
                                 'child':{1:None, 2:None},
                                 'parent':None # no setting parents here, since we need to check for presence of infix in all Dings first.
                             }
-                            self.tempBracketFinderList = [implicitMultiplyInfoDict]
-                            self.__updateInfixNearestBracketInfix(self.tempBracketFinderList, self.infixList)
                             self.infixList.append(implicitMultiplyInfoDict)
+                            self.__updateInfixNearestBracketInfix(self.infixList, self.infixList)
                             newDings.append(implicitMultiplyInfoDict)
                             ###################
                             if self.showError():
@@ -2066,10 +2322,10 @@ class Latexparser(Parser):
                             # import pdb;pdb.set_trace()
                             implicitMultiplyInfoDict = {# ganz * leftarg
                                 'name':'*',
-                                'position':prevDing['right__endBracketPos']+lenOrZero(prevDing['right__endBracketType']),
+                                'position':prevDing['right__endBracketPos'],
                                 'type':'implicit',
-                                'startPos':prevDing['ganzStartPos'],
-                                'endPos':ding.get('endPos'),
+                                'startPos':prevDing['right__endBracketPos'],
+                                'endPos':prevDing['right__endBracketPos'],
                                 'ganzStartPos':prevDing['ganzStartPos'],
                                 'ganzEndPos':ding.get('ganzEndPos'),
                                 #ganz
@@ -2090,9 +2346,8 @@ class Latexparser(Parser):
                                 'child':{1:None, 2:None},
                                 'parent':None # no setting parents here, since we need to check for presence of infix in all Dings first.
                             }
-                            self.tempBracketFinderList = [implicitMultiplyInfoDict]
-                            self.__updateInfixNearestBracketInfix(self.tempBracketFinderList, self.infixList)
                             self.infixList.append(implicitMultiplyInfoDict)
+                            self.__updateInfixNearestBracketInfix(self.infixList, self.infixList)
                             newDings.append(implicitMultiplyInfoDict)
                             ###################
                             if self.showError():
@@ -2113,8 +2368,8 @@ class Latexparser(Parser):
                                 'name':'*',
                                 'position':ding['left__startBracketPos'],#-len('*')
                                 'type':'implicit',
-                                'startPos':prevDing.get('startPos'),
-                                'endPos':ding['left__endBracketPos'],
+                                'startPos':ding['left__startBracketPos'],#prevDing.get('startPos'),
+                                'endPos':ding['left__startBracketPos'],#ding['left__endBracketPos'],
                                 'ganzStartPos':prevDing.get('ganzStartPos'),
                                 'ganzEndPos':ding['left__endBracketPos'],
                                 #Ding
@@ -2135,9 +2390,8 @@ class Latexparser(Parser):
                                 'child':{1:None, 2:None},
                                 'parent':None # no setting parents here, since we need to check for presence of infix in all Dings first.
                             }
-                            self.tempBracketFinderList = [implicitMultiplyInfoDict]
-                            self.__updateInfixNearestBracketInfix(self.tempBracketFinderList, self.infixList)
                             self.infixList.append(implicitMultiplyInfoDict)
+                            self.__updateInfixNearestBracketInfix(self.infixList, self.infixList)
                             newDings.append(implicitMultiplyInfoDict)
                             ###################
                             if self.showError():
@@ -2159,8 +2413,8 @@ class Latexparser(Parser):
                                 'name':'*',
                                 'position':ding['left__startBracketPos'],#-len('*')
                                 'type':'implicit',
-                                'startPos':prevDing.get('startPos'),
-                                'endPos':ding['ganzEndPos'],
+                                'startPos':ding['left__startBracketPos'],#prevDing.get('startPos'),
+                                'endPos':ding['left__startBracketPos'],#ding['ganzEndPos'],
                                 'ganzStartPos':prevDing.get('ganzStartPos'),
                                 'ganzEndPos':ding['ganzEndPos'],
                                 #Ding
@@ -2181,9 +2435,8 @@ class Latexparser(Parser):
                                 'child':{1:None, 2:None},
                                 'parent':None # no setting parents here, since we need to check for presence of infix in all Dings first.
                             }
-                            self.tempBracketFinderList = [implicitMultiplyInfoDict]
-                            self.__updateInfixNearestBracketInfix(self.tempBracketFinderList, self.infixList)
                             self.infixList.append(implicitMultiplyInfoDict)
+                            self.__updateInfixNearestBracketInfix(self.infixList, self.infixList)
                             newDings.append(implicitMultiplyInfoDict)
                             ###################
                             if self.showError():
@@ -2198,15 +2451,41 @@ class Latexparser(Parser):
                     #prevDing/ding can be number/variable/backslash_variable/backslash_function
                     #-need to provide parent of () for update child [name, startPos, endPos, ganzStartPos, ganzEndPos]
                     # implicitMultiplyNode = ('*', (self.addedSymbolId, -1))
+                    # import pdb;pdb.set_trace()
+                    if len(prevDing['enclosingBracketsNonBackslashArg']) > 0 and len(ding['enclosingBracketsNonBackslashArg']) > 0:
+                        implicitMultiplyPos = None
+                        for bracketInfoDict0 in prevDing['enclosingBracketsNonBackslashArg']:
+                            for bracketInfoDict1 in ding['enclosingBracketsNonBackslashArg']:
+                                spacesBetweenCloseBracketAndOpenBracket = self._eqs[bracketInfoDict0['enclosingEndPos']:bracketInfoDict1['enclosingStartPos'] - len(bracketInfoDict1['enclosingStartType'])]
+                                if len(spacesBetweenCloseBracketAndOpenBracket.strip()) == 0: #spacesBetweenCloseBracketAndOpenBracket should contain all white spaces
+                                    implicitMultiplyPos = bracketInfoDict0['enclosingEndPos'] + len(bracketInfoDict0['enclosingEndType'])
+                                    break
+                            if implicitMultiplyPos is not None:
+                                break
+                        if implicitMultiplyPos is None:
+                            raise Exception('')
+                        # import pdb;pdb.set_trace()
+                    elif len(prevDing['enclosingBracketsNonBackslashArg']) > 0: # take the last
+                        prevDingUmBracket = sorted(prevDing['enclosingBracketsNonBackslashArg'], key=lambda ifd: ifd['enclosingEndPos'])[-1]
+                        implicitMultiplyPos = prevDingUmBracket['enclosingEndPos'] + len(prevDingUmBracket['enclosingEndType'])
+                    elif len(ding['enclosingBracketsNonBackslashArg']) > 0:#take first
+                        dingUmBracket = sorted(ding['enclosingBracketsNonBackslashArg'], key=lambda ifd: ifd['enclosingStartPos'], reverse=True)[0]
+                        implicitMultiplyPos = dingUmBracket['enclosingStartPos']
+                    else:
+                        implicitMultiplyPos = prevDing['ganzEndPos']
+
+                    #fill in implicitMultiplyInfoDict properly :) TODO
+
                     self.addedSymbolId += 1
                     implicitMultiplyInfoDict = {
                         'name':'*',
-                        'position':prevDing['ganzEndPos'],
+                        'position':implicitMultiplyPos,#prevDing['ganzEndPos'],
                         'type':'implicit',
-                        'startPos':prevDing['startPos'],
-                        'endPos':ding['endPos'],
+                        'startPos':implicitMultiplyPos,#prevDing['ganzEndPos'],#prevDing['startPos'],
+                        'endPos':implicitMultiplyPos+len('*'),#prevDing['ganzEndPos'],#ding['endPos'],
                         'ganzStartPos':prevDing['ganzStartPos'],
                         'ganzEndPos':ding['ganzEndPos'],
+
                         'left__startBracketPos':None, #TODO to test leaves with brackets..
                         'left__startBracketType':None, #TODO to test leaves with brackets..
                         'left__endBracketPos':None, #TODO to test leaves with brackets..
@@ -2224,9 +2503,8 @@ class Latexparser(Parser):
                         'child':{1:None, 2:None},
                         'parent':None
                     }
-                    self.tempBracketFinderList = [implicitMultiplyInfoDict]
-                    self.__updateInfixNearestBracketInfix(self.tempBracketFinderList, self.infixList)
                     self.infixList.append(implicitMultiplyInfoDict)
+                    self.__updateInfixNearestBracketInfix(self.infixList, self.infixList)
                     newDings.append(implicitMultiplyInfoDict)
                     ###################
                     if self.showError():
@@ -2282,25 +2560,25 @@ class Latexparser(Parser):
         treeifiedDingsGanzEndPos = -1
         ding = newDings[0]
         ############
-        if self.showError():
-            print('checking treeifiedDingsGanzStartPos/treeifiedDingsGanzEndPos')
-            print('dings', list(map(lambda d: (d['name'], d['startPos'], d['endPos']), newDings)))
-            print('ding', ((ding['name'], ding['startPos'], ding['endPos'])))
-            print('treeifiedDingsGanzStartPos', treeifiedDingsGanzStartPos)
-            print('treeifiedDingsGanzEndPos', treeifiedDingsGanzEndPos)
-            print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+        # if self.showError():
+        #     print('checking treeifiedDingsGanzStartPos/treeifiedDingsGanzEndPos')
+        #     print('dings', list(map(lambda d: (d['name'], d['startPos'], d['endPos']), newDings)))
+        #     print('ding', ((ding['name'], ding['startPos'], ding['endPos'])))
+        #     print('treeifiedDingsGanzStartPos', treeifiedDingsGanzStartPos)
+        #     print('treeifiedDingsGanzEndPos', treeifiedDingsGanzEndPos)
+        #     print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
             # import pdb;pdb.set_trace()
         ############
         treeifiedDingsGanzStartPos = getMostLeftStartPos(ding, treeifiedDingsGanzStartPos)
         treeifiedDingsGanzEndPos = getMostRightEndPos(ding, treeifiedDingsGanzEndPos)
         ############
-        if self.showError():
-            print('checking treeifiedDingsGanzStartPos/treeifiedDingsGanzEndPos')
-            print('dings', list(map(lambda d: (d['name'], d['startPos'], d['endPos']), newDings)))
-            print('ding', ((ding['name'], ding['startPos'], ding['endPos'])))
-            print('treeifiedDingsGanzStartPos', treeifiedDingsGanzStartPos)
-            print('treeifiedDingsGanzEndPos', treeifiedDingsGanzEndPos)
-            print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!2!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+        # if self.showError():
+        #     print('checking treeifiedDingsGanzStartPos/treeifiedDingsGanzEndPos')
+        #     print('dings', list(map(lambda d: (d['name'], d['startPos'], d['endPos']), newDings)))
+        #     print('ding', ((ding['name'], ding['startPos'], ding['endPos'])))
+        #     print('treeifiedDingsGanzStartPos', treeifiedDingsGanzStartPos)
+        #     print('treeifiedDingsGanzEndPos', treeifiedDingsGanzEndPos)
+        #     print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!2!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
             # import pdb;pdb.set_trace()
         ############
         if len(newDings) > 0:
@@ -2310,6 +2588,22 @@ class Latexparser(Parser):
             if self.showError():
                 print('grouping new dings by priority****************************************')
                 # import pdb;pdb.set_trace()
+            #update the bracket information before building tree...
+            infixesBracketUpdateList = []
+            others = []
+            idToNewDingsIdx = {}
+            for idx, ding in enumerate(newDings):
+                idToNewDingsIdx[(ding['name'], ding['startPos'])] = idx
+                if ding['name'] in self.PRIOIRITIZED_INFIX:
+                    infixesBracketUpdateList.append(ding)
+                else:
+                    others.append(ding)
+
+            self.tempBracketFinderList = infixesBracketUpdateList
+            self.__updateInfixNearestBracketInfix(self.tempBracketFinderList, self.infixList)
+            newDings = sorted(self.tempBracketFinderList+others, key=lambda ding: idToNewDingsIdx[(ding['name'], ding['startPos'])])
+            
+
             processed = set() # this should include all the dingPos of the infixes, and then later the arguments that are linked to the infixes
             prioritiesToDingsPos = {}
             dingPosToPriorities = {}
@@ -2341,12 +2635,14 @@ class Latexparser(Parser):
                     print('dings: ', list(map(lambda d: (d['name'], d['startPos'], d['endPos']), newDings)))
                 try: # BODMAS
                     priority = self.PRIOIRITIZED_INFIX.index(ding['name']) # the smaller the number the higher the priority. Non-infix has the highest prioirity of -1
-                    #if priority != -1: # one way to check if ding is an infix
+                    #if priority != -1: # one way to check if ding is an infix, does not work .index throws if cannot find
                     if ding['type'] == 'infix': # which way is better?
                         if ding['tight__leftType'] == 'enclosing': #equivalently, ding['right__type'] == 'enclosing' ??
-                            priority = -3 # smaller number higher priority
+                            #within enclosing, we should also have hierarchy
+                            priority = priority - 2 * len(self.PRIOIRITIZED_INFIX) # smaller number higher priority
                         if ding['tight__leftType'] == 'leftRight':
-                            priority = -2 # smaller number higher priority
+                            #within leftRight, we should also have hierarchy
+                            priority = priority - len(self.PRIOIRITIZED_INFIX) # smaller number higher priority
                     processed.add(dingPos) # this is an infix
                 except:
                     # dingPosToPriorities[dingPos] = -1
@@ -2411,50 +2707,62 @@ class Latexparser(Parser):
                         and there is nothing to the right of dingPos in newDings
                         """
                         print('******BEFORE SETTING PC relationship subtrees, leftDingPos:', dingToLeftIdx, ', dingPos', dingPos, ' dingToRightIdx, ', dingToRightIdx)
-                        print('leftDing ************')
-                        print((leftDing['name'], leftDing['startPos'], leftDing['endPos']), '|', )
-                        if 'parent' in leftDing and leftDing['parent'] is not None:
-                            print('parent:', (leftDing['parent']['name'], leftDing['parent']['startPos'], leftDing['parent']['endPos']))
-                        else:
-                            print('leftDing no parent')
-                        if 'child' in leftDing and leftDing['child'][1] is not None:
-                            print('child1:', (leftDing['child'][1]['name'], leftDing['child'][1]['startPos'], leftDing['child'][1]['endPos']))
-                        else:
-                            print('leftDing no child1')
-                        if 'child' in leftDing and 2 in leftDing['child'] and leftDing['child'][2] is not None:
-                            print('child2:', (leftDing['child'][2]['name'], leftDing['child'][2]['startPos'], leftDing['child'][2]['endPos']))
-                        else:
-                            print('leftDing no child2')
-                        print('ding *****************')
-                        print((ding['name'], ding['startPos'], ding['endPos']), '|', )
-                        if 'parent' in ding and ding['parent'] is not None:
-                            print('parent:', (ding['parent']['name'], ding['parent']['startPos'], ding['parent']['endPos']))
-                        else:
-                            print('ding no parent')
-                        if 'child' in ding and ding['child'][1] is not None:
-                            print('child1:', (ding['child'][1]['name'], ding['child'][1]['startPos'], ding['child'][1]['endPos']))
-                        else:
-                            print('ding no child1')
-                        if 'child' in ding and 2 in ding['child'] and  ding['child'][2] is not None:
-                            print('child2:', (ding['child'][2]['name'], ding['child'][2]['startPos'], ding['child'][2]['endPos']))
-                        else:
-                            print('ding no child2')
-                        print('rightDing ***********')
-                        print((rightDing['name'], rightDing['startPos'], rightDing['endPos']), '|', )
-                        if 'parent' in rightDing and rightDing['parent'] is not None:
-                            print('parent:', (rightDing['parent']['name'], rightDing['parent']['startPos'], rightDing['parent']['endPos']))
-                        else:
-                            print('rightDing no parent')
-                        if 'child' in rightDing and rightDing['child'][1] is not None:
-                            print('child1:', (rightDing['child'][1]['name'], rightDing['child'][1]['startPos'], rightDing['child'][1]['endPos']))
-                        else:
-                            print('rightDing no child1')
-                        if 'child' in rightDing and 2 in rightDing['child'] and  rightDing['child'][2] is not None:
-                            print('child2:', (rightDing['child'][2]['name'], rightDing['child'][2]['startPos'], rightDing['child'][2]['endPos']))
-                        else:
-                            print('rightDing no child2')
+                        # print('leftDing ************')
+                        # print((leftDing['name'], leftDing['startPos'], leftDing['endPos']), '|', )
+                        # if 'parent' in leftDing and leftDing['parent'] is not None:
+                        #     print('parent:', (leftDing['parent']['name'], leftDing['parent']['startPos'], leftDing['parent']['endPos']))
+                        # else:
+                        #     print('leftDing no parent')
+                        # if 'child' in leftDing and leftDing['child'][1] is not None:
+                        #     print('child1:', (leftDing['child'][1]['name'], leftDing['child'][1]['startPos'], leftDing['child'][1]['endPos']))
+                        # else:
+                        #     print('leftDing no child1')
+                        # if 'child' in leftDing and 2 in leftDing['child'] and leftDing['child'][2] is not None:
+                        #     print('child2:', (leftDing['child'][2]['name'], leftDing['child'][2]['startPos'], leftDing['child'][2]['endPos']))
+                        # else:
+                        #     print('leftDing no child2')
+                        # print('ding *****************')
+                        # print((ding['name'], ding['startPos'], ding['endPos']), '|', )
+                        # if 'parent' in ding and ding['parent'] is not None:
+                        #     print('parent:', (ding['parent']['name'], ding['parent']['startPos'], ding['parent']['endPos']))
+                        # else:
+                        #     print('ding no parent')
+                        # if 'child' in ding and ding['child'][1] is not None:
+                        #     print('child1:', (ding['child'][1]['name'], ding['child'][1]['startPos'], ding['child'][1]['endPos']))
+                        # else:
+                        #     print('ding no child1')
+                        # if 'child' in ding and 2 in ding['child'] and  ding['child'][2] is not None:
+                        #     print('child2:', (ding['child'][2]['name'], ding['child'][2]['startPos'], ding['child'][2]['endPos']))
+                        # else:
+                        #     print('ding no child2')
+                        # print('rightDing ***********')
+                        # print((rightDing['name'], rightDing['startPos'], rightDing['endPos']), '|', )
+                        # if 'parent' in rightDing and rightDing['parent'] is not None:
+                        #     print('parent:', (rightDing['parent']['name'], rightDing['parent']['startPos'], rightDing['parent']['endPos']))
+                        # else:
+                        #     print('rightDing no parent')
+                        # if 'child' in rightDing and rightDing['child'][1] is not None:
+                        #     print('child1:', (rightDing['child'][1]['name'], rightDing['child'][1]['startPos'], rightDing['child'][1]['endPos']))
+                        # else:
+                        #     print('rightDing no child1')
+                        # if 'child' in rightDing and 2 in rightDing['child'] and  rightDing['child'][2] is not None:
+                        #     print('child2:', (rightDing['child'][2]['name'], rightDing['child'][2]['startPos'], rightDing['child'][2]['endPos']))
+                        # else:
+                        #     print('rightDing no child2')
                         print('**********************')
-                        # import pdb;pdb.set_trace()
+                        print('*********parentChildR Status after __intraGrenzeSubtreeUe(2ndpart intralevel parentChildR building)********************************')
+                        sadchild = {}
+                        for d in newDings:
+                            idd = (d['name'], d['startPos'], d['endPos'])
+                            c0 = None if 'child' not in d or d['child'][1] is None else (d['child'][1]['name'], d['child'][1]['startPos'], d['child'][1]['endPos'])
+                            c1 = None if 'child' not in d or 2 not in d['child'] or d['child'][2] is None else (d['child'][2]['name'], d['child'][2]['startPos'], d['child'][2]['endPos'])
+                            pard = None if d['parent'] is None else (d['parent']['name'], d['parent']['startPos'], d['parent']['endPos'])
+                            sadchild[idd] = {'c1':c0, 'c2':c1, 'parent':pard}
+                        import pprint
+                        pp = pprint.PrettyPrinter(indent=4)
+                        pp.pprint(sadchild)
+                        print('*********parentChildR Status after __intraGrenzeSubtreeUe(2ndpart intralevel parentChildR building)********************************')
+                        import pdb;pdb.set_trace()
 
 
                     leftChild = {
@@ -2503,50 +2811,64 @@ class Latexparser(Parser):
                         and there is nothing to the right of dingPos in newDings
                         """
                         print('******building subtrees END for, leftDingPos:', dingToLeftIdx, ', dingPos', dingPos, ' dingToRightIdx, ', dingToRightIdx)
-                        print('leftDing ************')
-                        print((leftDing['name'], leftDing['startPos'], leftDing['endPos']), '|', )
-                        if 'parent' in leftDing and leftDing['parent'] is not None:
-                            print('parent:', (leftDing['parent']['name'], leftDing['parent']['startPos'], leftDing['parent']['endPos']))
-                        else:
-                            print('leftDing no parent')
-                        if 'child' in leftDing and leftDing['child'][1] is not None:
-                            print('child1:', (leftDing['child'][1]['name'], leftDing['child'][1]['startPos'], leftDing['child'][1]['endPos']))
-                        else:
-                            print('leftDing no child1')
-                        if 'child' in leftDing and 2 in leftDing['child'] and leftDing['child'][2] is not None:
-                            print('child2:', (leftDing['child'][2]['name'], leftDing['child'][2]['startPos'], leftDing['child'][2]['endPos']))
-                        else:
-                            print('leftDing no child2')
-                        print('ding *****************')
-                        print((ding['name'], ding['startPos'], ding['endPos']), '|', )
-                        if 'parent' in ding and ding['parent'] is not None:
-                            print('parent:', (ding['parent']['name'], ding['parent']['startPos'], ding['parent']['endPos']))
-                        else:
-                            print('ding no parent')
-                        if 'child' in ding and ding['child'][1] is not None:
-                            print('child1:', (ding['child'][1]['name'], ding['child'][1]['startPos'], ding['child'][1]['endPos']))
-                        else:
-                            print('ding no child1')
-                        if 'child' in ding and 2 in ding['child'] and  ding['child'][2] is not None:
-                            print('child2:', (ding['child'][2]['name'], ding['child'][2]['startPos'], ding['child'][2]['endPos']))
-                        else:
-                            print('ding no child2')
-                        print('rightDing ***********')
-                        print((rightDing['name'], rightDing['startPos'], rightDing['endPos']), '|', )
-                        if 'parent' in rightDing and rightDing['parent'] is not None:
-                            print('parent:', (rightDing['parent']['name'], rightDing['parent']['startPos'], rightDing['parent']['endPos']))
-                        else:
-                            print('rightDing no parent')
-                        if 'child' in rightDing and rightDing['child'][1] is not None:
-                            print('child1:', (rightDing['child'][1]['name'], rightDing['child'][1]['startPos'], rightDing['child'][1]['endPos']))
-                        else:
-                            print('rightDing no child1')
-                        if 'child' in rightDing and 2 in rightDing['child'] and  rightDing['child'][2] is not None:
-                            print('child2:', (rightDing['child'][2]['name'], rightDing['child'][2]['startPos'], rightDing['child'][2]['endPos']))
-                        else:
-                            print('rightDing no child2')
-                        print('**********************')
-                        # import pdb;pdb.set_trace()
+                        # print('leftDing ************')
+                        # print((leftDing['name'], leftDing['startPos'], leftDing['endPos']), '|', )
+                        # if 'parent' in leftDing and leftDing['parent'] is not None:
+                        #     print('parent:', (leftDing['parent']['name'], leftDing['parent']['startPos'], leftDing['parent']['endPos']))
+                        # else:
+                        #     print('leftDing no parent')
+                        # if 'child' in leftDing and leftDing['child'][1] is not None:
+                        #     print('child1:', (leftDing['child'][1]['name'], leftDing['child'][1]['startPos'], leftDing['child'][1]['endPos']))
+                        # else:
+                        #     print('leftDing no child1')
+                        # if 'child' in leftDing and 2 in leftDing['child'] and leftDing['child'][2] is not None:
+                        #     print('child2:', (leftDing['child'][2]['name'], leftDing['child'][2]['startPos'], leftDing['child'][2]['endPos']))
+                        # else:
+                        #     print('leftDing no child2')
+                        # print('ding *****************')
+                        # print((ding['name'], ding['startPos'], ding['endPos']), '|', )
+                        # if 'parent' in ding and ding['parent'] is not None:
+                        #     print('parent:', (ding['parent']['name'], ding['parent']['startPos'], ding['parent']['endPos']))
+                        # else:
+                        #     print('ding no parent')
+                        # if 'child' in ding and ding['child'][1] is not None:
+                        #     print('child1:', (ding['child'][1]['name'], ding['child'][1]['startPos'], ding['child'][1]['endPos']))
+                        # else:
+                        #     print('ding no child1')
+                        # if 'child' in ding and 2 in ding['child'] and  ding['child'][2] is not None:
+                        #     print('child2:', (ding['child'][2]['name'], ding['child'][2]['startPos'], ding['child'][2]['endPos']))
+                        # else:
+                        #     print('ding no child2')
+                        # print('rightDing ***********')
+                        # print((rightDing['name'], rightDing['startPos'], rightDing['endPos']), '|', )
+                        # if 'parent' in rightDing and rightDing['parent'] is not None:
+                        #     print('parent:', (rightDing['parent']['name'], rightDing['parent']['startPos'], rightDing['parent']['endPos']))
+                        # else:
+                        #     print('rightDing no parent')
+                        # if 'child' in rightDing and rightDing['child'][1] is not None:
+                        #     print('child1:', (rightDing['child'][1]['name'], rightDing['child'][1]['startPos'], rightDing['child'][1]['endPos']))
+                        # else:
+                        #     print('rightDing no child1')
+                        # if 'child' in rightDing and 2 in rightDing['child'] and  rightDing['child'][2] is not None:
+                        #     print('child2:', (rightDing['child'][2]['name'], rightDing['child'][2]['startPos'], rightDing['child'][2]['endPos']))
+                        # else:
+                        #     print('rightDing no child2')
+                        # print('**********************')
+
+                        print('*********parentChildR Status after __intraGrenzeSubtreeUe(2ndpart intralevel parentChildR building)********************************')
+                        sadchild = {}
+                        for d in newDings:
+                            idd = (d['name'], d['startPos'], d['endPos'])
+                            c0 = None if 'child' not in d or d['child'][1] is None else (d['child'][1]['name'], d['child'][1]['startPos'], d['child'][1]['endPos'])
+                            c1 = None if 'child' not in d or 2 not in d['child'] or d['child'][2] is None else (d['child'][2]['name'], d['child'][2]['startPos'], d['child'][2]['endPos'])
+                            pard = None if d['parent'] is None else (d['parent']['name'], d['parent']['startPos'], d['parent']['endPos'])
+                            sadchild[idd] = {'c1':c0, 'c2':c1, 'parent':pard}
+                        import pprint
+                        pp = pprint.PrettyPrinter(indent=4)
+                        pp.pprint(sadchild)
+                        print('*********parentChildR Status after __intraGrenzeSubtreeUe(2ndpart intralevel parentChildR building)********************************')
+                        print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!AT THE END!!!!!!!!!!!!!!!!!!!!!!!!!')
+                        import pdb;pdb.set_trace()
 
                     #TODO set parents, so that we can figure out equals children later.....
                     processed.remove(dingPos) # the infix needs to be available again, to be a child
@@ -2563,8 +2885,8 @@ class Latexparser(Parser):
             print('checking treeifiedDingsGanzStartPos/treeifiedDingsGanzEndPos')
             print('dings', list(map(lambda d: (d['name'], d['startPos'], d['endPos']), newDings)))
             print('ding', ((ding['name'], ding['startPos'], ding['endPos'])))
-            print('treeifiedDingsGanzStartPos', treeifiedDingsGanzStartPos)
-            print('treeifiedDingsGanzEndPos', treeifiedDingsGanzEndPos)
+            # print('treeifiedDingsGanzStartPos', treeifiedDingsGanzStartPos)
+            # print('treeifiedDingsGanzEndPos', treeifiedDingsGanzEndPos)
             print('we are returning (as root of subtree):')
             print({'root':ding, 'ganzStartPos':treeifiedDingsGanzStartPos, 'ganzEndPos':treeifiedDingsGanzEndPos})
             print('parent/child relationships:')
@@ -2584,7 +2906,7 @@ class Latexparser(Parser):
             print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!AT THE END!!!!!!!!!!!!!!!!!!!!!!!!!')
             # import pdb;pdb.set_trace()
         ############
-        return {'root':ding, 'ganzStartPos':treeifiedDingsGanzStartPos, 'ganzEndPos':treeifiedDingsGanzEndPos}
+        return {'root':ding, 'ganzStartPos':treeifiedDingsGanzStartPos, 'ganzEndPos':treeifiedDingsGanzEndPos}, newDings
 
 
     def __interLevelSubtreeGrafting(self, rootSubTree, parentDings):
@@ -3261,6 +3583,7 @@ $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$incomplete code to check variable_depende
         self._findLeftOverPosition()
         self._contiguousLeftOvers()
         self._collateBackslashInfixLeftOversToContiguous()
+        self._updateBackslashLeftOversBracketInfo()
         self._graftGrenzeRangesIntoContainmentTree()
         self._reformatToAST()
         self._latexSpecialCases()
