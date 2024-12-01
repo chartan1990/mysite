@@ -2116,17 +2116,13 @@ class Latexparser(Parser):
 
     def __addImplicitMultiply(self, dings):
         """
-        Es gibt neun Falls:
-        1. [infix]enclosing v [infix]enclosing
-        2. [infix]enclosing v [infix]leftRight(left)
-        3. [infix]leftRight(right) v [infix]enclosing
-        4. [infix]leftRight(right) v [infix]leftRight(left)
-        5. [infix]enclosing v [non-infix](non/enclosing)
-        6. [non-infix](non/enclosing) v [infix]enclosing
-        7. [infix]leftRight(right) v [non-infix](non/enclosing)
-        8. [non-infix](non/enclosing) v [infix]leftRight(left)
-        9. [non-infix](non/enclosing) v [non-infix](non/enclosing)
-    
+        Ob es gibt 'touchingBrackets', dann es gibt implicit-multiply, sonst Man kannt nicht implicit-multiply haben
+
+        Falls gibt es implicit-multiply, dann:
+            Das right__type und left__type ist immer 'leftRight' oder 'arg'.
+            Ob es gibt 'enclosing' oder 'leftRight' auf der links, dann left__type='leftRight', sonst es ist 'arg'
+            ebenso
+            Ob es gibt 'enclosing' oder 'leftRight' auf der rechts, dann right__type='leftRight', sonst es ist 'arg'
         """
         #~~~~~~~~~~~~~~~~~~~~~HELPER FUNCTIONS~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         def findCommonBrackets(leftArgBracketList, rightArgBracketList):
@@ -2305,42 +2301,46 @@ if __name__=='__main__':
                 bracketsTouchingStartPos, touchingLeftBracketInfoDict, touchingRightBracketInfoDict = touchingBrackets(hinTouchingBrackets, vorTouchingBrackets)
 
                 if bracketsTouchingStartPos: # used a signal to put the implicit-multiply in
-                    #right/rightArg and left/leftArg will be the tightest... good for left__, right__
-                    if touchingLeftBracketInfoDict['type'] in ['left', 'leftArg']: # but if i have leftArg/rightArg, will i prefer enclosing(if exist)?
-                        left__startBracketPos = 
-                        left__startBracketType = 
-                        left__endBracketPos = 
-                        left__endBracketType = 
-                        left__argStart = 
-                        left__argEnd = 
-                        ganzStartPos = 
-                    else: # its enclosing on the left-side
-                        left__startBracketPos = 
-                        left__startBracketType = 
-                        left__endBracketPos = 
-                        left__endBracketType = 
-                        left__argStart = 
-                        left__argEnd = 
-                        ganzStartPos = 
+                    ganzStartPos = touchingLeftBracketInfoDict['enclosingStartPos']
+                    ganzEndPos = touchingRightBracketInfoDict['enclosingEndPos']
 
-                    if touchingRightBracketInfoDict['type'] in ['right', 'rightArg']:
-                        right__startBracketPos = 
-                        right__startBracketType = 
-                        right__endBracketPos = 
-                        right__endBracketType = 
-                        right__argStart = 
-                        right__argEnd = 
-                        ganzEndPos = 
-                    else: # its enclosing on the right-side
-                        right__startBracketPos = 
-                        right__startBracketType = 
-                        right__endBracketPos = 
-                        right__endBracketType = 
-                        right__argStart = 
-                        right__argEnd = 
-                        ganzEndPos = 
+                    #left Side
+                    left__startBracketPos = None
+                    left__startBracketType = None
+                    left__endBracketPos = None
+                    left__endBracketType = None
+                    if touchingLeftBracketInfoDict['type'] == 'leftArg':
+                        left__type = 'arg'
+                        left__argStart = touchingLeftBracketInfoDict['enclosingStartPos']
+                        left__argEnd = touchingLeftBracketInfoDict['enclosingEndPos']
+                    else: # touchingLeftBracketInfoDict['type'] == 'left', no inner Bracket
+                        left__type = 'leftRight'
+                        left__startBracketPos = touchingLeftBracketInfoDict['enclosingStartPos']
+                        left__startBracketType = touchingLeftBracketInfoDict['enclosingStartType']
+                        left__argStart = touchingLeftBracketInfoDict['enclosingStartPos'] + len(touchingLeftBracketInfoDict['enclosingStartType'])
+                        if touchingLeftBracketInfoDict['type'] == 'leftEnclosing': #has inner bracket
+                            left__endBracketPos = touchingLeftBracketInfoDict['enclosingEndPos']
+                            left__endBracketType = touchingLeftBracketInfoDict['enclosingEndType']
+                            # left__argEnd = touchingLeftBracketInfoDict['enclosingEndPos']
 
-
+                    #right Side
+                    right__startBracketPos = None
+                    right__startBracketType = None
+                    right__endBracketPos = None
+                    right__endBracketType = None
+                    if touchingRightBracketInfoDict['type'] == 'rightArg':
+                        right__type = 'arg'
+                        right__argStart = touchingRightBracketInfoDict['enclosingStartPos']
+                        right__argEnd = touchingRightBracketInfoDict['enclosingEndPos']
+                    else: # touchingRightBracketInfoDict['type'] == 'right', no inner Bracket
+                        right__type = 'leftRight'
+                        right__endBracketPos = touchingRightBracketInfoDict['enclosingEndPos']
+                        right__endBracketType = touchingRightBracketInfoDict['enclosingEndType']
+                        # right__argEnd = touchingRightBracketInfoDict['enclosingEndPos']
+                        if touchingRightBracketInfoDict['type'] == 'rightEnclosing': #has inner bracket
+                            right__startBracketPos = touchingRightBracketInfoDict['enclosingStartPos']
+                            right__startBracketType = touchingRightBracketInfoDict['enclosingStartType']
+                            right__argStart = touchingRightBracketInfoDict['enclosingStartPos'] + len(touchingRightBracketInfoDict['enclosingStartType'])
 
 
                     self.addedSymbolId += 1
