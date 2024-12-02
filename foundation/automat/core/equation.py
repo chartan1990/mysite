@@ -46,7 +46,9 @@ class Equation:
         #error checking
         if variable not in self.variables:
             raise Exception("Variable Not Available")
-        if self.variables[variable] > 1: #TODO, unable to further handle without more patterns like quadratic
+        if self.variables[variable] > 1: 
+            #TODO, unable to further handle without more patterns like quadratic, cubic, quartic, AST-equivalence-for-special-substitution-techniques
+            #TODO can put factorisation here
             raise Exception("Cannot handle")
 
         #find path from subRoot to variable

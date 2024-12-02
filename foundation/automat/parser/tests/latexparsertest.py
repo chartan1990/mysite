@@ -583,21 +583,21 @@ def test__paveWayForIntegrtion__exponentOnEnclosingNonBackslash(verbose=False):
 
 
 if __name__=='__main__':
-    test__contiguousLeftOvers__decimalPlaces()
+    # test__contiguousLeftOvers__decimalPlaces()
     # test__collateBackslashInfixLeftOversToContiguous__exponentialOverMultiply()
-    # test__findingBackSlashAndInfixOperations__Trig0()
-    # test__findingBackSlashAndInfixOperations__Trig1()
-    # test__findingBackSlashAndInfixOperations__Trig2()
-    # test__findingBackSlashAndInfixOperations__Sqrt0()
-    # test__findingBackSlashAndInfixOperations__Sqrt1()
-    # test__findingBackSlashAndInfixOperations__Ln()
-    # test__findingBackSlashAndInfixOperations__Frac()
-    # test__findingBackSlashAndInfixOperations__Log0()
-    # test__findingBackSlashAndInfixOperations__Log1()
-    # test__findingBackSlashAndInfixOperations__tildeVariable()
-    # test__findingBackSlashAndInfixOperations__SchrodingerWaveEquation()
-    # test__infixInBackslash__paraboloid()
-    # test__sqrtWithPowerCaretRightOtherInfix__hill()
+    test__findingBackSlashAndInfixOperations__Trig0(True) # not tested yet
+    # test__findingBackSlashAndInfixOperations__Trig1() # not tested yet
+    # test__findingBackSlashAndInfixOperations__Trig2() # not tested yet
+    # test__findingBackSlashAndInfixOperations__Sqrt0() # not tested yet
+    # test__findingBackSlashAndInfixOperations__Sqrt1() # not tested yet
+    # test__findingBackSlashAndInfixOperations__Ln() # not tested yet
+    # test__findingBackSlashAndInfixOperations__Frac() # not tested yet
+    # test__findingBackSlashAndInfixOperations__Log0() # not tested yet
+    # test__findingBackSlashAndInfixOperations__Log1() # not tested yet
+    # test__findingBackSlashAndInfixOperations__tildeVariable() # not tested yet
+    # test__findingBackSlashAndInfixOperations__SchrodingerWaveEquation() # not tested yet
+    # test__infixInBackslash__paraboloid() # not tested yet
+    # test__sqrtWithPowerCaretRightOtherInfix__hill() # not tested yet
     # test__nonInfixBrackets__addImplicitMultiply(True) # not tested yet
     # test__nonInfixBrackets__addImplicitMultiply0(True) # not tested yet
     # test__nonInfixBrackets__addImplicitMultiply1(True) # not tested yet
