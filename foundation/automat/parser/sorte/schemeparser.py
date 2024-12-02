@@ -7,12 +7,15 @@ class Schemeparser(Parser):
     Naive Parser for Scheme Strings. More details about 'Scheme' format, check
     https://groups.csail.mit.edu/mac/ftpdir/scheme-7.4/doc-html/scheme_2.html
     """
-    def __init__(self, equationStr, verbose=False, veryVerbose=False):
-        self._eqs = equationStr
-        self.verbose = verbose
-        self.veryVerbose = veryVerbose
-        self.equalTuple = None
-        self.ast, self.functions, self.variables, self.primitives, self.totalNodeCount = self._parse()
+    def __init__(self, equationStr=None, verbose=False, veryVerbose=False, ast=None):
+        if ast is None:
+            self._eqs = equationStr
+            self.verbose = verbose
+            self.veryVerbose = veryVerbose
+            self.equalTuple = None
+            self.ast, self.functions, self.variables, self.primitives, self.totalNodeCount = self._parse()
+        else:
+            self.ast = ast
 
     def _parse(self):
         """

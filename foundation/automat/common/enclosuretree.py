@@ -216,7 +216,7 @@ class EnclosureTree: # can be used to schedule processes by level too... TODO
 
     @classmethod
     def makeEnclosureTreeWithRoots(cls, listOfPoss, firstContainsSecond, getId):
-        """
+        """TODO make into MIXIN? REFACTOR, this code is repeated, in Equation._findAllDistributivePaths
         1. Get all the leavesA.
         2. get to ROME1 from a leave in leavesA, record ROME1
         3. DFS from ROME1 to leaves1=(all the leaves from this DFS)

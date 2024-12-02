@@ -8,7 +8,7 @@ def test__schemeParserTest__add(verbose=False):
     pp = pprint.PrettyPrinter(indent=4)
 
     equationStr = '(= a (+ b c))'
-    parser = Schemeparser(equationStr, verbose=True)
+    parser = Schemeparser(equationStr=equationStr, verbose=verbose)
     ast = parser.ast
     pp.pprint(ast)
     expected_ast = {
@@ -26,16 +26,14 @@ def test__schemeParserTest__harmonicMean(verbose=False):
     pp = pprint.PrettyPrinter(indent=4)
 
     equationStr = '(= (/ 1 a) (+ (/ 1 b) (/ 1 c)))'
-    parser = Schemeparser(equationStr, verbose=True)
+    parser = Schemeparser(equationStr=equationStr, verbose=verbose)
     ast = parser.ast
     pp.pprint(ast)
-    expected_ast = {
-    ('=', 0):[('/', 1), ('+', 2)],
-    ('/', 1):[(1, 3), ('a', 4)],
-    ('+', 5):[('/', 6), ('/', 7)],
-    ('/', 6):[(1, 8), ('b', 9)],
-    ('/', 7):[(1, 10), ('c', 11)]
-    }
+    expected_ast = {   ('+', 2): [('/', 5), ('/', 6)],
+    ('/', 1): [('1', 3), ('a', 4)],
+    ('/', 5): [('1', 7), ('b', 8)],
+    ('/', 6): [('1', 9), ('c', 10)],
+    ('=', 0): [('/', 1), ('+', 2)]}
     unparsedStr = parser._unparse()
     print(inspect.currentframe().f_code.co_name, ' PASSED? ', (equationStr==unparsedStr) and (ast==expected_ast))
     if verbose:
@@ -47,19 +45,16 @@ def test__schemeParserTest__phasorDiagram(verbose=False):
     pp = pprint.PrettyPrinter(indent=4)
 
     equationStr = '(= (^ e (* i x)) (+ (cos x) (* i (sin x))))'
-    parser = Schemeparser(equationStr, verbose=False)
+    parser = Schemeparser(equationStr=equationStr, verbose=verbose)
     ast = parser.ast
     pp.pprint(ast)
-    expected_ast = {
-    ('=', 0):[('^', 1), ('+', 2)],
-    ('^', 1):[('e', 3), ('*', 4)],
-    ('+', 2):[('cos', 5), ('*', 6)],
-
-    ('*', 4):[('i', 7), ('x', 8)],
-    ('cos', 5):[('x', 9)],
-    ('*', 6):[('i', 10), ('sin', 11)],
-    ('sin', 11):[('x', 12)]
-    }
+    expected_ast ={   ('*', 4): [('i', 7), ('x', 8)],
+    ('*', 6): [('i', 10), ('sin', 11)],
+    ('+', 2): [('cos', 5), ('*', 6)],
+    ('=', 0): [('^', 1), ('+', 2)],
+    ('^', 1): [('e', 3), ('*', 4)],
+    ('cos', 5): [('x', 9)],
+    ('sin', 11): [('x', 12)]}
     unparsedStr = parser._unparse()
     print(inspect.currentframe().f_code.co_name, ' PASSED? ', (equationStr==unparsedStr) and (ast==expected_ast))
     if verbose:
@@ -71,7 +66,7 @@ def test__schemeParserTest__ebersMollModelp1(verbose=False):
     pp = pprint.PrettyPrinter(indent=4)
 
     equationStr = '(= I_E (* I_{ES} (- (^ e (/ V_{BE} V_T) 1))))'
-    parser = Schemeparser(equationStr, verbose=False)
+    parser = Schemeparser(equationStr=equationStr, verbose=verbose)
     ast = parser.ast
     pp.pprint(ast)
     expected_ast = {   
@@ -89,7 +84,7 @@ def test__schemeParserTest__earlyEffectModel(verbose=False):
     pp = pprint.PrettyPrinter(indent=4)
 
     equationStr = '(= I_E (* I_S (* (^ e (/ V_{BE} V_T)) (+ 1 (/ V_{CE} V_A)))))'
-    parser = Schemeparser(equationStr, verbose=False)
+    parser = Schemeparser(equationStr=equationStr, verbose=verbose)
     ast = parser.ast
     pp.pprint(ast)
     expected_ast = {   ('*', 2): [('I_S', 3), ('*', 4)],
@@ -103,9 +98,8 @@ def test__schemeParserTest__earlyEffectModel(verbose=False):
     print(inspect.currentframe().f_code.co_name, ' PASSED? ', (equationStr==unparsedStr) and (ast==expected_ast))
 
 if __name__=='__main__':
-    #TODO checking AST equality
     test__schemeParserTest__add()
     test__schemeParserTest__harmonicMean()
     test__schemeParserTest__phasorDiagram()
-    test__schemeParserTest__ebersMollModelp1(True)
-    test__schemeParserTest__earlyEffectModel(True)
+    test__schemeParserTest__ebersMollModelp1()
+    test__schemeParserTest__earlyEffectModel()

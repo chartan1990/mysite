@@ -583,7 +583,7 @@ def test__paveWayForIntegrtion__exponentOnEnclosingNonBackslash(verbose=False):
 
 
 if __name__=='__main__':
-    # test__contiguousLeftOvers__decimalPlaces()
+    test__contiguousLeftOvers__decimalPlaces()
     # test__collateBackslashInfixLeftOversToContiguous__exponentialOverMultiply()
     # test__findingBackSlashAndInfixOperations__Trig0()
     # test__findingBackSlashAndInfixOperations__Trig1()
@@ -598,7 +598,7 @@ if __name__=='__main__':
     # test__findingBackSlashAndInfixOperations__SchrodingerWaveEquation()
     # test__infixInBackslash__paraboloid()
     # test__sqrtWithPowerCaretRightOtherInfix__hill()
-    test__nonInfixBrackets__addImplicitMultiply(True) # not tested yet
+    # test__nonInfixBrackets__addImplicitMultiply(True) # not tested yet
     # test__nonInfixBrackets__addImplicitMultiply0(True) # not tested yet
     # test__nonInfixBrackets__addImplicitMultiply1(True) # not tested yet
     # test__BODMAS__priorityBetweenInfixForBrackets(True) # not tested yet
