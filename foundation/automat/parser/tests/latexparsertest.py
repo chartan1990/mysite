@@ -42,10 +42,10 @@ def test__findingBackSlashAndInfixOperations__Trig0(verbose=False):
     equationStr = '-\\sin( 2x_0 ) = -2\\sin(x_0)\\cos(x_0)'
     parser = Latexparser(equationStr, verbose=verbose)
     parser._parse()
-    expected_ast = {   ('*', 4): [('2', 3), ('*', 6)],
-    ('*', 6): [('sin', 5), ('cos', 7)],
+    expected_ast = {   ('*', 4): [('2', 3), ('sin', 5)],
+    ('*', 6): [('*', 4), ('cos', 7)],
     ('*', 14): [('2', 13), ('x_0', 15)],
-    ('-', 2): [('0', 1), ('*', 4)],
+    ('-', 2): [('0', 1), ('*', 6)],
     ('-', 9): [('0', 8), ('sin', 10)],
     ('=', 0): [('-', 9), ('-', 2)],
     ('cos', 7): [('x_0', 12)],
@@ -393,7 +393,11 @@ def test__fracWithLogNoBase__changeLogBaseFormula(verbose=False):
     print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
     if verbose:
         pp.pprint(parser.ast)
-
+#need test cases where there is sqrt in sqrt as arg, 
+#trig in trig as arg
+#log in log as arg
+#frac in frac as arg
+#infix in infix with leftRightBrackets
 
 def test__hassliche__highPowersAndRandomCoefficientsPITEST(verbose=False):
     pp = pprint.PrettyPrinter(indent=4)
@@ -527,11 +531,7 @@ def test__hassliche__moreThanOneAdditiveTermInEachMultiplicativeTerm1(verbose=Fa
         pp.pprint(parser.ast)
 
 
-#need test cases where there is sqrt in sqrt as arg, 
-#trig in trig as arg
-#log in log as arg
-#frac in frac as arg
-#infix in infix with leftRightBrackets
+
 
 #
 def test__paveWayForDifferentiation__productRule(verbose=False):
@@ -585,20 +585,20 @@ def test__paveWayForIntegrtion__exponentOnEnclosingNonBackslash(verbose=False):
 if __name__=='__main__':
     # test__contiguousLeftOvers__decimalPlaces()
     # test__collateBackslashInfixLeftOversToContiguous__exponentialOverMultiply()
-    test__findingBackSlashAndInfixOperations__Trig0(True) # not tested yet
-    # test__findingBackSlashAndInfixOperations__Trig1() # not tested yet
-    # test__findingBackSlashAndInfixOperations__Trig2() # not tested yet
-    # test__findingBackSlashAndInfixOperations__Sqrt0() # not tested yet
-    # test__findingBackSlashAndInfixOperations__Sqrt1() # not tested yet
-    # test__findingBackSlashAndInfixOperations__Ln() # not tested yet
-    # test__findingBackSlashAndInfixOperations__Frac() # not tested yet
-    # test__findingBackSlashAndInfixOperations__Log0() # not tested yet
-    # test__findingBackSlashAndInfixOperations__Log1() # not tested yet
-    # test__findingBackSlashAndInfixOperations__tildeVariable() # not tested yet
-    # test__findingBackSlashAndInfixOperations__SchrodingerWaveEquation() # not tested yet
-    # test__infixInBackslash__paraboloid() # not tested yet
-    # test__sqrtWithPowerCaretRightOtherInfix__hill() # not tested yet
-    # test__nonInfixBrackets__addImplicitMultiply(True) # not tested yet
+    # test__findingBackSlashAndInfixOperations__Trig0()
+    # test__findingBackSlashAndInfixOperations__Trig1()
+    # test__findingBackSlashAndInfixOperations__Trig2()
+    # test__findingBackSlashAndInfixOperations__Sqrt0()
+    # test__findingBackSlashAndInfixOperations__Sqrt1()
+    # test__findingBackSlashAndInfixOperations__Ln()
+    # test__findingBackSlashAndInfixOperations__Frac()
+    # test__findingBackSlashAndInfixOperations__Log0()
+    # test__findingBackSlashAndInfixOperations__Log1()
+    # test__findingBackSlashAndInfixOperations__tildeVariable()
+    # test__findingBackSlashAndInfixOperations__SchrodingerWaveEquation()
+    # test__infixInBackslash__paraboloid()
+    # test__sqrtWithPowerCaretRightOtherInfix__hill()
+    test__nonInfixBrackets__addImplicitMultiply(True) # not tested yet
     # test__nonInfixBrackets__addImplicitMultiply0(True) # not tested yet
     # test__nonInfixBrackets__addImplicitMultiply1(True) # not tested yet
     # test__BODMAS__priorityBetweenInfixForBrackets(True) # not tested yet

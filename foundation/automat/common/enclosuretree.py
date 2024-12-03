@@ -243,7 +243,7 @@ class EnclosureTree: # can be used to schedule processes by level too... TODO
         roots = []
         while len(tLeaves) > 0:
             #all roads lead to rome (find root of tree) TODO might need to add cycle detection
-            rootId = getId(list(tLeaves)[0])
+            rootId = list(tLeaves)[0]#getId(list(tLeaves)[0])
             checkAgain = True
             while checkAgain: # keep going up
                 checkAgain = False

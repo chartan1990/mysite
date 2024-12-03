@@ -55,6 +55,7 @@ class Latexparser(Parser):
         self.methodVerbose = {
             '_findInfixAndEnclosingBrackets':False,
             '_findBackSlashPositions':False,
+            '_tagBracketsToBackslash':False,
             '_updateInfixNearestBracketInfix':False,
             '__updateInfixNearestBracketInfix':False,#
             '_removeCaretThatIsNotExponent':False,
@@ -504,6 +505,86 @@ class Latexparser(Parser):
             self.event__findBackSlashPositions.set() # Trigger the event to notify the waiting process
 
 
+    def _tagBracketsToBackslash(self):
+        for bracketInfoDict in self.matchingBracketsLocation: 
+            bracketInfoDict['belongToBackslash'] = False
+            for vInfoDict in self.variablesPos:
+                """
+                #has to be equals/ not contains/ because
+                #\\frac{}{(x-3)^3}
+                #        ^    ^
+                #        1    2
+                #so that 1 belongs to backslashargs
+                #but 2 is enclosing
+                #das ist fur unterscheide zweischen occupiedBracketPos(2) und interlevelSubTreeGrafting(1)
+                #contains/ gives both (1) and (2) the same value.
+                """
+                if vInfoDict['argument1StartPosition'] is not None and (vInfoDict['argument1StartPosition'] - lenOrZero(vInfoDict['argument1BracketType'])) == bracketInfoDict['openBracketPos']:# and (vInfoDict['argument1StartPosition'] - lenOrZero(vInfoDict['argument1BracketType'])) <= startBracketPos and endBracketPos <= (vInfoDict['argument1EndPosition'] + lenOrZero(vInfoDict['argument1BracketType'])):
+                # #check if arg1(vInfoDict) encloses infixPosition, if so ignore vInfoDict
+                #     #######
+                #     print("collideWithNonEnclosingBackslashBrackets vInfoDict['argument1StartPosition']: ", vInfoDict['argument1StartPosition'], " same bracket ? ", startBracketPos == vInfoDict['argument1StartPosition'] - lenOrZero(vInfoDict['argument1BracketType']))
+                #     # import pdb;pdb.set_trace()
+                #     #######
+                #     #check
+                #     if vInfoDict['argument1StartPosition'] <= infixPosition and infixPosition <= vInfoDict['argument1EndPosition']:
+                #         ########
+                #         print('ignoring seitdem, ', fInfoDict["argument1StartPosition"], ' <= ', infixPosition, ' <= ', fInfoDict['argument1EndPosition'])
+                #         # import pdb;pdb.set_trace()
+                #         ########
+                #         continue
+                    # if self.showError():
+                    #     print('bracketPos: ', (startBracketPos, endBracketPos), ' is arg Of backslashVariable: ', (vInfoDict['name'], vInfoDict['startPos']))
+                    bracketInfoDict['belongToBackslash'] = True
+                    continue
+            #######
+            # print('collideWithNonEnclosingBackslashBrackets self.functionPos: ')
+            # print(list(map(lambda f:(f['name'], f['startPos'], f['endPos']), self.functionPos)))
+            # import pdb;pdb.set_trace()
+            #######
+            for fInfoDict in self.functionPos:
+                ##########################
+                # print("f1looking at: ", (fInfoDict['name'], fInfoDict['startPos'], fInfoDict['endPos']), "(arg1)'s ", fInfoDict['argument1StartPosition'] - lenOrZero(fInfoDict['argument1BracketType']), ' == ', startBracketPos)
+                # import pdb;pdb.set_trace()
+                ##########################
+                if fInfoDict['argument1BracketType'] is not None and (fInfoDict['argument1StartPosition'] - lenOrZero(fInfoDict['argument1BracketType'])) == bracketInfoDict['openBracketPos'] :# and (fInfoDict['argument1StartPosition'] - lenOrZero(fInfoDict['argument1BracketType'])) <= startBracketPos and endBracketPos <= (fInfoDict['argument1EndPosition'] + lenOrZero(fInfoDict['argument1BracketType'])):
+                # #check if arg1(fInfoDict) encloses infixPosition, if so ignore fInfoDict
+                #     ###########################
+                #     print('startBracketPos : ', startBracketPos, ' collide with arg1 : ', (fInfoDict['name'], fInfoDict['startPos'], fInfoDict['endPos']))
+                #     # import pdb;pdb.set_trace()
+                #     ###########################
+                #     if fInfoDict['argument1StartPosition'] <= infixPosition and infixPosition <= fInfoDict['argument1EndPosition']:
+                #         ##########################
+                #         print('ignoring seitdem, ', fInfoDict["argument1StartPosition"], ' <= ', infixPosition, ' <= ', fInfoDict['argument1EndPosition'])
+                #         # import pdb;pdb.set_trace()
+                #         ##########################
+                #         continue
+                    # if self.showError():
+                    #     print('bracketPos: ', (startBracketPos, endBracketPos), ' is arg1 Of backslashFunction: ', (fInfoDict['name'], fInfoDict['startPos']))
+                    bracketInfoDict['belongToBackslash'] = True
+                    continue
+                ##########################
+                # print("f2looking at: ", (fInfoDict['name'], fInfoDict['startPos'], fInfoDict['endPos']), "(arg2)'s ", fInfoDict['argument2StartPosition'] - lenOrZero(fInfoDict['argument2BracketType']), ' == ', startBracketPos)
+                # import pdb;pdb.set_trace()
+                ##########################
+                if fInfoDict['argument2BracketType'] is not None and (fInfoDict['argument2StartPosition'] - lenOrZero(fInfoDict['argument2BracketType'])) == bracketInfoDict['openBracketPos']:# and (fInfoDict['argument2StartPosition'] - lenOrZero(fInfoDict['argument2BracketType'])) <= startBracketPos and endBracketPos <= (fInfoDict['argument2EndPosition'] + lenOrZero(fInfoDict['argument2BracketType'])):
+                # #check if arg2(fInfoDict) encloses infixPosition, if so ignore fInfoDict
+                #     ###########################
+                #     print('startBracketPos : ', startBracketPos, ' collide with arg2 : ', (fInfoDict['name'], fInfoDict['startPos'], fInfoDict['endPos']))
+                #     # import pdb;pdb.set_trace()
+                #     ###########################
+                #     if fInfoDict['argument2StartPosition'] <= infixPosition and infixPosition <= fInfoDict['argument2EndPosition']:
+                #         ############
+                #         print('ignoring seitdem, ', fInfoDict["argument2StartPosition"], ' <= ', infixPosition, ' <= ', fInfoDict['argument2EndPosition'], 'infix in f_arg2')
+                #         # import pdb;pdb.set_trace()
+                #         ############
+                #         continue
+                    # if self.showError():
+                    #     print('bracketPos: ', (startBracketPos, endBracketPos), ' is arg2 Of backslashFunction: ', (fInfoDict['name'], fInfoDict['startPos']))
+                    bracketInfoDict['belongToBackslash'] = True
+                    continue
+
+
+
     def __updateInfixNearestBracketInfix(self, tempInfixList0, tempInfixList1):
         sortedMainInfixList = sorted(tempInfixList0, key=lambda tup: Latexparser.PRIOIRITIZED_INFIX.index(tup['name']))
         sortedAgainstInfixList = sorted(tempInfixList1, key=lambda tup: Latexparser.PRIOIRITIZED_INFIX.index(tup['name']))
@@ -539,109 +620,6 @@ class Latexparser(Parser):
                         print('bracketPos: ', (startBracketPos, endBracketPos), ' is rightArg Of infix: ', (infixInfoDict2['name'], infixInfoDict2['startPos']))
                     return Latexparser.PRIOIRITIZED_INFIX.index(infixInfoDict2['name'])#True
 
-        #check if the bracket belongs to fBackslash/vBackslash
-        def collideWithNonEnclosingBackslashBrackets(startBracketPos, endBracketPos, selfName, selfStartPos):#, infixPosition):
-            #TODO 
-            """
-            'z=\\sqrt(x^2+y^2)'
-                     ^
-                     This bracket is part of a backslashArg, so it was deliberately ignored...
-                     So if it was an enclosing backslashArg, it should not be ignored... ?
-            """
-            if self.showError():
-                print('collideWithNonEnclosingBackslashBrackets~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~', startBracketPos, endBracketPos)
-
-            # for infixInfoDict2 in sortedMainInfixList:
-            #     #skip infixInfoDict2 that we are checking now
-            #     if infixInfoDict2['name'] == selfName and infixInfoDict2['startPos'] == selfStartPos:
-            #         continue
-            #     if 'tight__leftEndPos' in infixInfoDict2 and infixInfoDict2['tight__leftEndPos'] is not None and infixInfoDict2['tight__leftEndPos'] == endBracketPos:
-            #         #this bracket is actually infixInfoDict2 leftArg
-            #         if self.showError():
-            #             print('bracketPos: ', (startBracketPos, endBracketPos), ' is leftArg Of infix: ', (infixInfoDict2['name'], infixInfoDict2['startPos']))
-            #         return True
-            #     if 'tight__rightStartPos' in infixInfoDict2 and infixInfoDict2['tight__rightStartPos'] is not None and infixInfoDict2['tight__rightStartPos'] == startBracketPos:
-            #         #this bracket is actually infixInfoDict2 rightArg
-            #         if self.showError():
-            #             print('bracketPos: ', (startBracketPos, endBracketPos), ' is rightArg Of infix: ', (infixInfoDict2['name'], infixInfoDict2['startPos']))
-            #         return True
-
-            #######
-            # print('collideWithNonEnclosingBackslashBrackets self.variablesPos: ', self.variablesPos)
-            # import pdb;pdb.set_trace()
-            #######
-            for vInfoDict in self.variablesPos:
-                """
-                #has to be equals/ not contains/ because
-                #\\frac{}{(x-3)^3}
-                #        ^    ^
-                #        1    2
-                #so that 1 belongs to backslashargs
-                #but 2 is enclosing
-                #das ist fur unterscheide zweischen occupiedBracketPos(2) und interlevelSubTreeGrafting(1)
-                #contains/ gives both (1) and (2) the same value.
-                """
-                if vInfoDict['argument1StartPosition'] is not None and (vInfoDict['argument1StartPosition'] - lenOrZero(vInfoDict['argument1BracketType'])) == startBracketPos:# and (vInfoDict['argument1StartPosition'] - lenOrZero(vInfoDict['argument1BracketType'])) <= startBracketPos and endBracketPos <= (vInfoDict['argument1EndPosition'] + lenOrZero(vInfoDict['argument1BracketType'])):
-                # #check if arg1(vInfoDict) encloses infixPosition, if so ignore vInfoDict
-                #     #######
-                #     print("collideWithNonEnclosingBackslashBrackets vInfoDict['argument1StartPosition']: ", vInfoDict['argument1StartPosition'], " same bracket ? ", startBracketPos == vInfoDict['argument1StartPosition'] - lenOrZero(vInfoDict['argument1BracketType']))
-                #     # import pdb;pdb.set_trace()
-                #     #######
-                #     #check
-                #     if vInfoDict['argument1StartPosition'] <= infixPosition and infixPosition <= vInfoDict['argument1EndPosition']:
-                #         ########
-                #         print('ignoring seitdem, ', fInfoDict["argument1StartPosition"], ' <= ', infixPosition, ' <= ', fInfoDict['argument1EndPosition'])
-                #         # import pdb;pdb.set_trace()
-                #         ########
-                #         continue
-                    # if self.showError():
-                    #     print('bracketPos: ', (startBracketPos, endBracketPos), ' is arg Of backslashVariable: ', (vInfoDict['name'], vInfoDict['startPos']))
-                    return True
-            #######
-            # print('collideWithNonEnclosingBackslashBrackets self.functionPos: ')
-            # print(list(map(lambda f:(f['name'], f['startPos'], f['endPos']), self.functionPos)))
-            # import pdb;pdb.set_trace()
-            #######
-            for fInfoDict in self.functionPos:
-                ##########################
-                # print("f1looking at: ", (fInfoDict['name'], fInfoDict['startPos'], fInfoDict['endPos']), "(arg1)'s ", fInfoDict['argument1StartPosition'] - lenOrZero(fInfoDict['argument1BracketType']), ' == ', startBracketPos)
-                # import pdb;pdb.set_trace()
-                ##########################
-                if fInfoDict['argument1BracketType'] is not None and (fInfoDict['argument1StartPosition'] - lenOrZero(fInfoDict['argument1BracketType'])) == startBracketPos :# and (fInfoDict['argument1StartPosition'] - lenOrZero(fInfoDict['argument1BracketType'])) <= startBracketPos and endBracketPos <= (fInfoDict['argument1EndPosition'] + lenOrZero(fInfoDict['argument1BracketType'])):
-                # #check if arg1(fInfoDict) encloses infixPosition, if so ignore fInfoDict
-                #     ###########################
-                #     print('startBracketPos : ', startBracketPos, ' collide with arg1 : ', (fInfoDict['name'], fInfoDict['startPos'], fInfoDict['endPos']))
-                #     # import pdb;pdb.set_trace()
-                #     ###########################
-                #     if fInfoDict['argument1StartPosition'] <= infixPosition and infixPosition <= fInfoDict['argument1EndPosition']:
-                #         ##########################
-                #         print('ignoring seitdem, ', fInfoDict["argument1StartPosition"], ' <= ', infixPosition, ' <= ', fInfoDict['argument1EndPosition'])
-                #         # import pdb;pdb.set_trace()
-                #         ##########################
-                #         continue
-                    # if self.showError():
-                    #     print('bracketPos: ', (startBracketPos, endBracketPos), ' is arg1 Of backslashFunction: ', (fInfoDict['name'], fInfoDict['startPos']))
-                    return True
-                ##########################
-                # print("f2looking at: ", (fInfoDict['name'], fInfoDict['startPos'], fInfoDict['endPos']), "(arg2)'s ", fInfoDict['argument2StartPosition'] - lenOrZero(fInfoDict['argument2BracketType']), ' == ', startBracketPos)
-                # import pdb;pdb.set_trace()
-                ##########################
-                if fInfoDict['argument2BracketType'] is not None and (fInfoDict['argument2StartPosition'] - lenOrZero(fInfoDict['argument2BracketType'])) == startBracketPos:# and (fInfoDict['argument2StartPosition'] - lenOrZero(fInfoDict['argument2BracketType'])) <= startBracketPos and endBracketPos <= (fInfoDict['argument2EndPosition'] + lenOrZero(fInfoDict['argument2BracketType'])):
-                # #check if arg2(fInfoDict) encloses infixPosition, if so ignore fInfoDict
-                #     ###########################
-                #     print('startBracketPos : ', startBracketPos, ' collide with arg2 : ', (fInfoDict['name'], fInfoDict['startPos'], fInfoDict['endPos']))
-                #     # import pdb;pdb.set_trace()
-                #     ###########################
-                #     if fInfoDict['argument2StartPosition'] <= infixPosition and infixPosition <= fInfoDict['argument2EndPosition']:
-                #         ############
-                #         print('ignoring seitdem, ', fInfoDict["argument2StartPosition"], ' <= ', infixPosition, ' <= ', fInfoDict['argument2EndPosition'], 'infix in f_arg2')
-                #         # import pdb;pdb.set_trace()
-                #         ############
-                #         continue
-                    # if self.showError():
-                    #     print('bracketPos: ', (startBracketPos, endBracketPos), ' is arg2 Of backslashFunction: ', (fInfoDict['name'], fInfoDict['startPos']))
-                    return True
-            return False
         #are dic0 and dic1 on the same side?
         def sameSideAsInfoDictOfEqual(dic0, dic1):
             if dic0['position'] < self.equalPos:
@@ -711,23 +689,25 @@ class Latexparser(Parser):
 
                 #check if enclosing
                 if bracketInfoDict['openBracketPos'] + len(bracketInfoDict['openBracketType']) <= infixInfoDict0['startPos'] and infixInfoDict0['endPos'] <= bracketInfoDict['closeBracketPos'] + len(bracketInfoDict['closeBracketType']):
+                    # if not bracketInfoDict['belongToBackslash']:
                     infixInfoDict0['enclosingBracketsNonBackslashArg'].append({
                         'enclosingStartPos':bracketInfoDict['openBracketPos'],
                         'enclosingEndPos':bracketInfoDict['closeBracketPos'],
                         'enclosingStartType':bracketInfoDict['openBracketType'],
-                        'enclosingEndType':bracketInfoDict['closeBracketType']
-                    })
+                        'enclosingEndType':bracketInfoDict['closeBracketType'],
+                        'belongToBackslash':bracketInfoDict['belongToBackslash']
+                    })#HHHHHHHHHHHHHHHHHHHHHH filter for BackslashArgs? 
 
                 #direct left-side (of infixInfoDict0)
                 elif bracketInfoDict['closeBracketPos'] + len(bracketInfoDict['closeBracketType']) == infixInfoDict0['startPos']:
-                    isBackSlashBrackets = collideWithNonEnclosingBackslashBrackets(bracketInfoDict['openBracketPos'], bracketInfoDict['closeBracketPos'], infixInfoDict0['name'], infixInfoDict0['startPos'])
+                    # isBackSlashBrackets = collideWithNonEnclosingBackslashBrackets(bracketInfoDict['openBracketPos'], bracketInfoDict['closeBracketPos'], infixInfoDict0['name'], infixInfoDict0['startPos'])
                     leftBracket = bracketInfoDict
-                    leftBracket['belongToBackslash'] = isBackSlashBrackets
+                    # leftBracket['belongToBackslash'] = bracketInfoDict['belongToBackslash']
                 #direct right-side (of infixInfoDict0)
                 elif infixInfoDict0['endPos'] == bracketInfoDict['openBracketPos'] - len(bracketInfoDict['openBracketType']):
-                    isBackSlashBrackets = collideWithNonEnclosingBackslashBrackets(bracketInfoDict['openBracketPos'], bracketInfoDict['closeBracketPos'], infixInfoDict0['name'], infixInfoDict0['startPos'])
+                    # isBackSlashBrackets = collideWithNonEnclosingBackslashBrackets(bracketInfoDict['openBracketPos'], bracketInfoDict['closeBracketPos'], infixInfoDict0['name'], infixInfoDict0['startPos'])
                     rightBracket = bracketInfoDict
-                    rightBracket['belongToBackslash'] = isBackSlashBrackets
+                    # rightBracket['belongToBackslash'] = isBackSlashBrackets['belongToBackslash']
 
 
             #but, first, update common information, needed later but too early to add, at discovery.... is this better though?
@@ -846,16 +826,17 @@ class Latexparser(Parser):
             len(infixInfoDict0['enclosingBracketsNonBackslashArg']) > 0: # most prefered type of ending, will replace above chosen brackets
                 #use enclosing to get the ganzEndPos and ganzStartPos (and all the bracket information)
                 #find tightest enclosing bracket
-                tightestOpenBracketPos = infixInfoDict0['enclosingBracketsNonBackslashArg'][0]['openBracketPos']
-                tightestOpenBracketType = infixInfoDict0['enclosingBracketsNonBackslashArg'][0]['openBracketType']
-                tightestCloseBracketPos = infixInfoDict0['enclosingBracketsNonBackslashArg'][0]['closeBracketPos']
-                tightestCloseBracketType = infixInfoDict0['enclosingBracketsNonBackslashArg'][0]['closeBracketType']
+                # import pdb;pdb.set_trace()
+                tightestOpenBracketPos = infixInfoDict0['enclosingBracketsNonBackslashArg'][0]['enclosingStartPos']
+                tightestOpenBracketType = infixInfoDict0['enclosingBracketsNonBackslashArg'][0]['enclosingStartType']
+                tightestCloseBracketPos = infixInfoDict0['enclosingBracketsNonBackslashArg'][0]['enclosingEndPos']
+                tightestCloseBracketType = infixInfoDict0['enclosingBracketsNonBackslashArg'][0]['enclosingEndType']
                 for bracketInfoDict in infixInfoDict0['enclosingBracketsNonBackslashArg']:
-                    if tightestOpenBracketPos < bracketInfoDict['openBracketPos'] and bracketInfoDict['closeBracketPos'] < tightestCloseBracketPos:
-                        tightestOpenBracketPos = bracketInfoDict['openBracketPos']
-                        tightestOpenBracketType = bracketInfoDict['openBracketType']
-                        tightestCloseBracketPos = bracketInfoDict['closeBracketPos']
-                        tightestCloseBracketType = bracketInfoDict['closeBracketType']
+                    if tightestOpenBracketPos < bracketInfoDict['enclosingStartPos'] and bracketInfoDict['enclosingEndPos'] < tightestCloseBracketPos:
+                        tightestOpenBracketPos = bracketInfoDict['enclosingStartPos']
+                        tightestOpenBracketType = bracketInfoDict['enclosingStartType']
+                        tightestCloseBracketPos = bracketInfoDict['enclosingEndPos']
+                        tightestCloseBracketType = bracketInfoDict['enclosingEndType']
                 infixInfoDict0.update({
                     'ganzStartPos':tightestOpenBracketPos + len(tightestOpenBracketType),
                     'ganzEndPos':tightestCloseBracketPos,
@@ -1055,7 +1036,7 @@ class Latexparser(Parser):
                 listOfOccupiedRanges.add((functionInfoDict['argument2SubSuperPos'], functionInfoDict['argument2SubSuperPos']+len(functionInfoDict['argument2SubSuperType'])))
         # sortedListOfOccupiedRanges = sorted(listOfOccupiedRanges, key=lambda tup: tup[0]) # TODO sort for binary search
 
-        self.occupiedBrackets = []# for bubble merge later, these entreSpaces are connected
+        self.occupiedBrackets = set()#[]# for bubble merge later, these entreSpaces are connected
         #self.infixOperatorPositions
         for infixInfoDict in self.infixList:
             ##############
@@ -1066,38 +1047,45 @@ class Latexparser(Parser):
             ##############
             listOfOccupiedRanges.add((infixInfoDict['position'], infixInfoDict['position']+len(infixInfoDict['name']))) # might have repeats since some 'brackets' are infixes
             # import pdb;pdb.set_trace()
-            if infixInfoDict['left__type'] != 'infix' and infixInfoDict['left__startBracketType'] is not None:
-                listOfOccupiedRanges.add((infixInfoDict['left__startBracketPos'], infixInfoDict['left__startBracketPos']+len(infixInfoDict['left__startBracketType'])))
-                #backslashargs not occupiedBrackets, partialFrac test case
-                if infixInfoDict['tight__leftType'] in ['enclosing', 'leftRight']:#if infixInfoDict['left__type'] in ['enclosing', 'leftRight']:##############TODO does it work for other polynomial like things?
-                    for pos in range(infixInfoDict['left__startBracketPos'], infixInfoDict['left__startBracketPos']+len(infixInfoDict['left__startBracketType'])):
-                        self.occupiedBrackets.append(pos)
-                        if self.showError():
-                            print('>>>>adding :', self._eqs[pos], ' >>>> to self.occupiedBrackets')
-            if infixInfoDict['left__type'] != 'infix' and infixInfoDict['left__endBracketType'] is not None: # left__startBracketType is not None =/=> left__endBracketType is not None, since we may have enclosing brackets
-                listOfOccupiedRanges.add((infixInfoDict['left__endBracketPos'], infixInfoDict['left__endBracketPos']+len(infixInfoDict['left__endBracketType'])))
-                #backslashargs not occupiedBrackets, partialFrac test case
-                if infixInfoDict['tight__leftType'] in ['enclosing', 'leftRight']:#if infixInfoDict['left__type'] in ['enclosing', 'leftRight']:##############TODO does it work for other polynomial like things?
-                    for pos in range(infixInfoDict['left__endBracketPos'], infixInfoDict['left__endBracketPos']+len(infixInfoDict['left__endBracketType'])):
-                        self.occupiedBrackets.append(pos)
-                        if self.showError():
-                            print('>>>>adding :', self._eqs[pos], ' >>>> to self.occupiedBrackets')
-            if infixInfoDict['right__type'] != 'infix' and infixInfoDict['right__startBracketType'] is not None:
-                listOfOccupiedRanges.add((infixInfoDict['right__startBracketPos'], infixInfoDict['right__startBracketPos']+len(infixInfoDict['right__startBracketType'])))
-                #backslashargs not occupiedBrackets, partialFrac test case
-                if infixInfoDict['tight__rightType'] in ['enclosing', 'leftRight']:#if infixInfoDict['right__type'] in ['enclosing', 'leftRight']:##############TODO does it work for other polynomial like things?
-                    for pos in range(infixInfoDict['right__startBracketPos'], infixInfoDict['right__startBracketPos']+len(infixInfoDict['right__startBracketType'])):
-                        self.occupiedBrackets.append(pos)
-                        if self.showError():
-                            print('>>>>adding :', self._eqs[pos], ' >>>> to self.occupiedBrackets')
-            if infixInfoDict['right__type'] != 'infix' and infixInfoDict['right__endBracketType'] is not None: # right__startBracketType is not None =/=> right__endBracketType is not None, since we may have enclosing brackets
-                listOfOccupiedRanges.add((infixInfoDict['right__endBracketPos'], infixInfoDict['right__endBracketPos']+len(infixInfoDict['right__endBracketType'])))
-                #backslashargs not occupiedBrackets, partialFrac test case
-                if infixInfoDict['tight__rightType'] in ['enclosing', 'leftRight']:##############TODO does it work for other polynomial like things?
-                    for pos in range(infixInfoDict['right__endBracketPos'], infixInfoDict['right__endBracketPos']+len(infixInfoDict['right__endBracketType'])):
-                        self.occupiedBrackets.append(pos)
-                        if self.showError():
-                            print('>>>>adding :', self._eqs[pos], ' >>>> to self.occupiedBrackets')
+            #add all the brackets that do not belong to backSlash 
+            for bracketInfoDict in self.matchingBracketsLocation:
+                if not bracketInfoDict['belongToBackslash']:
+                    for pos in range(bracketInfoDict['openBracketPos'], bracketInfoDict['closeBracketPos']+len(bracketInfoDict['closeBracketType'])):
+                        self.occupiedBrackets.add(pos)
+        self.occupiedBrackets = sorted(list(self.occupiedBrackets))
+
+            # if infixInfoDict['left__type'] != 'infix' and infixInfoDict['left__startBracketType'] is not None:
+            #     listOfOccupiedRanges.add((infixInfoDict['left__startBracketPos'], infixInfoDict['left__startBracketPos']+len(infixInfoDict['left__startBracketType'])))
+            #     #backslashargs not occupiedBrackets, partialFrac test case
+            #     if infixInfoDict['tight__leftType'] in ['enclosing', 'leftRight']:#if infixInfoDict['left__type'] in ['enclosing', 'leftRight']:##############TODO does it work for other polynomial like things?
+            #         for pos in range(infixInfoDict['left__startBracketPos'], infixInfoDict['left__startBracketPos']+len(infixInfoDict['left__startBracketType'])):
+            #             self.occupiedBrackets.append(pos)
+            #             if self.showError():
+            #                 print('>>>>adding :', self._eqs[pos], ' >>>> to self.occupiedBrackets')
+            # if infixInfoDict['left__type'] != 'infix' and infixInfoDict['left__endBracketType'] is not None: # left__startBracketType is not None =/=> left__endBracketType is not None, since we may have enclosing brackets
+            #     listOfOccupiedRanges.add((infixInfoDict['left__endBracketPos'], infixInfoDict['left__endBracketPos']+len(infixInfoDict['left__endBracketType'])))
+            #     #backslashargs not occupiedBrackets, partialFrac test case
+            #     if infixInfoDict['tight__leftType'] in ['enclosing', 'leftRight']:#if infixInfoDict['left__type'] in ['enclosing', 'leftRight']:##############TODO does it work for other polynomial like things?
+            #         for pos in range(infixInfoDict['left__endBracketPos'], infixInfoDict['left__endBracketPos']+len(infixInfoDict['left__endBracketType'])):
+            #             self.occupiedBrackets.append(pos)
+            #             if self.showError():
+            #                 print('>>>>adding :', self._eqs[pos], ' >>>> to self.occupiedBrackets')
+            # if infixInfoDict['right__type'] != 'infix' and infixInfoDict['right__startBracketType'] is not None:
+            #     listOfOccupiedRanges.add((infixInfoDict['right__startBracketPos'], infixInfoDict['right__startBracketPos']+len(infixInfoDict['right__startBracketType'])))
+            #     #backslashargs not occupiedBrackets, partialFrac test case
+            #     if infixInfoDict['tight__rightType'] in ['enclosing', 'leftRight']:#if infixInfoDict['right__type'] in ['enclosing', 'leftRight']:##############TODO does it work for other polynomial like things?
+            #         for pos in range(infixInfoDict['right__startBracketPos'], infixInfoDict['right__startBracketPos']+len(infixInfoDict['right__startBracketType'])):
+            #             self.occupiedBrackets.append(pos)
+            #             if self.showError():
+            #                 print('>>>>adding :', self._eqs[pos], ' >>>> to self.occupiedBrackets')
+            # if infixInfoDict['right__type'] != 'infix' and infixInfoDict['right__endBracketType'] is not None: # right__startBracketType is not None =/=> right__endBracketType is not None, since we may have enclosing brackets
+            #     listOfOccupiedRanges.add((infixInfoDict['right__endBracketPos'], infixInfoDict['right__endBracketPos']+len(infixInfoDict['right__endBracketType'])))
+            #     #backslashargs not occupiedBrackets, partialFrac test case
+            #     if infixInfoDict['tight__rightType'] in ['enclosing', 'leftRight']:##############TODO does it work for other polynomial like things?
+            #         for pos in range(infixInfoDict['right__endBracketPos'], infixInfoDict['right__endBracketPos']+len(infixInfoDict['right__endBracketType'])):
+            #             self.occupiedBrackets.append(pos)
+            #             if self.showError():
+            #                 print('>>>>adding :', self._eqs[pos], ' >>>> to self.occupiedBrackets')
 
         """
         after putting all the backslash_function, backslash_variable, infix, we still have brackets like these that are not removed:
@@ -1800,7 +1788,7 @@ class Latexparser(Parser):
                     if index in matchedIndexInRightBracketList:
                         continue # matched already not need to check again.
                     #check if brackets are equals
-                    commonKeys = set(leftBracketInfoDict).intersection(set(rightArgBracketList))
+                    commonKeys = set(leftBracketInfoDict.keys()).intersection(set(rightBracketInfoDict.keys()))
                     matchedIndex = None
                     for commonKey in commonKeys:
                         if leftBracketInfoDict[commonKey] != rightBracketInfoDict[commonKey]:
@@ -1906,8 +1894,12 @@ if __name__=='__main__':
                 # TODO can be made more efficient by selecting rightBracketInfoDict[enclosingStartPos] > leftBracketInfoDict[enclosingEndPos],(in the second loop) 
                 # and ALSO sorting both list before hand and then use binary search.... (for larger list next time)
                 for rightBracketInfoDict in rightArgBracketList: 
+                    # import pdb;pdb.set_trace()
                     touchingPos = leftBracketInfoDict['enclosingEndPos']+lenOrZero(leftBracketInfoDict['enclosingEndType'])
+                    if touchingPos > rightBracketInfoDict['enclosingStartPos']: # overshoot
+                        continue
                     chasZweischen = self._eqs[touchingPos:rightBracketInfoDict['enclosingStartPos']]
+                    # import pdb;pdb.set_trace()
                     if len(chasZweischen.strip()) == 0: #only whitespace between leftBracket and rightBracket, then they are touching
                         return touchingPos, leftBracketInfoDict, rightBracketInfoDict
 
@@ -1925,13 +1917,14 @@ if __name__=='__main__':
                     hinTouchingBracket['type'] = 'leftEnclosing'
                 #add on the fake brackets
                 # import pdb;pdb.set_trace()
-                if hinDing['type']=='infix' and hinDing['left__type'] == 'leftRight':
+                if hinDing['type']=='infix' and hinDing['right__type'] == 'leftRight':
                     hinTouchingBrackets.append({ # FAKE-ENCLOSING to get touching position
                         'enclosingStartPos':hinDing['right__startBracketPos'],
                         'enclosingEndPos':hinDing['right__endBracketPos'],
                         'enclosingStartType':hinDing['right__startBracketType'],
                         'enclosingEndType':hinDing['right__endBracketType'],
-                        'type':'left'
+                        'type':'left',
+                        'belongToBackslash':False
                     })
                 if hinDing['type']!='infix' and len(hinDing['enclosingBracketsNonBackslashArg']) == 0: # non-infix with NO enclosingbrackets
                     hinTouchingBrackets.append({ # FAKE-ENCLOSING to get touching position
@@ -1939,7 +1932,8 @@ if __name__=='__main__':
                         'enclosingEndPos':hinDing['ganzEndPos'],
                         'enclosingStartType':None,
                         'enclosingEndType':None,
-                        'type':'leftArg'
+                        'type':'leftArg',
+                        'belongToBackslash':False
                     })
 
                 vorTouchingBrackets = copy.deepcopy(vorDing['enclosingBracketsNonBackslashArg'])
@@ -1947,13 +1941,14 @@ if __name__=='__main__':
                 for vorTouchingBracket in vorTouchingBrackets:
                     vorTouchingBracket['type'] = 'rightEnclosing'
                 # add on the fake brackets
-                if vorDing['type']=='infix' and vorDing['right__type'] == 'leftRight':
+                if vorDing['type']=='infix' and vorDing['left__type'] == 'leftRight':
                     vorTouchingBrackets.append({ # FAKE-ENCLOSING to get touching position
                         'enclosingStartPos':vorDing['left__startBracketPos'],
                         'enclosingEndPos':vorDing['left__endBracketPos'],
                         'enclosingStartType':vorDing['left__startBracketType'],
                         'enclosingEndType':vorDing['left__endBracketType'],
-                        'type':'right'
+                        'type':'right',
+                        'belongToBackslash':False
                     })
                 if vorDing['type']!='infix' and len(vorDing['enclosingBracketsNonBackslashArg']) == 0: # non-infix with NO enclosingbrackets
                     vorTouchingBrackets.append({ # FAKE-ENCLOSING to get touching position
@@ -1961,10 +1956,13 @@ if __name__=='__main__':
                         'enclosingEndPos':vorDing['ganzEndPos'],
                         'enclosingStartType':None,
                         'enclosingEndType':None,
-                        'type':'rightArg'
+                        'type':'rightArg',
+                        'belongToBackslash':False
                     })
-
-                resultTup = touchingBrackets(hinTouchingBrackets, vorTouchingBrackets)
+                try:
+                    resultTup = touchingBrackets(hinTouchingBrackets, vorTouchingBrackets)
+                except:
+                    import pdb;pdb.set_trace()
 
                 if self.showError():
                     print('~~~~~~~~~~~~~~~~~~~~implicitMultiply TOUCHING BRACKETS~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
@@ -1986,10 +1984,10 @@ if __name__=='__main__':
                     left__startBracketType = None
                     left__endBracketPos = None
                     left__endBracketType = None
+                    left__argStart = touchingLeftBracketInfoDict['enclosingStartPos']
+                    left__argEnd = touchingLeftBracketInfoDict['enclosingEndPos']
                     if touchingLeftBracketInfoDict['type'] == 'leftArg':
                         left__type = 'arg'
-                        left__argStart = touchingLeftBracketInfoDict['enclosingStartPos']
-                        left__argEnd = touchingLeftBracketInfoDict['enclosingEndPos']
                     else: # touchingLeftBracketInfoDict['type'] == 'left', no inner Bracket
                         left__type = 'leftRight'
                         left__startBracketPos = touchingLeftBracketInfoDict['enclosingStartPos']
@@ -2005,10 +2003,10 @@ if __name__=='__main__':
                     right__startBracketType = None
                     right__endBracketPos = None
                     right__endBracketType = None
+                    right__argStart = touchingRightBracketInfoDict['enclosingStartPos']
+                    right__argEnd = touchingRightBracketInfoDict['enclosingEndPos']
                     if touchingRightBracketInfoDict['type'] == 'rightArg':
                         right__type = 'arg'
-                        right__argStart = touchingRightBracketInfoDict['enclosingStartPos']
-                        right__argEnd = touchingRightBracketInfoDict['enclosingEndPos']
                     else: # touchingRightBracketInfoDict['type'] == 'right', no inner Bracket
                         right__type = 'leftRight'
                         right__endBracketPos = touchingRightBracketInfoDict['enclosingEndPos']
@@ -2131,6 +2129,41 @@ if __name__=='__main__':
 
         #here with deal with the tree growing.
         if len(newDings) > 1:
+            #TODO refactor helper function
+            def findTightestBracketEnclosingMostArgs(enclosingBracketInfoDicts, ganzRangeOfRemainingArgs):
+                """
+                GO by MOST NUMBER OF BRACKETS FIRST
+                Then by TIGHTEST
+                """
+                mostArgsCount = 0
+                mostArgsBracketList = []
+                for bracketInfoDict in enclosingBracketInfoDicts:
+                    """
+                    bracketInfoDict:
+                    {'enclosingStartPos': 7, 'enclosingEndPos': 15, 'enclosingStartType': '{', 'enclosingEndType': '}'}
+                    """
+                    numberOfArgsEnclosed = 0
+                    for ganzTuple in ganzRangeOfRemainingArgs:
+                        """
+                        ganzTuple:
+                        (8, 9)
+                        """
+                        if bracketInfoDict['enclosingStartPos'] <= ganzTuple[0] and ganzTuple[1] <= bracketInfoDict['enclosingEndPos']:
+                            numberOfArgsEnclosed += 1
+                    if mostArgsCount == numberOfArgsEnclosed:
+                        mostArgsBracketList.append(bracketInfoDict)
+                    elif numberOfArgsEnclosed > mostArgsCount:
+                        mostArgsCount = numberOfArgsEnclosed
+                        mostArgsBracketList = [bracketInfoDict]
+                tightest = mostArgsBracketList[0]
+                for bracketInfoDict in mostArgsBracketList:
+                    if tightest['enclosingStartPos'] <= bracketInfoDict['enclosingStartPos'] and bracketInfoDict['enclosingEndPos'] <= tightest['enclosingEndPos']:
+                        tightest = bracketInfoDict
+                return tightest
+
+
+
+
             import copy
             #find all the infixesPos, we only need to deal with infixes here...
             parentChildInformation = [] # collect all the information here first. fill out the form later
@@ -2146,7 +2179,7 @@ if __name__=='__main__':
                     # import pdb;pdb.set_trace()
                     if ding['left__type'] == 'leftRight' or ding['right__type'] == 'leftRight':
                         leftRightPossToSkip.append(idx)
-                    elif len(ding['enclosingBracketsNonBackslashArg']) > 0:
+                    elif len(list(filter(lambda bracketInfoDict: not bracketInfoDict['belongToBackslash'], ding['enclosingBracketsNonBackslashArg']))) > 0:# remove all the enclosing, that belongs to backSLash TODO BAD NAMING enclosingBrackets, not enclosingBRacketsNonBackslashArg
                         enclosingPossForFirst.append(idx)
 
 
@@ -2173,7 +2206,7 @@ if __name__=='__main__':
             while len(remainingEnclosingPoss) > 0:
                 bracketToPos = {}
                 #deal with enclosingInfixPoss first
-                for infixPos in enclosingPossForFirst:# you are going to popout the infixes.... so
+                for infixPos in remainingEnclosingPoss:# you are going to popout the infixes.... so
                     #figure out which infix to build parent/child relationship first.
                     #need to take out the one
                     # 1. containing least args  - needs to be done on the fly, the args available will keep changing
@@ -2185,19 +2218,22 @@ if __name__=='__main__':
                         ding = newDings[remainingArgPos]
                         ganzRangeOfRemainingArgs.append((ding['ganzStartPos'], ding['ganzEndPos']))
                     tightestBracketEnclosingMostArgs = findTightestBracketEnclosingMostArgs(newDings[infixPos]['enclosingBracketsNonBackslashArg'], ganzRangeOfRemainingArgs)
-                    bracketToPos[tightestBracketEnclosingMostArgs] = infixPos
+                    bracketPosTuple = (tightestBracketEnclosingMostArgs['enclosingStartPos'], tightestBracketEnclosingMostArgs['enclosingEndPos'])
+                    bracketToPos[bracketPosTuple] = infixPos
 
                 listOfPoss = list(bracketToPos.keys())
                 def firstContainsSecond(arg1, arg2):
                     return arg1[0] <= arg2[0] and arg2[1] <= arg1[1]
                 def getId(bracket):
-                    return bracketPos[bracket]
+                    return bracketToPos[bracket]
+                # import pdb;pdb.set_trace()
                 roots, leaves, enclosureTree, levelToIDs, idToLevel = EnclosureTree.makeEnclosureTreeWithLevelRootLeaves(listOfPoss, firstContainsSecond, getId)
                 # for level, IDs in sorted(levelToIDs.items(), key=lambda kvtup: kvtup[0]): # go by the lowest level
                 level, IDs = sorted(levelToIDs.items(), key=lambda kvtup: kvtup[0])[0]
                 infixesWithPos = list(map(lambda ID: (ID, newDings[ID]), IDs))
                 # for infixPos, infix in sorted(infixesWithPos, key=lambda infixWithPos: Latexparser.PRIOIRITIZED_INFIX[infixWithPos[1]['name']]): # then go by BODMAS
-                infixPos, infix = sorted(infixesWithPos, key=lambda infixWithPos: Latexparser.PRIOIRITIZED_INFIX[infixWithPos[1]['name']])[0]# then go by BODMAS
+                # import pdb;pdb.set_trace()
+                infixPos, infix = sorted(infixesWithPos, key=lambda infixWithPos: Latexparser.PRIOIRITIZED_INFIX.index(infixWithPos[1]['name']))[0]# then go by BODMAS
                 #and only process 1 infix, then we re-calculate the whole thing, (TODO is it ok to do the whole level?)
 
                 # infix = newDings[infixPos]
@@ -2214,7 +2250,7 @@ if __name__=='__main__':
                         continue
                     dingToLeftIdx = idx
                     break
-                    
+
                 # if self.showError():
                 #     import pdb;pdb.set_trace()
                 parentChildInformation.append((dingToLeftIdx, infixPos, dingToRightIdx))
@@ -2223,11 +2259,15 @@ if __name__=='__main__':
 
                 remainingEnclosingPoss = list(set(remainingEnclosingPoss) - set([infixPos])) # take out the infixPos that was processed
                 #remove dingToLeftIdx and dingToRightIdx from possToGanzRange
-                del possToGanzRange[dingToLeftIdx]
-                del possToGanzRange[dingToRightIdx]
+                if dingToLeftIdx in possToGanzRange:
+                    del possToGanzRange[dingToLeftIdx]
+                if dingToRightIdx in possToGanzRange:
+                    del possToGanzRange[dingToRightIdx]
                 if self.showError():
                     #######################################
-                    print('IN ENCLOSING~~~~~~~~~~~~~~~~~~~~')
+                    print('IN ENCLOSING~~~~~~~~~~~~~~~~~~~~, just processed: ', infixPos)
+                    print('remainingEnclosingPoss:')
+                    print(remainingEnclosingPoss)
                     print('processed: ')
                     print(processed)
                     print('parentChildInformation: ')
@@ -2717,6 +2757,10 @@ if __name__=='__main__':
         Here, we build parent-child-relationship across levels.
         So, after this step, we should only have 2-subtrees with no parents
         Those 2 are the direct children of '='
+
+
+        parentDings are all the potential parents
+        rootSubTree is the child look for a potential parent
         """
         containedArgument = False#have we already found the parent for rootSubTree
         for ding in parentDings: # ding is with socket (empty child)
@@ -2732,7 +2776,10 @@ if __name__=='__main__':
                     sadchild[idd] = {'c1':c0, 'c2':c1, 'parent':pard}
                 import pprint
                 pp = pprint.PrettyPrinter(indent=4)
+                print('parentDings:::: potentialParents')
                 pp.pprint(sadchild)
+                print('rootSubTree:::child looking for a potentialParent')
+                print(rootSubTree)
                 print('*********parentChildR Status after __interLevelSubtreeGrafting(2ndpart intralevel parentChildR building)********************************')
             if containedArgument: # we have found the parent for rootSubTree
 
@@ -3378,6 +3425,7 @@ $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$incomplete code to check variable_depende
         self.nodeId = 1 # 0 is for =, for _parse, TODO
         self._findInfixAndEnclosingBrackets()
         self._findBackSlashPositions()
+        self._tagBracketsToBackslash()
         self._updateInfixNearestBracketInfix()
         self._removeCaretThatIsNotExponent()
         self._findLeftOverPosition()
