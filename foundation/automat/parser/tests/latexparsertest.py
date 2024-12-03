@@ -36,6 +36,25 @@ def test__collateBackslashInfixLeftOversToContiguous__exponentialOverMultiply(ve
         pp.pprint(parser.ast)
 
 
+def test__interLevelSubTreeGrafting__exponentialOverEnclosingBrackets(verbose=False):
+    pp = pprint.PrettyPrinter(indent=4)
+
+    equationStr = '(19y + z^4 + 4w^{12})^{30} = F'
+    parser = Latexparser(equationStr, verbose=verbose)
+    parser._parse()
+    expected_ast = {   ('*', 3): [('19', 2), ('y', 4)],
+    ('*', 11): [('4', 10), ('^', 13)],
+    ('+', 5): [('*', 3), ('^', 7)],
+    ('+', 9): [('+', 5), ('*', 11)],
+    ('=', 0): [('^', 15), ('F', 1)],
+    ('^', 7): [('z', 6), ('4', 8)],
+    ('^', 13): [('w', 12), ('12', 14)],
+    ('^', 15): [('+', 9), ('30', 16)]}
+    print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
+    if verbose:
+        pp.pprint(parser.ast)
+
+
 def test__findingBackSlashAndInfixOperations__Trig0(verbose=False):
     pp = pprint.PrettyPrinter(indent=4)
 
@@ -431,7 +450,13 @@ def test__backslashInfixInBackslash__sqrtInSqrt(verbose=False):
     equationStr = '\\sqrt[\\sqrt{\\frac{\\pi}{22}}]{\\sqrt[\\sin(\\pi)]{\\pi}}=F'
     parser = Latexparser(equationStr, verbose=verbose)
     parser._parse()
-    expected_ast = None
+    expected_ast = {   
+    ('/', 5): [('pi', 9), ('22', 8)],
+    ('=', 0): [('nroot', 2), ('F', 1)],
+    ('nroot', 2): [('nroot', 3), ('nroot', 4)],
+    ('nroot', 3): [(2, 11), ('/', 5)],
+    ('nroot', 4): [('sin', 7), ('pi', 6)],
+    ('sin', 7): [('pi', 10)]}
     print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
     if verbose:
         pp.pprint(parser.ast)
@@ -443,7 +468,19 @@ def test__backslashInfixInBackslash__trigInTrig(verbose=False):
     equationStr = '\\sin^{20-\\cos^{43}(1-\\frac{\\pi}{5})}(9-\\tan^4(\\theta))+5=F'
     parser = Latexparser(equationStr, verbose=verbose)
     parser._parse()
-    expected_ast = None
+    expected_ast = {   
+    ('+', 3): [('^', 19), ('5', 4)],
+    ('-', 6): [('9', 5), ('^', 20)],
+    ('-', 9): [('20', 8), ('^', 21)],
+    ('-', 14): [('1', 13), ('/', 15)],
+    ('/', 15): [('pi', 18), ('5', 17)],
+    ('=', 0): [('+', 3), ('F', 1)],
+    ('^', 19): [(('sin', 2), ('-', 9))],
+    ('^', 20): [(('tan', 7), ('4', 12))],
+    ('^', 21): [(('cos', 10), ('43', 16))],
+    ('cos', 10): [('-', 14)],
+    ('sin', 2): [('-', 6)],
+    ('tan', 7): [('theta', 11)]}
     print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
     if verbose:
         pp.pprint(parser.ast)
@@ -455,7 +492,13 @@ def test__backslashInfixInBackslash__logInLog(verbose=False):
     equationStr = '\\log_{\\ln(90-x)}(\\log(z^5))=F'
     parser = Latexparser(equationStr, verbose=verbose)
     parser._parse()
-    expected_ast = None
+    expected_ast = {   
+    ('-', 9): [('90', 8), ('x', 10)],
+    ('=', 0): [('log', 2), ('F', 1)],
+    ('^', 6): [('z', 5), ('5', 7)],
+    ('log', 2): [('log', 4), ('log', 3)],
+    ('log', 3): [(10, 11), ('^', 6)],
+    ('log', 4): [('e', 12), ('-', 9)]}
     print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
     if verbose:
         pp.pprint(parser.ast)
@@ -467,7 +510,31 @@ def test__backslashInfixInBackslash__fracInFrac(verbose=False):
     equationStr = '\\frac{\\frac{\\sin^2(x)+\\cos^2(x)}{\\sin^2(x)-\\cos^2(x)}}{\\frac{\\cos(2x)-\\sin(2x)}{\\cos(2x)+\\sin(2x)}}=F'
     parser = Latexparser(equationStr, verbose=verbose)
     parser._parse()
-    expected_ast = None
+    expected_ast = {   
+    ('*', 18): [('2', 17), ('x', 19)],
+    ('*', 21): [('2', 20), ('x', 22)],
+    ('*', 24): [('2', 23), ('x', 25)],
+    ('*', 27): [('2', 26), ('x', 28)],
+    ('+', 6): [('cos', 5), ('sin', 7)],
+    ('+', 12): [('^', 40), ('^', 39)],
+    ('-', 9): [('cos', 8), ('sin', 10)],
+    ('-', 15): [('^', 38), ('^', 37)],
+    ('/', 2): [('/', 4), ('/', 3)],
+    ('/', 3): [('-', 9), ('+', 6)],
+    ('/', 4): [('+', 12), ('-', 15)],
+    ('=', 0): [('/', 2), ('F', 1)],
+    ('^', 37): [(('cos', 16), ('2', 36))],
+    ('^', 38): [(('sin', 14), ('2', 34))],
+    ('^', 39): [(('cos', 13), ('2', 30))],
+    ('^', 40): [(('sin', 11), ('2', 31))],
+    ('cos', 5): [('*', 21)],
+    ('cos', 8): [('*', 27)],
+    ('cos', 13): [('x', 29)],
+    ('cos', 16): [('x', 35)],
+    ('sin', 7): [('*', 18)],
+    ('sin', 10): [('*', 24)],
+    ('sin', 11): [('x', 32)],
+    ('sin', 14): [('x', 33)]}
     print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
     if verbose:
         pp.pprint(parser.ast)
@@ -479,7 +546,24 @@ def test__hassliche__highPowersAndRandomCoefficientsPITEST(verbose=False):
     equationStr = 'P(x) = 7x^{13} - 3x^{9} + 5x^{8} - \\sqrt{2}x^{4} + \\pi x^{2} - 42'
     parser = Latexparser(equationStr, verbose=verbose)
     parser._parse()
-    expected_ast = None # to be filled in
+    expected_ast = {   ('*', 2): [('P', 1), ('x', 3)],
+    ('*', 5): [('7', 4), ('^', 7)],
+    ('*', 11): [('3', 10), ('^', 13)],
+    ('*', 17): [('5', 16), ('^', 19)],
+    ('*', 23): [('nroot', 22), ('^', 25)],
+    ('*', 29): [('pi', 28), ('^', 31)],
+    ('+', 15): [('-', 9), ('-', 21)],
+    ('+', 27): [('+', 15), ('-', 33)],
+    ('-', 9): [('*', 5), ('*', 11)],
+    ('-', 21): [('*', 17), ('*', 23)],
+    ('-', 33): [('*', 29), ('42', 34)],
+    ('=', 0): [('*', 2), ('+', 27)],
+    ('^', 7): [('x', 6), ('13', 8)],
+    ('^', 13): [('x', 12), ('9', 14)],
+    ('^', 19): [('x', 18), ('8', 20)],
+    ('^', 25): [('x', 24), ('4', 26)],
+    ('^', 31): [('x', 30), ('2', 32)],
+    ('nroot', 22): [(2, 36), ('2', 35)]}
     print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
     if verbose:
         pp.pprint(parser.ast)
@@ -503,7 +587,23 @@ def test__hassliche__nonIntegerAndNegativeCoefficientsDECIMALPOINTTEST(verbose=F
     equationStr = 'R(x) = -0.5x^{10} + 3.14x^{8} - \\frac{2}{3}x^{5} + 1.618x^{3} - \\frac{1}{x}'
     parser = Latexparser(equationStr, verbose=verbose)
     parser._parse()
-    expected_ast = None # to be filled in
+    expected_ast = {   ('*', 2): [('R', 1), ('x', 3)],
+    ('*', 7): [('0.5', 6), ('^', 9)],
+    ('*', 13): [('3.14', 12), ('^', 15)],
+    ('*', 19): [('/', 18), ('^', 21)],
+    ('*', 25): [('1.618', 24), ('^', 27)],
+    ('+', 11): [('-', 5), ('-', 17)],
+    ('+', 23): [('+', 11), ('-', 29)],
+    ('-', 5): [('0', 4), ('*', 7)],
+    ('-', 17): [('*', 13), ('*', 19)],
+    ('-', 29): [('*', 25), ('/', 30)],
+    ('/', 18): [('2', 31), ('3', 32)],
+    ('/', 30): [('1', 33), ('x', 34)],
+    ('=', 0): [('*', 2), ('+', 23)],
+    ('^', 9): [('x', 8), ('10', 10)],
+    ('^', 15): [('x', 14), ('8', 16)],
+    ('^', 21): [('x', 20), ('5', 22)],
+    ('^', 27): [('x', 26), ('3', 28)]}
     print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
     if verbose:
         pp.pprint(parser.ast)
@@ -527,7 +627,22 @@ def test__hassliche__irrationalAndTranscendentalNumbersPOWERCOTEBACKSLASH(verbos
     equationStr = 'T(x) = e^{x} - \\cos(x)x^4 + x^3\\sin(x) - \\ln(x^2+1)'
     parser = Latexparser(equationStr, verbose=verbose)
     parser._parse()
-    expected_ast = None # to be filled in
+    expected_ast = {   
+    ('*', 2): [('T', 1), ('x', 3)],
+    ('*', 9): [('cos', 8), ('^', 11)],
+    ('*', 17): [('^', 15), ('sin', 18)],
+    ('+', 13): [('-', 7), ('-', 19)],
+    ('+', 26): [('^', 24), ('1', 27)],
+    ('-', 7): [('^', 5), ('*', 9)],
+    ('-', 19): [('*', 17), ('log', 20)],
+    ('=', 0): [('*', 2), ('+', 13)],
+    ('^', 5): [('e', 4), ('x', 6)],
+    ('^', 11): [('x', 10), ('4', 12)],
+    ('^', 15): [('x', 14), ('3', 16)],
+    ('^', 24): [('x', 23), ('2', 25)],
+    ('cos', 8): [('x', 21)],
+    ('log', 20): [('e', 28), ('+', 26)],
+    ('sin', 18): [('x', 22)]}
     print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
     if verbose:
         pp.pprint(parser.ast)
@@ -539,7 +654,30 @@ def test__hassliche__degree5(verbose=False):
     equationStr = '(x - 1)(x + 2)(x - 3)(x + 4)(x - 5) = x^5 - 3x^4 - 32x^3 + 94x^2 + 31x - 120'
     parser = Latexparser(equationStr, verbose=verbose)
     parser._parse()
-    expected_ast = None # to be filled in
+    expected_ast = {   
+    ('*', 6): [('3', 5), ('^', 8)],
+    ('*', 12): [('32', 11), ('^', 14)],
+    ('*', 18): [('94', 17), ('^', 20)],
+    ('*', 24): [('31', 23), ('x', 25)],
+    ('*', 31): [('-', 29), ('+', 33)],
+    ('*', 35): [('*', 31), ('-', 37)],
+    ('*', 39): [('*', 35), ('+', 41)],
+    ('*', 43): [('*', 39), ('-', 45)],
+    ('+', 16): [('-', 10), ('*', 18)],
+    ('+', 22): [('+', 16), ('-', 26)],
+    ('+', 33): [('x', 32), ('2', 34)],
+    ('+', 41): [('x', 40), ('4', 42)],
+    ('-', 4): [('^', 2), ('*', 6)],
+    ('-', 10): [('-', 4), ('*', 12)],
+    ('-', 26): [('*', 24), ('120', 27)],
+    ('-', 29): [('x', 28), ('1', 30)],
+    ('-', 37): [('x', 36), ('3', 38)],
+    ('-', 45): [('x', 44), ('5', 46)],
+    ('=', 0): [('*', 43), ('+', 22)],
+    ('^', 2): [('x', 1), ('5', 3)],
+    ('^', 8): [('x', 7), ('4', 9)],
+    ('^', 14): [('x', 13), ('3', 15)],
+    ('^', 20): [('x', 19), ('2', 21)]}
     print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
     if verbose:
         pp.pprint(parser.ast)
@@ -659,6 +797,7 @@ def test__paveWayForIntegrtion__exponentOnEnclosingNonBackslash(verbose=False):
 if __name__=='__main__':
     # test__contiguousLeftOvers__decimalPlaces()
     # test__collateBackslashInfixLeftOversToContiguous__exponentialOverMultiply()
+    # test__interLevelSubTreeGrafting__exponentialOverEnclosingBrackets()
     # test__findingBackSlashAndInfixOperations__Trig0()
     # test__findingBackSlashAndInfixOperations__Trig1()
     # test__findingBackSlashAndInfixOperations__Trig2()
@@ -682,16 +821,16 @@ if __name__=='__main__':
     # test__BODMAS__enclosingBracket()
     # test__manyFracCaretEnclosingBrac__partialFrac()
     # test__fracWithLogNoBase__changeLogBaseFormula()
-    test__backslashInfixInBackslash__sqrtInSqrt(True)  # not tested yet
-    # test__backslashInfixInBackslash__trigInTrig(True)  # not tested yet
-    # test__backslashInfixInBackslash__logInLog(True)  # not tested yet
-    # test__backslashInfixInBackslash__fracInFrac(True)  # not tested yet
-    # test__hassliche__highPowersAndRandomCoefficientsPITEST(True)  # not tested yet
-    # test__hassliche__nestedPolynomial(True) # not tested yet
-    # test__hassliche__nonIntegerAndNegativeCoefficientsDECIMALPOINTTEST(True) # not tested yet
+    # test__backslashInfixInBackslash__sqrtInSqrt()
+    # test__backslashInfixInBackslash__trigInTrig()
+    # test__backslashInfixInBackslash__logInLog()
+    # test__backslashInfixInBackslash__fracInFrac()
+    # test__hassliche__highPowersAndRandomCoefficientsPITEST()
+    test__hassliche__nestedPolynomial(True) # not tested yet
+    # test__hassliche__nonIntegerAndNegativeCoefficientsDECIMALPOINTTEST()
     # test__hassliche__mixedVariablesAndPowersPOWERCOTEVARIABLEDOUBLEVARIABLETEST(True) # not tested yet
-    # test__hassliche__irrationalAndTranscendentalNumbersPOWERCOTEBACKSLASH(True) # not tested yet
-    # test__hassliche__degree5(True) # not tested yet
+    # test__hassliche__irrationalAndTranscendentalNumbersPOWERCOTEBACKSLASH()
+    # test__hassliche__degree5()
     # test__hassliche__degree6(True) # not tested yet
     # test__hassliche__degree7(True) # not tested yet
     # test__hassliche__moreThanOneAdditiveTermInEachMultiplicativeTerm(True) # not tested yet

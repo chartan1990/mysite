@@ -1865,7 +1865,8 @@ if __name__=='__main__':
                         'type':'left',
                         'belongToBackslash':False
                     })
-                if hinDing['type']!='infix' and len(hinDing['enclosingBracketsNonBackslashArg']) == 0: # non-infix with NO enclosingbrackets
+                #even if there is no enclosing, please refer to case test__interLevelSubTreeGrafting__exponentialOverEnclosingBrackets
+                if hinDing['type']!='infix':# and len(hinDing['enclosingBracketsNonBackslashArg']) == 0: # non-infix with NO enclosingbrackets
                     hinTouchingBrackets.append({ # FAKE-ENCLOSING to get touching position
                         'enclosingStartPos':hinDing['ganzStartPos'],
                         'enclosingEndPos':hinDing['ganzEndPos'],
@@ -1889,7 +1890,9 @@ if __name__=='__main__':
                         'type':'right',
                         'belongToBackslash':False
                     })
-                if vorDing['type']!='infix' and len(vorDing['enclosingBracketsNonBackslashArg']) == 0: # non-infix with NO enclosingbrackets
+
+                #even if there is no enclosing, please refer to case test__interLevelSubTreeGrafting__exponentialOverEnclosingBrackets
+                if vorDing['type']!='infix':# and len(vorDing['enclosingBracketsNonBackslashArg']) == 0: # non-infix with NO enclosingbrackets
                     vorTouchingBrackets.append({ # FAKE-ENCLOSING to get touching position
                         'enclosingStartPos':vorDing['ganzStartPos'],
                         'enclosingEndPos':vorDing['ganzEndPos'],
@@ -1898,10 +1901,7 @@ if __name__=='__main__':
                         'type':'rightArg',
                         'belongToBackslash':False
                     })
-                try:
-                    resultTup = touchingBrackets(hinTouchingBrackets, vorTouchingBrackets)
-                except:
-                    import pdb;pdb.set_trace()
+                resultTup = touchingBrackets(hinTouchingBrackets, vorTouchingBrackets)
 
                 if self.showError():
                     print('~~~~~~~~~~~~~~~~~~~~implicitMultiply TOUCHING BRACKETS~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
