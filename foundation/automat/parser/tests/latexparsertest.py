@@ -232,7 +232,15 @@ def test__nonInfixBrackets__addImplicitMultiply(verbose=False):
     equationStr = '(1+(1+(1+1)))(((1+1)+1)+1)=16'
     parser = Latexparser(equationStr, verbose=verbose)
     parser._parse()
-    expected_ast = None
+    expected_ast = {   
+    ('*', 9): [('+', 3), ('+', 15)],
+    ('+', 3): [('1', 2), ('+', 5)],
+    ('+', 5): [('1', 4), ('+', 7)],
+    ('+', 7): [('1', 6), ('1', 8)],
+    ('+', 11): [('1', 10), ('1', 12)],
+    ('+', 13): [('+', 11), ('1', 14)],
+    ('+', 15): [('+', 13), ('1', 16)],
+    ('=', 0): [('*', 9), ('16', 1)]}
     print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
     if verbose:
         pp.pprint(parser.ast)
@@ -244,7 +252,14 @@ def test__nonInfixBrackets__addImplicitMultiply0(verbose=False):
     equationStr = '(1+(1+1)(1+1)+1)+1=6'
     parser = Latexparser(equationStr, verbose=verbose)
     parser._parse()
-    expected_ast = None
+    expected_ast = {   
+    ('*', 6): [('+', 4), ('+', 8)],
+    ('+', 2): [('1', 1), ('*', 6)],
+    ('+', 4): [('1', 3), ('1', 5)],
+    ('+', 8): [('1', 7), ('1', 9)],
+    ('+', 10): [('+', 2), ('1', 11)],
+    ('+', 12): [('+', 10), ('1', 13)],
+    ('=', 0): [('+', 12), ('6', 14)]}
     print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
     if verbose:
         pp.pprint(parser.ast)
@@ -256,7 +271,16 @@ def test__nonInfixBrackets__addImplicitMultiply1(verbose=False):
     equationStr = '((1+(1+(1+1)))(((1+1)+1)+1)+1)+1=18'
     parser = Latexparser(equationStr, verbose=verbose)
     parser._parse()
-    expected_ast = None
+    expected_ast = {   ('*', 9): [('+', 3), ('+', 15)],
+    ('+', 3): [('1', 2), ('+', 5)],
+    ('+', 5): [('1', 4), ('+', 7)],
+    ('+', 7): [('1', 6), ('1', 8)],
+    ('+', 11): [('1', 10), ('1', 12)],
+    ('+', 13): [('+', 11), ('1', 14)],
+    ('+', 15): [('+', 13), ('1', 16)],
+    ('+', 17): [('*', 9), ('1', 18)],
+    ('+', 19): [('+', 17), ('1', 20)],
+    ('=', 0): [('+', 19), ('18', 1)]}
     print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
     if verbose:
         pp.pprint(parser.ast)
@@ -268,7 +292,12 @@ def test__BODMAS__priorityBetweenInfixForBrackets(verbose=False):
     equationStr = '\\frac{2}{(x-1)(x+1)}=c'
     parser = Latexparser(equationStr, verbose=verbose)
     parser._parse()
-    expected_ast = None
+    expected_ast = {   
+    ('*', 6): [('-', 4), ('+', 8)],
+    ('+', 8): [('x', 7), ('1', 9)],
+    ('-', 4): [('x', 3), ('1', 5)],
+    ('/', 2): [('2', 10), ('*', 6)],
+    ('=', 0): [('/', 2), ('c', 1)]}
     print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
     if verbose:
         pp.pprint(parser.ast)
@@ -393,11 +422,56 @@ def test__fracWithLogNoBase__changeLogBaseFormula(verbose=False):
     print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
     if verbose:
         pp.pprint(parser.ast)
-#need test cases where there is sqrt in sqrt as arg, 
-#trig in trig as arg
-#log in log as arg
-#frac in frac as arg
-#infix in infix with leftRightBrackets
+
+
+
+def test__backslashInfixInBackslash__sqrtInSqrt(verbose=False):
+    pp = pprint.PrettyPrinter(indent=4)
+
+    equationStr = '\\sqrt[\\sqrt{\\frac{\\pi}{22}}]{\\sqrt[\\sin(\\pi)]{\\pi}}=F'
+    parser = Latexparser(equationStr, verbose=verbose)
+    parser._parse()
+    expected_ast = None
+    print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
+    if verbose:
+        pp.pprint(parser.ast)
+
+
+def test__backslashInfixInBackslash__trigInTrig(verbose=False):
+    pp = pprint.PrettyPrinter(indent=4)
+
+    equationStr = '\\sin^{20-\\cos^{43}(1-\\frac{\\pi}{5})}(9-\\tan^4(\\theta))+5=F'
+    parser = Latexparser(equationStr, verbose=verbose)
+    parser._parse()
+    expected_ast = None
+    print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
+    if verbose:
+        pp.pprint(parser.ast)
+
+
+def test__backslashInfixInBackslash__logInLog(verbose=False):
+    pp = pprint.PrettyPrinter(indent=4)
+
+    equationStr = '\\log_{\\ln(90-x)}(\\log(z^5))=F'
+    parser = Latexparser(equationStr, verbose=verbose)
+    parser._parse()
+    expected_ast = None
+    print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
+    if verbose:
+        pp.pprint(parser.ast)
+
+
+def test__backslashInfixInBackslash__fracInFrac(verbose=False):
+    pp = pprint.PrettyPrinter(indent=4)
+
+    equationStr = '\\frac{\\frac{\\sin^2(x)+\\cos^2(x)}{\\sin^2(x)-\\cos^2(x)}}{\\frac{\\cos(2x)-\\sin(2x)}{\\cos(2x)+\\sin(2x)}}=F'
+    parser = Latexparser(equationStr, verbose=verbose)
+    parser._parse()
+    expected_ast = None
+    print(inspect.currentframe().f_code.co_name, ' PASSED? ', expected_ast == parser.ast)
+    if verbose:
+        pp.pprint(parser.ast)
+
 
 def test__hassliche__highPowersAndRandomCoefficientsPITEST(verbose=False):
     pp = pprint.PrettyPrinter(indent=4)
@@ -598,16 +672,20 @@ if __name__=='__main__':
     # test__findingBackSlashAndInfixOperations__SchrodingerWaveEquation()
     # test__infixInBackslash__paraboloid()
     # test__sqrtWithPowerCaretRightOtherInfix__hill()
-    test__nonInfixBrackets__addImplicitMultiply(True) # not tested yet
-    # test__nonInfixBrackets__addImplicitMultiply0(True) # not tested yet
-    # test__nonInfixBrackets__addImplicitMultiply1(True) # not tested yet
-    # test__BODMAS__priorityBetweenInfixForBrackets(True) # not tested yet
-    # test__BODMAS__enclosingBracketInBackslashArg(True) # not tested yet
-    # test__BODMAS__enclosingBracketInBackslashArgWithExponent(True) # not tested yet
-    # test__BODMAS__enclosingBracketInBackslashArgImplicitZero(True) # not tested yet
-    # test__BODMAS__enclosingBracket(True) # not tested yet
-    # test__manyFracCaretEnclosingBrac__partialFrac() # not tested yet
-    # test__fracWithLogNoBase__changeLogBaseFormula() # not tested yet
+    # test__nonInfixBrackets__addImplicitMultiply()
+    # test__nonInfixBrackets__addImplicitMultiply0()
+    # test__nonInfixBrackets__addImplicitMultiply1()
+    # test__BODMAS__priorityBetweenInfixForBrackets()
+    # test__BODMAS__enclosingBracketInBackslashArg()
+    # test__BODMAS__enclosingBracketInBackslashArgWithExponent()
+    # test__BODMAS__enclosingBracketInBackslashArgImplicitZero()
+    # test__BODMAS__enclosingBracket()
+    # test__manyFracCaretEnclosingBrac__partialFrac()
+    # test__fracWithLogNoBase__changeLogBaseFormula()
+    test__backslashInfixInBackslash__sqrtInSqrt(True)  # not tested yet
+    # test__backslashInfixInBackslash__trigInTrig(True)  # not tested yet
+    # test__backslashInfixInBackslash__logInLog(True)  # not tested yet
+    # test__backslashInfixInBackslash__fracInFrac(True)  # not tested yet
     # test__hassliche__highPowersAndRandomCoefficientsPITEST(True)  # not tested yet
     # test__hassliche__nestedPolynomial(True) # not tested yet
     # test__hassliche__nonIntegerAndNegativeCoefficientsDECIMALPOINTTEST(True) # not tested yet
