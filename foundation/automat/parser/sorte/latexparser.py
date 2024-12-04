@@ -45,7 +45,8 @@ class Latexparser(Parser):
     """['arccos', 'cos', 'arcsin', 'sin', 'arctan', 'tan', 
     'arccsc', 'csc', 'arcsec', 'sec', 'arccot', 'cot', 'arsinh', 'sinh', 'arcosh', 'cosh', 
     'artanh', 'tanh', 'arcsch', 'csch', 'arsech', 'sech', 'arcoth', 'coth']"""
-    FUNCTIONNAMES = TRIGOFUNCTION + ['frac', 'sqrt',  'log', 'ln'] #+ ['int', 'oint', 'iint'] # TODO this is important... but i am weak now
+    INTEGRALS = ['int', 'oint', 'iint'] # TODO hikitoru this from sfunctors
+    FUNCTIONNAMES = TRIGOFUNCTION + ['frac', 'sqrt',  'log', 'ln'] + INTEGRALS
 
     def __init__(self, equationStr, verbose=False, parallelise=False):
         self._eqs = equationStr
@@ -67,7 +68,7 @@ class Latexparser(Parser):
             '_graftGrenzeRangesIntoContainmentTree':False,#
             '__addImplicitZero':False,
             '__addImplicitMultiply':False,
-            '__intraGrenzeSubtreeUe':True,#
+            '__intraGrenzeSubtreeUe':False,#
             '__interLevelSubtreeGrafting':False,
             '_reformatToAST':False,
             '_latexSpecialCases':False
@@ -223,6 +224,8 @@ class Latexparser(Parser):
 
     def _findBackSlashPositions(self):
         """
+    #TODO refactor argument1StartPosition,... in to argList, to cater for future functions/tors
+
         THE BACKSLASH FINDER! 
         _findInfixAndEnclosingBrackets wo tanomu
 
@@ -271,7 +274,7 @@ class Latexparser(Parser):
                     'name':labelName,
                     'startPos':positionTuple[0], # of the label, not the whole ding
                     'endPos':positionTuple[1], # of the label, not the whole ding
-                    'argument1':argument1,
+                    'argument1':argument1,#TODO this was never used
                     'argument1StartPosition':argument1StartPosition,
                     'argument1EndPosition':argument1EndPosition,
                     'argument1BracketType':'{',
@@ -286,11 +289,11 @@ class Latexparser(Parser):
                     'argument1SubSuper':'',
                     'argument1OpenBracket':'{',
                     'argument1CloseBracket':'}',
-                    'hasArgument1':True,
+                    'hasArgument1':True,#TODO this was never used
                     'argument2SubSuper':'',
                     'argument2OpenBracket':'',
                     'argument2CloseBracket':'',
-                    'hasArgument2':False
+                    'hasArgument2':False#TODO this was never used
                 } # for unparsing function
             elif labelName in Latexparser.FUNCTIONNAMES: #all the function that we accept, TODO link this to automat.arithmetic module
                 """
@@ -435,6 +438,63 @@ class Latexparser(Parser):
                     argument2 = self._eqs[argument2StartPosition:closingRoundBracketPos] # argument2 == logant
                     argument2EndPosition = closingRoundBracketPos
                     argument2BracketType = '('
+                elif labelName in Latexparser.INTEGRALS:
+                    #TODO
+                    #for definite integrals, we make arg1=lower, arg2=higher, arg3=integrand...., arg4=wrt.
+                    #SO for now we assume ONLY INDEFINITE INTEGRALs! # i am still weak.
+                    # if self._eqs[positionTuple[1]] in ['_', '^']:
+                    #     argument1SubSuperType = self._eqs[positionTuple[1]] # fix now, rearrange later
+                    #     argument1SubSuperPos = positionTuple[1]
+                    #     if self._eqs[positionTuple[1]+1] == '{': #len(arg) > 1
+                    #         argument1StartPosition = positionTuple[1]+2
+                    #         closingCurlyBracketPos = self.bracketStartToEndMap[argument1StartPosition]
+                    #         argument1 = self._eqs[argument1StartPosition:closingCurlyBracketPos] # argument1 == base
+                    #         argument1EndPosition = closingCurlyBracketPos
+                    #         argument1BracketType = '{'
+                    #         nextPos = argument1EndPosition + 1
+                    #     else: # expect a single character
+                    #         argument1StartPosition = positionTuple[1]+1
+                    #         argument1 = self._eqs[positionTuple[1]+1]
+                    #         argument1EndPosition = positionTuple[1]+2
+                    #         nextPos = argument1EndPosition
+                    #     #if we have upper/lower, then we must have the other arg (lower/upper)
+                    #     expectedOtherSubSuperType = '_' if argument1SubSuperType == '^' else '^'
+                    #     if self._eqs[nextPos] != expectedOtherSubSuperType:
+                    #         raise Exception(f'Definite Integrals have both ^ and _, we already have {argument1SubSuperType}, we are missing {expectedOtherSubSuperType}')
+                    #     argument2SubSuperType = expectedOtherSubSuperType
+                    #     argument2SubSuperPos = nextPos+1
+                    #     if self._eqs[argument2SubSuperPos+1] == '{': #len(arg) > 1
+                    #         argument2StartPosition = argument2SubSuperPos+2
+                    #         closingCurlyBracketPos = self.bracketStartToEndMap[argument2StartPosition]
+                    #         argument2 = self._eqs[argument1StartPosition:closingCurlyBracketPos] # argument1 == base
+                    #         argument2EndPosition = closingCurlyBracketPos
+                    #         argument2BracketType = '{'
+                    #         nextPos = argument2EndPosition + 1
+                    #     else: # expect a single character
+                    #         argument2StartPosition = argument2SubSuperPos+1
+                    #         argument2 = self._eqs[argument2StartPosition]
+                    #         argument2EndPosition = argument2StartPosition+2
+                    #         nextPos = argument2EndPosition
+                    #     if argument1SubSuperType == '^': # then we need to do swapping
+                    #         argument1SubSuperType, argument1SubSuperPos, argument1StartPosition, argument1, argument1EndPosition, argument1BracketType, argument2SubSuperType, argument2SubSuperPos, argument2StartPosition, argument2, argument2EndPosition, argument2BracketType = argument2SubSuperType, argument2SubSuperPos, argument2StartPosition, argument2, argument2EndPosition, argument2BracketType, argument1SubSuperType, argument1SubSuperPos, argument1StartPosition, argument1, argument1EndPosition, argument1BracketType
+
+                    if self._eqs[positionTuple[1]] != '{':
+                        raise Exception('Integrals must be followed by curly brackets {')
+
+                    argument1StartPosition = positionTuple[1]+1
+                    closingCurlyBracketPos = self.bracketStartToEndMap[argument1StartPosition]#self._eqs.index(')', argument2StartPosition)# TODO i assume that there is not more [] between this and the other....
+                    argument1 = self._eqs[argument1StartPosition:closingCurlyBracketPos] # argument1 == logged
+                    argument1EndPosition = closingCurlyBracketPos
+                    argument1BracketType = '{'
+
+                    argument2StartPosition = -1
+                    closingRoundBracketPos = -1#self._eqs.index(')', argument2StartPosition)# TODO i assume that there is not more [] between this and the other....
+                    argument2 = None
+                    argument2EndPosition = -1
+                    argument2BracketType = None
+
+
+
                 else:
                     raise Exception(f'{labelName} is not implemented') # my fault.
 
@@ -443,13 +503,13 @@ class Latexparser(Parser):
                     'startPos':positionTuple[0], # of the label not the whole ding
                     'endPos':positionTuple[1], # of the label not the whole ding
                     'position':positionTuple[0],
-                    'argument1':argument1,
+                    'argument1':argument1,#TODO this was never used
                     'argument1StartPosition':argument1StartPosition,
                     'argument1EndPosition':argument1EndPosition,
                     'argument1BracketType':argument1BracketType,
                     'argument1SubSuperType':argument1SubSuperType,
                     'argument1SubSuperPos':argument1SubSuperPos,
-                    'argument2':argument2,
+                    'argument2':argument2,#TODO this was never used
                     'argument2StartPosition':argument2StartPosition,
                     'argument2EndPosition':argument2EndPosition,
                     'argument2BracketType':argument2BracketType,
@@ -470,11 +530,11 @@ class Latexparser(Parser):
                     'argument1SubSuper':argument1SubSuperType,
                     'argument1OpenBracket':argument1BracketType,
                     'argument1CloseBracket':self.open__close.get(argument1BracketType),
-                    'hasArgument1': argument1EndPosition is not None,
+                    'hasArgument1': argument1EndPosition is not None,# TODO this was never used before
                     'argument2SubSuper':argument2SubSuperType,
                     'argument2OpenBracket':argument2SubSuperType,
                     'argument2CloseBracket':self.open__close.get(argument2BracketType),
-                    'hasArgument2': argument2BracketType is not None
+                    'hasArgument2': argument2BracketType is not None# TODO this was never used before
                 }#for unparsing function
             else: #has a backspace, but we have not targeted it... , we assume that its a zero-argument == variable...
                 # put this seperate from self.variablesPos, 
@@ -492,11 +552,11 @@ class Latexparser(Parser):
                     'argument1SubSuper':'',
                     'argument1OpenBracket':'',
                     'argument1CloseBracket':'',
-                    'hasArgument1':False,
+                    'hasArgument1':False,# TODO this was never used before
                     'argument2SubSuper':'',
                     'argument2OpenBracket':'',
                     'argument2CloseBracket':'',
-                    'hasArgument2':False
+                    'hasArgument2':False# TODO this was never used before
                 }#for unparsing function
 
         if self.showError():
@@ -1107,7 +1167,7 @@ class Latexparser(Parser):
         ###############
         for unoccupiedPos in self.unoccupiedPoss: # start with left-most leftover
             leftOverC = self._eqs[unoccupiedPos]
-            isNume = isNum(leftOverC) or leftOverC == '.'
+            isNume = isNum(leftOverC) or leftOverC in ['.', ','] # some function like S(x, y)
             #############
             if self.showError():
                 print('leftOverC: ', leftOverC)
@@ -2118,6 +2178,7 @@ if __name__=='__main__':
             infixPoss = []
             leftRightPossToSkip = []
             enclosingPossForFirst = []
+            exponentialLeftRightPoss = []
             possToGanzRange = {} # for checking which enclosingInfix contains the least number of args
             for idx, ding in enumerate(newDings):
                 possToGanzRange[idx] = (ding['ganzStartPos'], ding['ganzEndPos'])
@@ -2127,7 +2188,10 @@ if __name__=='__main__':
                     if len(list(filter(lambda bracketInfoDict: not bracketInfoDict['belongToBackslash'], ding['enclosingBracketsNonBackslashArg']))) > 0:# remove all the enclosing, that belongs to backSLash TODO BAD NAMING enclosingBrackets, not enclosingBRacketsNonBackslashArg
                         enclosingPossForFirst.append(idx)
                     elif ding['left__type'] == 'leftRight' or ding['right__type'] == 'leftRight':
-                        leftRightPossToSkip.append(idx)
+                        if ding['name'] == '^': # is an exponential LeftRight
+                            exponentialLeftRightPoss.append(idx)
+                        else:
+                            leftRightPossToSkip.append(idx)
                         
 
 
@@ -2138,6 +2202,9 @@ if __name__=='__main__':
 
             processed = set() # more for args
 
+            #process NonEnclosing NonleftRight Infix
+            otherNonEnclosingNonLeftRightPoss = list((set(infixPoss) - set(enclosingPossForFirst)) - set(leftRightPossToSkip) -set(exponentialLeftRightPoss))
+
             if self.showError():
                 #######################################
                 print('BEFORE relationship building~~~~~~~~~~~~~~~~~~~~')
@@ -2147,6 +2214,10 @@ if __name__=='__main__':
                 print(list(map(lambda infixPos: (newDings[infixPos]['name'], newDings[infixPos]['startPos'], newDings[infixPos]['endPos']), enclosingPossForFirst)))
                 print('leftRightPossToSkip: ')
                 print(list(map(lambda infixPos: (newDings[infixPos]['name'], newDings[infixPos]['startPos'], newDings[infixPos]['endPos']), leftRightPossToSkip)))
+                print('exponentialLeftRightPoss: ')
+                print(list(map(lambda infixPos: (newDings[infixPos]['name'], newDings[infixPos]['startPos'], newDings[infixPos]['endPos']), exponentialLeftRightPoss)))
+                print('otherNonEnclosingNonLeftRightPoss: ')
+                print(list(map(lambda infixPos: (newDings[infixPos]['name'], newDings[infixPos]['startPos'], newDings[infixPos]['endPos']), otherNonEnclosingNonLeftRightPoss)))
                 #######################################
 
             #begin processing the infixes with enclosing brackets
@@ -2278,12 +2349,32 @@ if __name__=='__main__':
                 print(list(map(lambda infixPos: (newDings[infixPos]['name'], newDings[infixPos]['startPos'], newDings[infixPos]['endPos']), leftRightPossToSkip)))
                 #######################################
 
-            #process NonEnclosing NonleftRight Infix
-            otherNonEnclosingNonLeftRightPoss = list((set(infixPoss) - set(enclosingPossForFirst)) - set(leftRightPossToSkip))
+            #process ExponentialLeftRight Infix first
+            for infixPos in exponentialLeftRightPoss:
+                infix = newDings[infixPos] # repeated.... refactor? TODO
+                #get left and right args of infix
+                #find ding-to-the-right-of-infix, thats not processed.
+                for idx in range(infixPos+1, len(newDings)): #infixPos+1 is to skip infixPos itself
+                    if idx in processed:
+                        continue
+                    dingToRightIdx = idx
+                    break
+                #find ding-to-the-left-infix, thats not processed.
+                for idx in range(infixPos-1, -1, -1):
+                    if idx in processed:
+                        continue
+                    dingToLeftIdx = idx
+                    break
+
+                parentChildInformation.append((dingToLeftIdx, infixPos, dingToRightIdx))
+                processed.add(dingToLeftIdx)
+                processed.add(dingToRightIdx)
+
+
             # import pdb;pdb.set_trace()
             otherNonEnclosingNonLeftRightPoss = sorted(otherNonEnclosingNonLeftRightPoss, key=lambda infixPos: Latexparser.PRIOIRITIZED_INFIX.index(newDings[infixPos]['name'])) # shuold not throw, if throw, developer please update Latexparser.PRIOIRITIZED_INFIX
             for infixPos in otherNonEnclosingNonLeftRightPoss:
-                infix = newDings[infixPos]
+                infix = newDings[infixPos] # repeated.... refactor? TODO
                 #get left and right args of infix
                 #find ding-to-the-right-of-infix, thats not processed.
                 for idx in range(infixPos+1, len(newDings)): #infixPos+1 is to skip infixPos itself
@@ -2322,7 +2413,7 @@ if __name__=='__main__':
             #Lastly process the LeftRight infixes
             leftRightInfixPoss = sorted(leftRightPossToSkip, key=lambda infixPos: Latexparser.PRIOIRITIZED_INFIX.index(newDings[infixPos]['name']))
             for infixPos in leftRightInfixPoss:
-                infix = newDings[infixPos]
+                infix = newDings[infixPos] # repeated.... refactor? TODO
                 #get left and right args of infix
                 #find ding-to-the-right-of-infix, thats not processed.
                 for idx in range(infixPos+1, len(newDings)): #infixPos+1 is to skip infixPos itself
@@ -3115,7 +3206,7 @@ $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$incomplete code to check variable_depende
         self._graftGrenzeRangesIntoContainmentTree()
         self._reformatToAST()
         self._latexSpecialCases()
-        #TODO Pool multiprocessing with method priorities (Chodai!) -- dependency ha chain desu yo, sou shitara, motto hayakunarimasu ka?
+        #TODO Pool multiprocessing with method priorities (Chodai!) -- dependency ha chain desu yo, sou shitara, motto hayaku arimasu ka?
 
 
 
